@@ -1,0 +1,94 @@
+[tool.poetry]
+name = "bwapy"
+version = "0.0.1-dev"
+description = "Python bindings for BWA"
+authors = ["Nils Homer"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/fulcrumgenomics/bwapy"
+repository = "https://github.com/fulcrumgenomics/bwapy"
+keywords = ["bioinformatics"]
+packages = [{ include = "bwapy" }]
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Environment :: Console",
+	"Intended Audience :: Developers",
+	"Intended Audience :: Science/Research",
+	"License :: OSI Approved :: MIT License",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: 3",
+	"Topic :: Scientific/Engineering :: Bio-Informatics",
+	"Topic :: Software Development :: Documentation",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+]
+include = [
+	"LICENSE",
+	{ path = "bwapy/**/*.so", format = "wheel" },
+	{ path = "**/*.so", format = "wheel" },
+	{ path = "*.so", format = "wheel" },
+	#{ path = "*.so", format = "wheel" }
+]
+
+[tool.poetry.build]
+generate-setup-file = false
+script = "build.py"
+
+[tool.poetry.dependencies]
+python = ">=3.9.0,<4.0"
+pysam = ">=0.22.1"
+typing_extensions = { version = ">=3.7.4", python = "<3.12" }
+
+[tool.poetry.group.dev.dependencies]
+# dependencies for linting, style checking, and unit testing
+mypy = ">=1.7.0"
+pytest = ">=7.4.0"
+pytest-cov = ">=2.8.1"
+ruff = "0.4.8"
+setuptools = ">=68.0.0"
+
+[tool.poetry.group.docs.dependencies]
+# dependencies for building docs 
+mkdocs-autorefs = { version = ">=0.5.0" }
+mkdocs-include-markdown-plugin = { version = ">=6.0.1" }
+mkdocs-material = { version = ">=9.2.8" }
+mkdocs-table-reader-plugin = { version = ">=2.0.1" }
+mkdocs = { version = ">=1.5.2" }
+mkdocs-gen-files = { version = ">=0.5.0" }
+mkdocs-literate-nav = { version = ">=0.6.1" }
+mkdocs-section-index = { version = ">=0.3.9" }
+mkdocstrings-python = { version = ">=1.6.2" }
+mkdocstrings = { version = ">=0.23.0" }
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "cython>=3.0.11", "setuptools>=75.1.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length    = 100
+target-version = "py38"
+output-format  = "full"
+
+[tool.ruff.lint]
+select    = ["C901", "B", "E", "F", "I", "W", "Q"]
+ignore    = ["E203", "E701"]
+unfixable = ["B"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.mypy]
+strict_optional             = false
+check_untyped_defs          = true
+disallow_incomplete_defs    = true
+disallow_untyped_calls      = true
+disallow_untyped_decorators = true
+disallow_untyped_defs       = true
+no_implicit_optional        = true
+warn_no_return              = true
+warn_redundant_casts        = true
+warn_return_any             = true
+warn_unreachable            = true
+warn_unused_configs         = true
+warn_unused_ignores         = true
+enable_error_code           = "ignore-without-code"
+exclude                     = ["site/", "docs/"]
