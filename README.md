@@ -25,6 +25,5 @@ Python language bindings for [bwa][bwa-link]
 
 See documentation on [bwapy.readthedocs.org][rtd-link].
 
-
 [rtd-link]: http://bwapy.readthedocs.org/en/stable
 [bwa-link]: https://github.com/lh3/bwa].
