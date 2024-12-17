@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import List
 
 from pysam import AlignedSegment
-from pysam import AlignmentHeader
 from pysam import FastxRecord
+
+from bwapy.libbwaindex import BwaIndex
 
 class BwaAlnOptions:
     max_hits: int
@@ -18,7 +19,7 @@ class BwaAlnOptionsBuilder:
     def max_gap_opens(self, value: int) -> BwaAlnOptionsBuilder: ...  # -o <int>
     def max_gap_extensions(self, value: int) -> BwaAlnOptionsBuilder: ...  # -e <int>
     def min_indel_to_end_distance(self, value: int) -> BwaAlnOptionsBuilder: ...  # -i <int>
-    def max_occurences_for_extending_long_deletion(
+    def max_occurrences_for_extending_long_deletion(
         self, value: int
     ) -> BwaAlnOptionsBuilder: ...  # -d <int>
     def seed_length(self, value: int) -> BwaAlnOptionsBuilder: ...  # -l <int>
@@ -29,13 +30,6 @@ class BwaAlnOptionsBuilder:
     def stop_at_max_best_hits(self, value: int) -> BwaAlnOptionsBuilder: ...  # -R <int>
     def max_hits(self, value: int) -> BwaAlnOptionsBuilder: ...  # bwa samse -n <int>
     def log_scaled_gap_penalty(self, value: bool = True) -> BwaAlnOptionsBuilder: ...  # -L
-
-ERROR_HANDLER: str
-TEXT_ENCODING: str
-
-class BwaIndex:
-    header: AlignmentHeader
-    def __init__(self, prefix: str | Path) -> None: ...
 
 class BwaAln:
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...

@@ -3,28 +3,17 @@
 from libc.stdint cimport uint8_t, uint64_t, uint16_t, uint32_t, int64_t, int32_t
 from libc.stdio cimport FILE
 
-cdef extern from "libbwapy_utils.h":
+cdef extern from "libbwaaln_utils.h":
     void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, int max_mm,
                                   float fnr, bwt_t *bwt)
-
-cdef extern from "utils.h":
-    int err_fseek(FILE *stream, long offset, int whence)
-    size_t err_fread_noeof(void *ptr, size_t size, size_t nmemb, FILE *stream)
 
 cdef extern from "bntseq.h":
     unsigned char nst_nt4_table[256]
     int bns_cnt_ambi(const bntseq_t *bns, int64_t pos_f, int len, int *ref_id)
 
-cdef extern from "bwa.h":
-    char * bwa_idx_infer_prefix(const char * hint)
-
 cdef extern from "bwt.h":
     ctypedef struct bwt_t:
         int sa_intv
-
-    bwt_t *bwt_restore_bwt(const char *fn)
-    void bwt_restore_sa(const char *fn, bwt_t *bwt);
-    void bwt_destroy(bwt_t *bwt)
 
 cdef extern from "bwtaln.h":
     int BWA_TYPE_NO_MATCH
@@ -84,8 +73,9 @@ cdef extern from "kseq.h":
     ctypedef struct kstring_t:
         char *s
 
+cdef extern void bwa_aln2seq_core(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s, int set_main, int n_multi)
+
 cdef extern from "bwase.h":
-    void bwa_aln2seq_core(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s, int set_main, int n_multi)
     int64_t pos_end(const bwa_seq_t *p)
     void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, unsigned char *_pacseq)
     char *bwa_cal_md1(int n_cigar, uint16_t *cigar, int len, uint64_t pos, unsigned char *seq, uint64_t l_pac, unsigned char *pacseq, kstring_t *str, int *_nm)

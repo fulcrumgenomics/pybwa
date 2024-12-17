@@ -1,4 +1,2 @@
-import bwapy.libbwapy as libbwapy
-from bwapy.libbwapy import *  # noqa: F403
-
-__all__ = libbwapy
+from bwapy.libbwaaln import *  # noqa: F403
+from bwapy.libbwaindex import *  # noqa: F403\

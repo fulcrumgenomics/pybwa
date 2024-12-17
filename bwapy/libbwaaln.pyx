@@ -3,19 +3,21 @@
 from pathlib import Path
 from typing import List
 
-from cpython cimport PyBytes_Check, PyUnicode_Check
 from libc.stdint cimport uint8_t
 from libc.stdio cimport SEEK_SET
 from libc.stdlib cimport calloc, free
-from libc.string cimport strncpy, strcat
-from pysam import FastxRecord, AlignmentFile, AlignedSegment
+from libc.string cimport strncpy
+from pysam import FastxRecord, AlignedSegment
+from bwapy.libbwaindex cimport force_bytes
+from bwapy.libbwaindex cimport BwaIndex
+
 
 __all__ = [
     "BwaAlnOptions",
     "BwaAlnOptionsBuilder",
-    "BwaIndex",
     "BwaAln",
 ]
+
 
 cdef class BwaAlnOptions:
     """The container for options for [`BwaAln`][bwapy.BwaAln].
@@ -68,7 +70,7 @@ cdef class BwaAlnOptionsBuilder:
         self._options._delegate.indel_end_skip = value
         return self
 
-    def max_occurences_for_extending_long_deletion(self, value: int):
+    def max_occurrences_for_extending_long_deletion(self, value: int):
         """bwa aln -d <int>"""
         self._options._delegate.max_del_occ = value
         return self
@@ -117,72 +119,6 @@ cdef class BwaAlnOptionsBuilder:
         return self
 
 
-cdef str ERROR_HANDLER = 'strict'
-cdef str TEXT_ENCODING = 'utf-8'
-
-
-cdef bytes force_bytes(object s, encoding=None, errors=None):
-    """convert string or unicode object to bytes, assuming
-    utf8 encoding.
-    """
-    if s is None:
-        return None
-    elif PyBytes_Check(s):
-        return s
-    elif PyUnicode_Check(s):
-        return s.encode(encoding or TEXT_ENCODING, errors or ERROR_HANDLER)
-    else:
-        raise TypeError("Argument must be string, bytes or unicode.")
-
-
-
-cdef class BwaIndex:
-    """Contains the index and nucleotide sequence for Bwa"""
-    cdef bwt_t *_bwt
-    cdef bntseq_t *_bns
-    cdef public object header
-
-    def __init__(self, prefix: str | Path):
-        self._cinit(f"{prefix}")
-  
-    cdef _cinit(self, prefix):
-        cdef char *local_prefix
-
-        prefix = bwa_idx_infer_prefix(force_bytes(prefix))
-        if not prefix:
-            # FIXME: better error message
-            raise Exception("Could not find the index")
-
-        # the SAM header from the sequence dictionary
-        seq_dict = Path(prefix.decode("utf-8")).with_suffix(".dict")
-        # TODO: error message when seq_dict is missing?
-        with seq_dict.open("r") as fh:
-            with AlignmentFile(fh) as reader:
-                self.header = reader.header
-
-        # from bwaaln.c
-        local_prefix = <char*>calloc(sizeof(char), len(prefix) + 10)
-
-        # load BWT
-        strncpy(local_prefix, prefix, len(prefix))
-        strcat(local_prefix, force_bytes(".bwt"))
-        self._bwt = bwt_restore_bwt(local_prefix)
-
-        # load SA
-        local_prefix[len(prefix)] = b'\0'  # trim off .bwt first
-        strcat(local_prefix, force_bytes(".sa"))
-        bwt_restore_sa(local_prefix, self._bwt)
-
-        # load BNS
-        self._bns = bns_restore(prefix)
-
-    def __dealloc__(self):
-        bwt_destroy(self._bwt)
-        self._bwt = NULL
-        bns_destroy(self._bns)
-        self._bns = NULL
-
-
 cdef class BwaAln:
     """The class to align reads with `bwa aln`."""
 
@@ -199,11 +135,6 @@ cdef class BwaAln:
             raise Exception("Either prefix or index must be given")
 
         bwase_initialize()
-
-        # initialize the packed binary reference sequence
-        self._pacseq = <unsigned char*>calloc(self._index._bns.l_pac//4+1, 1)
-        err_fseek(self._index._bns.fp_pac, 0, SEEK_SET)
-        err_fread_noeof(self._pacseq, 1, self._index._bns.l_pac//4+1, self._index._bns.fp_pac)
 
     # TODO: a list of records...
     def align(self, opt: BwaAlnOptions, queries: List[FastxRecord]) -> List[AlignedSegment]:
@@ -274,17 +205,17 @@ cdef class BwaAln:
             rec.query_qualities = query.quality[::-1]
 
         # reference id
-        nn = bns_cnt_ambi(self._index._bns, seq.pos, ref_len_in_alignment, &reference_id)
+        nn = bns_cnt_ambi(self._index.bns(), seq.pos, ref_len_in_alignment, &reference_id)
         rec.reference_id = reference_id
 
         # make this unmapped if we map off the end of the contig
-        rec.is_unmapped = seq.pos + ref_len_in_alignment - self._index._bns.anns[
-            rec.reference_id].offset > self._index._bns.anns[rec.reference_id].len
+        rec.is_unmapped = seq.pos + ref_len_in_alignment - self._index.bns().anns[
+            rec.reference_id].offset > self._index.bns().anns[rec.reference_id].len
 
         # strand, reference start, and mapping quality
         if seq.strand:
             rec.is_reverse = True
-        rec.reference_start = seq.pos - self._index._bns.anns[rec.reference_id].offset + 1
+        rec.reference_start = seq.pos - self._index.bns().anns[rec.reference_id].offset + 1
         rec.mapping_quality = seq.mapQ
 
         # cigar
@@ -324,7 +255,7 @@ cdef class BwaAln:
             seqs[i].tid = -1
 
         # this is `bwa aln`, and the rest is `bwa samse`
-        bwa_cal_sa_reg_gap(0, self._index._bwt, num_seqs, seqs, opt._delegate)
+        bwa_cal_sa_reg_gap(0, self._index.bwt(), num_seqs, seqs, opt._delegate)
 
         # create the full alignment
         for i in range(num_seqs):
@@ -333,14 +264,13 @@ cdef class BwaAln:
             self._copy_seq(queries[i], s)
             bwa_aln2seq_core(s.n_aln, s.aln, s, 1, opt._max_hits)
 
-        # calculate the genomic position given the suffix array offsite
-        bwa_cal_pac_pos_with_bwt(self._index._bns, num_seqs, seqs, opt._delegate.max_diff, opt._delegate.fnr, self._index._bwt)
+        # # calculate the genomic position given the suffix array offsite
+        bwa_cal_pac_pos_with_bwt(self._index.bns(), num_seqs, seqs, opt._delegate.max_diff, opt._delegate.fnr, self._index.bwt())
 
-        # TODO: can `_pacseq` be passed here?
         # refine gapped alignment
-        bwa_refine_gapped(self._index._bns, num_seqs, seqs, NULL)
+        bwa_refine_gapped(self._index.bns(), num_seqs, seqs, self._index.pac())
 
-        # create the AlignedSegment from FastxRecrod and bwa_seq_t.
+        # create the AlignedSegment from FastxRecord and bwa_seq_t.
         recs = [
             self._build_alignment(query=queries[i], seq=&seqs[i], kstr=kstr)
             for i in range(num_seqs)
@@ -351,6 +281,3 @@ cdef class BwaAln:
         free(kstr)
 
         return recs
-
-    def __dealloc__(self) -> None:
-        free(self._pacseq)

@@ -20,9 +20,22 @@ for root_dir in ["bwa", "bwapy"]:
     h_files.extend(str(x) for x in Path(root_dir).rglob("*.h"))
     c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in ['example.c', 'main.c'])
 
-extension_module = Extension(
-    name='bwapy.libbwapy',
-    sources=['bwapy/libbwapy.pyx'] + c_files,
+libbwaindex_module = Extension(
+    name='bwapy.libbwaindex',
+    sources=['bwapy/libbwaindex.pyx'] + c_files,
+    depends=h_files,
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    extra_objects=extra_objects,
+    include_dirs=include_dirs,
+    language='c',
+    libraries=libraries,
+    library_dirs=library_dirs,
+)
+
+libbwaaln_module = Extension(
+    name='bwapy.libbwaaln',
+    sources=['bwapy/libbwaaln.pyx'] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
@@ -72,7 +85,7 @@ Operating System :: MacOS
 
 def build():
     # Collect and cythonize all files
-    extension_modules = cythonize_helper([extension_module])
+    extension_modules = cythonize_helper([libbwaindex_module, libbwaaln_module])
 
     # Use Setuptools to collect files
     distribution = Distribution({

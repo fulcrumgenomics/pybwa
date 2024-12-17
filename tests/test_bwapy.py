@@ -33,6 +33,7 @@ def test_bwapy_index(ref_fasta: Path) -> None:
 def test_bwapy(ref_fasta: Path) -> None:
     opt = BwaAlnOptions()
     bwa = BwaAln(prefix=ref_fasta)
+
     sequence = "gttacctgccgtgagtaaattaaaattttattgacttaggtcactaaatactttaaccaatataggcatagcgcacagac"
     fastqs = [FastxRecord(name="test", sequence=sequence)]
 
