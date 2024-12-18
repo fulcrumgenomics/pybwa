@@ -91,11 +91,15 @@ cdef extern from "bwamem.h":
         mem_alnreg_t *a
 
     ctypedef struct mem_aln_t:
-        int flag # extra flag
+        int64_t pos     # forward strand 5'-end mapping position
+        int rid         # reference sequence index in bntseq_t; <0 for unmapped
+        int flag        # extra flag
         uint32_t is_rev  # is_rev: whether on the reverse strand;
         uint32_t is_alt
         uint32_t mapq   # mapq: mapping quality;
         uint32_t NM  # NM: edit distance
+        int n_cigar;     # number of CIGAR operations
+        uint32_t *cigar; # CIGAR in the BAM encoding: opLen<<4|op; op to integer mapping: MIDSH=>01234
         char *XA
         int score, sub, alt_sc;
 
@@ -106,6 +110,9 @@ cdef extern from "bwamem.h":
 
 # from bwamem.c
 cdef extern void mem_reorder_primary5(int T, mem_alnreg_v *a)
+cdef extern void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str, int which)
 
 # from bwamem_extra.c
 cdef extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, mem_alnreg_v *a, int l_query, const char *query);
+
+

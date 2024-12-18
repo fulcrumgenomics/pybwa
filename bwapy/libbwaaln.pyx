@@ -18,7 +18,7 @@ __all__ = [
     "BwaAln",
 ]
 
-
+# TODO: is this the right pattern?  How can we examine the options we set?
 cdef class BwaAlnOptions:
     """The container for options for [`BwaAln`][bwapy.BwaAln].
 
@@ -215,7 +215,7 @@ cdef class BwaAln:
         # strand, reference start, and mapping quality
         if seq.strand:
             rec.is_reverse = True
-        rec.reference_start = seq.pos - self._index.bns().anns[rec.reference_id].offset + 1
+        rec.reference_start = seq.pos - self._index.bns().anns[rec.reference_id].offset  # 0-based
         rec.mapping_quality = seq.mapQ
 
         # cigar
