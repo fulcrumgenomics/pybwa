@@ -46,6 +46,19 @@ libbwaaln_module = Extension(
     library_dirs=library_dirs,
 )
 
+libbwamem_module = Extension(
+    name='bwapy.libbwamem',
+    sources=['bwapy/libbwamem.pyx'] + c_files,
+    depends=h_files,
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    extra_objects=extra_objects,
+    include_dirs=include_dirs,
+    language='c',
+    libraries=libraries,
+    library_dirs=library_dirs,
+)
+
 
 def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
     """Cythonize all Python extensions"""
@@ -85,7 +98,11 @@ Operating System :: MacOS
 
 def build():
     # Collect and cythonize all files
-    extension_modules = cythonize_helper([libbwaindex_module, libbwaaln_module])
+    extension_modules = cythonize_helper([
+        libbwaindex_module,
+        libbwaaln_module,
+        libbwamem_module
+    ])
 
     # Use Setuptools to collect files
     distribution = Distribution({

@@ -52,6 +52,7 @@ cdef class BwaAlnOptionsBuilder:
         """bwa aln -n <int>"""
         self._options._delegate.s_mm = value
         return self
+
     #cdef fnr(self, value: float) -> BwaOptionsBuilder: ... # -n <float>
     cdef max_gap_opens(self, value: int):
         """bwa aln -o <int>"""
