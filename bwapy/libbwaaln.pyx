@@ -124,7 +124,6 @@ cdef class BwaAln:
     """The class to align reads with `bwa aln`."""
 
     cdef BwaIndex _index
-    cdef unsigned char* _pacseq
 
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
         if prefix is not None:
