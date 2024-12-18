@@ -456,7 +456,7 @@ cdef class BwaMem:
             self._copy_seq(queries[i], seq)
             mem_alnregs = mem_align1(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(), seq.l, seq.s)
             if opt.query_coord_as_primary:
-                mem_reorder_primary5(opt.minimum_scoren, &mem_alnregs)
+                mem_reorder_primary5(opt.minimum_score, &mem_alnregs)
 
             # mimic mem_reg2sam from bwamem.c
             recs = []
