@@ -1,32 +1,11 @@
 # cython: language_level=3
-from ctypes import memset
 from pathlib import Path
-from typing import List
-
+from typing import List, Self
+from libc.string cimport memset
 from libc.stdlib cimport calloc, free, malloc
 import enum
-from bwapy.libbwaindex cimport force_bytes
 from bwapy.libbwaindex cimport BwaIndex
 from pysam import FastxRecord, AlignedSegment
-
-cdef class BwaMemOptions:
-    """The container for options for [`BwaMem`][bwapy.BwaMem].
-
-    Use [`BwaMemptionsBuilder`][bwapy.BwaMemOptionsBuilder] to use and set custom options.
-    """
-    cdef mem_opt_t * _delegate
-    _ignore_alt: bool
-
-    def __init__(self):
-        self._ignore_alt = False
-        self._cinit()
-
-    cdef _cinit(self):
-        self._delegate = mem_opt_init()
-
-    def __dealloc__(self):
-        free(self._delegate)
-
 
 # class syntax
 @enum.unique
@@ -37,269 +16,360 @@ class BwaMemMode(enum.Enum):
     INTRACTG = enum.auto()
 
 
-cdef class BwaMemOptionsBuilder:
-    """Builder for options for [`BwaAln`][bwapy.BwaAln]"""
-    _options: BwaMemOptions
-    cdef mem_opt_t _options0  # attributes are set to `1` when options are set in _options
+# TODO: must call finalize!!!
+# how do we enforce this
+cdef class BwaMemOptions:
+    """The container for options for [`BwaMem`][bwapy.BwaMem]."""
+    _ignore_alt: bool
     _mode: BwaMemMode | None
+    cdef mem_opt_t* _options
+    cdef mem_opt_t* _options0
 
-    def __init__(self, options: BwaMemOptions | None = None) -> None:
-        self._options: BwaMemOptions = BwaMemOptions() if options is None else options
-        self._mode = None
-        self.__cinit__()
+    def __init__(self, finalize: bool = False):
+        self._ignore_alt = False
+        self._cinit()
+        if finalize:
+            self.finalize()
 
     cdef _cinit(self):
+        self._options = mem_opt_init()
         self._options0 = mem_opt_init()
         memset(self._options0, 0, sizeof(mem_opt_t))
 
     def __dealloc__(self):
+        free(self._options)
+        self._options = NULL
         free(self._options0)
         self._options0 = NULL
 
-    def build(self) -> BwaMemOptions:
+    cdef mem_opt_t* mem_opt(self):
+        return self._options
+
+    def finalize(self) -> Self:
         if self._mode is None:
             # matching score is changed so scale the rest of the penalties/scores
             if self._options0.a == 1:
                 if self._options0.b != 1:
-                    self._options._delegate.b *= self._options._delegate.a
+                    self._options.b *= self._options.a
                 if self._options0.T != 1:
-                    self._options._delegate.T *= self._options._delegate.a
+                    self._options.T *= self._options.a
                 if self._options0.o_del != 1:
-                    self._options._delegate.o_del *= self._options._delegate.a
+                    self._options.o_del *= self._options.a
                 if self._options0.e_del != 1:
-                    self._options._delegate.e_del *= self._options._delegate.a
+                    self._options.e_del *= self._options.a
                 if self._options0.o_ins != 1:
-                    self._options._delegate.o_ins *= self._options._delegate.a
+                    self._options.o_ins *= self._options.a
                 if self._options0.e_ins != 1:
-                    self._options._delegate.e_ins *= self._options._delegate.a
+                    self._options.e_ins *= self._options.a
                 if self._options0.zdrop != 1:
-                    self._options._delegate.zdrop *= self._options._delegate.a
+                    self._options.zdrop *= self._options.a
                 if self._options0.pen_clip5 != 1:
-                    self._options._delegate.pen_clip5 *= self._options._delegate.a
+                    self._options.pen_clip5 *= self._options.a
                 if self._options0.pen_clip3 != 1:
-                    self._options._delegate.pen_clip3 *= self._options._delegate.a
+                    self._options.pen_clip3 *= self._options.a
                 if self._options0.pen_unpaired != 1:
-                    self._options._delegate.pen_unpaired *= self._options._delegate.a
+                    self._options.pen_unpaired *= self._options.a
         elif self._mode == BwaMemMode.INTRACTG:
             if self._options0.o_del != 1:
-                self._options._delegate.o_del = 16
+                self._options.o_del = 16
             if self._options0.o_ins != 1:
-                self._options._delegate.o_ins = 16
+                self._options.o_ins = 16
             if self._options0.b != 1:
-                self._options._delegate.b = 9
+                self._options.b = 9
             if self._options0.pen_clip5 != 1:
-                self._options._delegate.pen_clip5 = 5
+                self._options.pen_clip5 = 5
             if self._options0.pen_clip3 != 1:
-                self._options._delegate.pen_clip3 = 5
+                self._options.pen_clip3 = 5
         else:
             if self._options0.o_del != 1:
-                self._options._delegate.o_del = 1
+                self._options.o_del = 1
             if self._options0.o_ins != 1:
-                self._options._delegate.o_ins = 1
+                self._options.o_ins = 1
             if self._options0.e_del != 1:
-                self._options._delegate.e_del = 1
+                self._options.e_del = 1
             if self._options0.e_ins != 1:
-                self._options._delegate.e_ins = 1
+                self._options.e_ins = 1
             if self._options0.b != 1:
-                self._options._delegate.b = 1
+                self._options.b = 1
             if self._options0.split_factor == 0.0:
-                self._options._delegate.split_factor = 10.0
+                self._options.split_factor = 10.0
             if self._options0.pen_clip5 != 1:
-                self._options._delegate.pen_clip5 = 0
+                self._options.pen_clip5 = 0
             if self._options0.pen_clip3 != 1:
-                self._options._delegate.pen_clip3 = 0
+                self._options.pen_clip3 = 0
             # ONT2D vs PACBIO options
             if self._options0.min_chain_weight != 1:
-                self._options._delegate.min_chain_weight = 20 if self._mode == BwaMemMode.ONT2D else 40
+                self._options.min_chain_weight = 20 if self._mode == BwaMemMode.ONT2D else 40
             if self._options0.min_seed_len != 1:
-                self._options._delegate.min_seed_len = 14 if self._mode == BwaMemMode.ONT2D else 17
+                self._options.min_seed_len = 14 if self._mode == BwaMemMode.ONT2D else 17
 
         bwa_fill_scmat(
-            self._options._delegate.a, self._options._delegate.b, self._options._delegate.mat
+            self._options.a, self._options.b, self._options.mat
         )
+        return self
 
-        return self._options
-
-    cdef min_seed_len(self, value: int):
+    property min_seed_len:
         """bwa mem -k <int>"""
-        self._options._delegate.min_seed_len = value
-        self._options0.min_seed_len = 1
-        return self
+        def __get__(self):
+            return self._options.min_seed_len
+        def __set__(self, value: int):
+            self._options.min_seed_len = value
+            self._options0.min_seed_len = 1
 
-    # FIXME: convert to an enum enum
-    cdef mode(self, value: BwaMemMode):
+    property mode:
         """bwa mem -x <str>"""
-        self._mode = value
-        return self
+        def __get__(self) -> BwaMemMode:
+            return self._mode
+        def __set__(self, value: BwaMemMode):
+            self._mode = value
 
-    cdef band_width(self, value: int):
+    property band_width:
         """bwa mem -w <int>"""
-        self._options._delegate.w = value
-        self._options0.w = 1
-        return self
+        def __get__(self):
+            return self._options.w
+        def __set__(self, value: int):
+            self._options.w = value
+            self._options0.w = 1
 
-    cdef match_score(self, value: int):
+    property match_score:
         """bwa mem -A <int>"""
-        self._options._delegate.a = value
-        self._options0.a = 1
-        return self
+        def __get__(self):
+            return self._options.a
+        def __set__(self, value: int):
+            self._options.a = value
+            self._options0.a = 1
 
-    cdef mismatch_penalty(self, value: int):
+    property mismatch_penalty:
         """bwa mem -A <int>"""
-        self._options._delegate.b = value
-        self._options0.b = 1
-        return self
+        def __get__(self):
+            return self._options.b
+        def __set__(self, value: int):
+            self._options.b = value
+            self._options0.b = 1
 
-    cdef minimum_score(self, value: int):
+    property minimum_score:
         """bwa mem -T <int>"""
-        self._options._delegate.T = value
-        self._options0.T = 1
-        return self
+        def __get__(self):
+            return self._options.T
+        def __set__(self, value: int):
+            self._options.T = value
+            self._options0.T = 1
 
-    cdef unpaired_penalty(self, value: int):
+    property unpaired_penalty:
         """bwa mem -U <int>"""
-        self._options._delegate.pen_unpaired = value
-        self._options0.pen_unpaired = 1
-        return self
+        def __get__(self):
+            return self._options.pen_unpaired
+        def __set__(self, value: int):
+            self._options.pen_unpaired = value
+            self._options0.pen_unpaired = 1
 
-    cdef num_threads(self, value: int):
+    property n_threads:
         """bwa mem -t <int>"""
-        self._options._delegate.n_threads = value if value > 1 else 1
-        return self
+        def __get__(self):
+            return self._options.n_threads
+        def __set__(self, value: int):
+            self._options.n_threads = value if value > 1 else 1
 
     def _set_flag(self, value: bool, flag: int):
         if value:
-            self._options._delegate.flag |= flag
+            self._options.flag |= flag
         else:
-            self._options._delegate.flag |= ~flag
+            self._options.flag |= ~flag
         return self
 
-    cdef skip_pairing(self, value: bool):
-        """bwa mem -P"""
-        return self._set_flag(value, MEM_F_NOPAIRING)
+    property skip_pairing:
+        def __get__(self):
+            return self._options.flag & MEM_F_NOPAIRING > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_NOPAIRING)
 
-    cdef output_all_for_fragments(self, value: bool):
-        """bwa mem -a"""
-        return self._set_flag(value, MEM_F_ALL)
+    property output_all_for_fragments:
+        def __get__(self):
+            return self._options.flag & MEM_F_ALL > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_ALL)
 
-    cdef interleaved_paired_end(self, value: bool):
-        """bwa mem -p"""
-        return self._set_flag(value, MEM_F_PE | MEM_F_SMARTPE)
+    property interleaved_paired_end:
+        def __get__(self):
+            return (self._options.flag & (MEM_F_PE | MEM_F_SMARTPE)) > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_PE | MEM_F_SMARTPE)
 
-    cdef skip_mate_rescue(self, value: bool):
-        """bwa mem -S"""
-        return self._set_flag(value, MEM_F_NO_MULTI)
+    property skip_mate_rescue:
+        def __get__(self):
+            return self._options.flag & MEM_F_NO_MULTI > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_NO_MULTI)
 
-    cdef soft_clip_supplementary(self, value: bool):
-        """bwa mem -Y"""
-        return self._set_flag(value, MEM_F_SOFTCLIP)
+    property soft_clip_supplementary:
+        def __get__(self):
+            return self._options.flag & MEM_F_SOFTCLIP > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_SOFTCLIP)
 
-    cdef with_xr_tag(self, value: bool):
-        """bwa mem -V"""
-        return self._set_flag(value, MEM_F_REF_HDR)
+    property with_xr_tag:
+        def __get__(self):
+            return self._options.flag & MEM_F_REF_HDR > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_REF_HDR)
 
-    cdef query_coord_as_primary(self, value: bool):
-        """bwa mem -5"""
-        return self._set_flag(value, MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ) #/ always apply MEM_F_KEEP_SUPP_MAPQ with -5
+    property query_coord_as_primary:
+        def __get__(self):
+            return (self._options.flag & (MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ)) > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ) #/ always apply MEM_F_KEEP_SUPP_MAPQ with -5
 
-    cdef keep_mapq_for_supplementary(self, value: bool):
-        """bwa mem -q"""
-        return self._set_flag(value, MEM_F_KEEP_SUPP_MAPQ)
+    property keep_mapq_for_supplementary:
+        def __get__(self):
+            return self._options.flag & MEM_F_KEEP_SUPP_MAPQ > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_KEEP_SUPP_MAPQ)
 
-    cdef with_xb_tag(self, value: bool):
-        """bwa mem -u"""
-        return self._set_flag(value, MEM_F_XB)
+    property with_xb_tag:
+        def __get__(self):
+            return self._options.flag & MEM_F_XB > 0
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_XB)
 
-    cdef max_occurrences(self, value: int):
+    property max_occurrences:
         """bwa mem -c <int>"""
-        self._options._delegate.max_occ = value
-        self._options0.max_occ = 1
-        return self
+        def __get__(self):
+            return self._options.max_occ
+        def __set__(self, value: int):
+            self._options.max_occ = value
+            self._options0.max_occ = 1
 
-    cdef off_diagonal_x_dropoff(self, value: int):
+    property off_diagonal_x_dropoff:
         """bwa mem -d <float>"""
-        self._options._delegate.XA_drop_ratio = value
-        self._options0.XA_drop_ratio = 1
-        return self
+        def __get__(self):
+            return self._options.XA_drop_ratio
+        def __set__(self, value: float):
+            self._options.XA_drop_ratio = value
+            self._options0.XA_drop_ratio = 1
 
-    cdef ignore_alternate_contigs(self, value: bool):
+    property ignore_alternate_contigs:
         """bwa mem -j"""
-        self._options._ignore_alt = value
-        return self
+        def __get__(self):
+            return self._ignore_alt
+        def __set__(self, value: bool):
+           self._ignore_alt = value
 
-    cdef internal_seed_split_factor(self, value: float):
+    property internal_seed_split_factor:
         """bwa mem -r <float>"""
-        self._options._delegate.split_factor = value
-        self._options0.split_factor = 1
-        return self
+        def __get__(self):
+            return self._options.split_factor
+        def __set__(self, value: float):
+            self._options.split_factor = value
+            self._options0.split_factor = 1
 
-    cdef drop_chain_fraction(self, value: float):
+    property drop_chain_fraction:
         """bwa mem -D <float>"""
-        self._options._delegate.drop_ratio = value
-        self._options0.drop_ratio = 1
-        return self
+        def __get__(self):
+            return self._options.drop_ratio
+        def __set__(self, value: float):
+            self._options.drop_ratio = value
+            self._options0.drop_ratio = 1
 
-    cdef max_mate_rescue_rounds(self, value: int):
-        """bwa mem -m <float>"""
-        self._options._delegate.max_matesw = value
-        self._options0.max_matesw = 1
-        return self
+    property max_mate_rescue_rounds:
+        """bwa mem -m <int>"""
+        def __get__(self):
+            return self._options.max_matesw
+        def __set__(self, value: int):
+            self._options.max_matesw = value
+            self._options0.max_matesw = 1
 
-    cdef min_seeded_bases_in_chain(self, value: int):
-        """bwa mem -W <float>"""
-        self._options._delegate.min_chain_weight = value
-        self._options0.min_chain_weight = 1
-        return self
+    property min_seeded_bases_in_chain:
+        """bwa mem -W <int>"""
+        def __get__(self):
+            return self._options.min_chain_weight
+        def __set__(self, value: int):
+            self._options.min_chain_weight = value
+            self._options0.min_chain_weight = 1
 
-    cdef seed_occurrence_in_3rd_round(self, value: int):
-        """bwa mem -y <float>"""
-        self._options._delegate.max_mem_intv = value
-        self._options0.max_mem_intv = 1
-        return self
+    property seed_occurrence_in_3rd_round:
+        """bwa mem -y <int>"""
+        def __get__(self):
+            return self._options.max_mem_intv
+        def __set__(self, value: int):
+            self._options.max_mem_intv = value
+            self._options0.max_mem_intv = 1
 
-    cdef xa_max_hits(self, value: int, alt_value: int | None):
+    property xa_max_hits:
         """bwa mem -h <int<,int>>"""
-        self._options0.max_XA_hits = 1
-        self._options0.max_XA_hits_alt = 1
-        self._options._delegate.max_XA_hits = value
-        self._options._delegate.max_XA_hits_alt = value if alt_value is None else alt_value
+        def __get__(self):
+            return self._options.max_XA_hits, self._options.max_XA_hits_alt
+        def __set__(self, value: int | tuple[int, int]):
+            self._options0.max_XA_hits = 1
+            self._options0.max_XA_hits_alt = 1
+            if isinstance(value, int):
+                self._options.max_XA_hits = value
+                self._options.max_XA_hits_alt = value
+            else:
+                left, right = value
+                self._options.max_XA_hits = left
+                self._options.max_XA_hits_alt = right
 
-    cdef xa_drop_ration(self, value: float):
+    property xa_drop_ration:
         """bwa mem -y <float>"""
-        self._options._delegate.XA_drop_ratio = value
-        return self
+        def __get__(self):
+            return self._options.XA_drop_ratio
+        def __set__(self, value: float):
+           self._options.XA_drop_ratio = value
 
-    cdef gap_open_penalty(self, deletions: int, insertions: int):
+    property gap_open_penalty:
         """bwa mem -O <int<,int>>"""
-        self._options0.o_del = 1
-        self._options0.o_ins = 1
-        self._options._delegate.o_del = deletions
-        self._options._delegate.o_ins = insertions
-        return self
+        def __get__(self):
+            if self._options.o_del == self._options.o_ins:
+                return self._options.o_del
+            else:
+                return self._options.o_del, self._options.o_ins
+        def __set__(self, value: int | tuple[int, int]):
+            self._options0.o_del = 1
+            self._options0.o_ins = 1
+            if isinstance(value, int):
+                self._options.o_del = value
+                self._options.o_ins = value
+            else:
+                deletions, insertions = value
+                self._options.o_del = deletions
+                self._options.o_ins = insertions
 
-    cdef gap_extension_penalty(self, deletions: int, insertions: int):
+    property gap_extension_penalty:
         """bwa mem -E <int<,int>>"""
-        self._options0.e_del = 1
-        self._options0.e_ins = 1
-        self._options._delegate.e_del = deletions
-        self._options._delegate.e_ins = insertions
-        return self
+        def __get__(self):
+            if self._options.e_del == self._options.e_ins:
+                return self._options.e_del
+            else:
+                return self._options.e_del, self._options.e_ins
+        def __set__(self, value: int | tuple[int, int]):
+            self._options0.e_del = 1
+            self._options0.e_ins = 1
+            if isinstance(value, int):
+                self._options.e_del = value
+                self._options.e_ins = value
+            else:
+                deletions, insertions = value
+                self._options.e_del = deletions
+                self._options.e_ins = insertions
 
-    cdef clipping_penalty(self, five_prime: int, three_prime: int):
+
+    property clipping_penalty:
         """bwa mem -L <int<,int>>"""
-        self._options0.pen_clip5 = 1
-        self._options0.pen_clip3 = 1
-        self._options._delegate.pen_clip5 = five_prime
-        self._options._delegate.pen_clip3 = three_prime
-
-
-    cdef insert_size_distribution(self,
-                                  mean: float,
-                                  stddev: float | None = None,
-                                  max: float | None = None,
-                                  min: float | None = None):
-        """bwa mem -I float<,float<,intL<,int>>>"""
-        raise NotImplementedError
+        def __get__(self):
+            if self._options.pen_clip5 == self._options.pen_clip3:
+                return self._options.pen_clip5
+            else:
+                return self._options.pen_clip5, self._options.pen_clip3
+        def __set__(self, value: int | tuple[int, int]):
+            self._options0.pen_clip5 = 1
+            self._options0.pen_clip3 = 1
+            if isinstance(value, int):
+                self._options.pen_clip5 = value
+                self._options.pen_clip3 = value
+            else:
+                five_prime, three_prime = value
+                self._options.pen_clip5 = five_prime
+                self._options.pen_clip3 = three_prime
 
 
 cdef class BwaMem:
@@ -371,6 +441,9 @@ cdef class BwaMem:
         cdef mem_alnreg_t *mem_alnreg
         cdef mem_aln_t mem_aln
         cdef char *md
+        cdef mem_opt_t *mem_opt
+
+        mem_opt = opt.mem_opt()
 
         recs_to_return: List[List[AlignedSegment]] = []
 
@@ -381,33 +454,33 @@ cdef class BwaMem:
             seq = &seqs[i]
             query = queries[i]
             self._copy_seq(queries[i], seq)
-            mem_alnregs = mem_align1(opt._delegate, self._index.bwt(), self._index.bns(), self._index.pac(), seq.l, seq.s)
-            if opt._delegate.flag & MEM_F_PRIMARY5:
-                mem_reorder_primary5(opt._delegate.T, &mem_alnregs)
+            mem_alnregs = mem_align1(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(), seq.l, seq.s)
+            if opt.query_coord_as_primary:
+                mem_reorder_primary5(opt.minimum_scoren, &mem_alnregs)
 
             # mimic mem_reg2sam from bwamem.c
             recs = []
             XA = NULL
-            keep_all = opt._delegate.flag & MEM_F_ALL != 0
+            keep_all = opt.output_all_for_fragments
             if not keep_all:
-                XA = mem_gen_alt(opt._delegate, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
+                XA = mem_gen_alt(mem_opt, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
             num_mem_aln = 0
             for j in range(mem_alnregs.n):
                 mem_alnreg = &mem_alnregs.a[j]
 
-                if mem_alnreg.score < opt._delegate.T:
+                if mem_alnreg.score < opt.minimum_score:
                     continue
                 if mem_alnreg.secondary >= 0 and (mem_alnreg.is_alt or not keep_all):
                     continue
-                if mem_alnreg.secondary >= 0 and mem_alnreg.secondary < INT_MAX and mem_alnreg.score < mem_alnregs.a[mem_alnreg.secondary].score * opt._delegate.drop_ratio:
+                if 0 <= mem_alnreg.secondary < INT_MAX and mem_alnreg.score < mem_alnregs.a[mem_alnreg.secondary].score * opt.xa_drop_ration:
                     continue
-                mem_aln = mem_reg2aln(opt._delegate, self._index.bns(), self._index.pac(), seq.l, seq.s, mem_alnreg)
+                mem_aln = mem_reg2aln(mem_opt, self._index.bns(), self._index.pac(), seq.l, seq.s, mem_alnreg)
                 mem_aln.XA = XA[j] if not keep_all else NULL
                 if mem_alnreg.secondary >= 0:
                     mem_aln.sub = 1  # don't output sub-optimal score
-                if num_mem_aln > 0 and mem_alnreg.secondary < 0:  # if supplementary
-                    mem_aln.flag |= 0x10000 if opt._delegate.flag & MEM_F_NO_MULTI else 0x800
-                if (opt._delegate.flag & MEM_F_KEEP_SUPP_MAPQ) and num_mem_aln > 0 and mem_alnreg.is_alt > 0 and mem_aln.mapq > mem_alnregs.a[0].mapq:
+                if num_mem_aln > 0 > mem_alnreg.secondary:  # if supplementary
+                    mem_aln.flag |= 0x10000 if opt.skip_mate_rescue else 0x800
+                if opt.keep_mapq_for_supplementary and num_mem_aln > 0 and mem_alnreg.is_alt > 0 and mem_aln.mapq > mem_alnregs.a[0].mapq:
                     mem_aln.mapq = mem_alnregs.a[0].mapq  # lower
                 # create a AlignedSegment record here
                 rec = self._unmapped(query=queries[i])
@@ -425,7 +498,7 @@ cdef class BwaMem:
                     cigar = ""
                     for k in range(mem_aln.n_cigar):
                         cigar_opt = mem_aln.cigar[k] & 0xf
-                        if opt._delegate.flag & MEM_F_SOFTCLIP == 0 and mem_aln.is_alt == 0 and (cigar_opt == 3 or cigar_opt == 4):
+                        if opt.soft_clip_supplementary and mem_aln.is_alt == 0 and (cigar_opt == 3 or cigar_opt == 4):
                             cigar_opt = 4 if num_mem_aln > 0 else 3  # // use hard clipping for supplementary alignments
                         cigar = cigar + f"{mem_aln.cigar[k] >> 4}:d" + "MIDS"[cigar_opt]
                     rec.cigarstring = cigar
@@ -436,7 +509,7 @@ cdef class BwaMem:
                     rec.query_qualities = query.quality if rec.is_forward else query.quality[::-1]
 
                 # remove leading and trailing soft-clipped bases for non-primary etc.
-                if rec.is_mapped and mem_aln.n_cigar > 0 and num_mem_aln > 0 and opt._delegate.flag & MEM_F_SOFTCLIP == 0 and mem_aln.is_alt == 0:
+                if rec.is_mapped and mem_aln.n_cigar > 0 and num_mem_aln > 0 and not opt.soft_clip_supplementary and not mem_aln.is_alt:
                     qb = 0
                     qe = seq.l
                     if mem_aln.cigar[0] & 0xf == 4 or mem_aln.cigar[0] & 0xf == 3:

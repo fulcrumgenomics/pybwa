@@ -14,21 +14,20 @@ from bwapy.libbwaindex cimport BwaIndex
 
 __all__ = [
     "BwaAlnOptions",
-    "BwaAlnOptionsBuilder",
     "BwaAln",
 ]
 
-# TODO: is this the right pattern?  How can we examine the options we set?
 cdef class BwaAlnOptions:
     """The container for options for [`BwaAln`][bwapy.BwaAln].
 
     Use [`BwaAlnOptionsBuilder`][bwapy.BwaAlnOptionsBuilder] to use and set custom options.
     """
     cdef gap_opt_t * _delegate
+
     _max_hits: int
 
-    def __init__(self, max_hits: int = 3):
-        self._max_hits = max_hits
+    def __init__(self):
+        self._max_hits = 3
         self._cinit()
 
     cdef _cinit(self):
@@ -37,87 +36,103 @@ cdef class BwaAlnOptions:
     def __dealloc__(self):
         free(self._delegate)
 
+    cdef gap_opt_t* gap_opt(self):
+        return self._delegate
 
-cdef class BwaAlnOptionsBuilder:
-    """Builder for options for [`BwaAln`][bwapy.BwaAln]"""
-    _options: BwaAlnOptions
+    property max_mismatches:
+        def __get__(self):
+            return self._delegate.s_mm
+        def __set__(self, value: int):
+            self._delegate.s_mm = value
 
-    def __init__(self, options: BwaAlnOptions | None = None) -> None:
-        self._options: BwaAlnOptions = BwaAlnOptions() if options is None else options
-
-    def build(self) -> BwaAlnOptions:
-        return self._options
-
-    cdef max_mismatches(self, value: int):
-        """bwa aln -n <int>"""
-        self._options._delegate.s_mm = value
-        return self
-
-    #cdef fnr(self, value: float) -> BwaOptionsBuilder: ... # -n <float>
-    cdef max_gap_opens(self, value: int):
+    property max_gap_opens:
         """bwa aln -o <int>"""
-        self._options._delegate.max_gapo = value
-        return self
+        def __get__(self):
+            return self._delegate.max_gapo
+        def __set__(self, value: int):
+           self._delegate.max_gapo = value
 
-    cdef max_gap_extensions(self, value: int):
+    property max_gap_extensions:
         """bwa aln -e <int>"""
-        self._options._delegate.max_gape = value
-        if self._delegate.max_gape > 0:
-            self._delegate.mode &= ~BWA_MODE_GAPE
-        return self
+        def __get__(self):
+            return self._delegate.max_gapo
+        def __set__(self, value: int):
+            self._delegate.max_gape = value
+            if self._delegate.max_gape > 0:
+                self._delegate.mode &= ~BWA_MODE_GAPE
 
-    cdef min_indel_to_end_distance(self, value: int):
+    property min_indel_to_end_distance:
         """bwa aln -i <int>"""
-        self._options._delegate.indel_end_skip = value
-        return self
+        def __get__(self):
+            return self._delegate.indel_end_skip
+        def __set__(self, value: int):
+           self._delegate.indel_end_skip = value
 
-    def max_occurrences_for_extending_long_deletion(self, value: int):
+    property max_occurrences_for_extending_long_deletion:
         """bwa aln -d <int>"""
-        self._options._delegate.max_del_occ = value
-        return self
+        def __get__(self):
+            return self._delegate.max_del_occ
+        def __set__(self, value: int):
+           self._delegate.max_del_occ = value
 
-    def seed_length(self, value: int):
+    property seed_length:
         """bwa aln -l <int>"""
-        self._options._delegate.seed_len = value
-        return self
+        def __get__(self):
+            return self._delegate.seed_len
+        def __set__(self, value: int):
+           self._delegate.seed_len = value
 
-    def max_mismatches_in_seed(self, value: int):
+    property max_mismatches_in_seed:
         """bwa aln -k <int>"""
-        self._options._delegate.max_seed_diff = value
-        return self
+        def __get__(self):
+            return self._delegate.max_seed_diff
+        def __set__(self, value: int):
+           self._delegate.max_seed_diff = value
 
-    def mismatch_penalty(self, value: int):
+    property mismatch_penalty:
         """bwa aln -M <int>"""
-        self._options._delegate.s_mm = value
-        return self
+        def __get__(self):
+            return self._delegate.s_mm
+        def __set__(self, value: int):
+           self._delegate.s_mm = value
 
-    def gap_open_penalty(self, value: int):
+    property gap_open_penalty:
         """bwa aln -O <int>"""
-        self._options._delegate.s_gapo = value
-        return self
+        def __get__(self):
+            return self._delegate.s_gapo
+        def __set__(self, value: int):
+           self._delegate.s_gapo = value
 
-    def gap_extension_penalty(self, value: int):
+    property gap_extension_penalty:
         """bwa aln -E <int>"""
-        self._options._delegate.s_gape = value
-        return self
+        def __get__(self):
+            return self._delegate.s_gape
+        def __set__(self, value: int):
+           self._delegate.s_gape = value
 
-    def stop_at_max_best_hits(self, value: int):
+    property stop_at_max_best_hits:
         """bwa aln -R <int>"""
-        self._options._delegate.max_top2 = value
-        return self
+        def __get__(self):
+            return self._delegate.max_top2
+        def __set__(self, value: int):
+           self._delegate.max_top2 = value
 
-    def max_hits(self, value: int):
+    property max_hits:
         """bwa samse -n <int>"""
-        self._options._max_hits = value
-        return self
+        def __get__(self):
+            return self._max_hits
+        def __set__(self, value: int):
+           self._max_hits = value
 
-    def log_scaled_gap_penalty(self, value: bool = True):
+    property log_scaled_gap_penalty:
         """bwa aln -L"""
-        if value:
-            self._options._delegate.mode |= BWA_MODE_LOGGAP
-        else:
-            self._options._delegate.mode &= ~BWA_MODE_LOGGAP
-        return self
+        def __get__(self):
+            return self._delegate.mode & BWA_MODE_LOGGAP > 0
+        def __set__(self, value: int):
+            if value:
+                self._delegate.mode |= BWA_MODE_LOGGAP
+            else:
+                self._delegate.mode &= ~BWA_MODE_LOGGAP
 
 
 cdef class BwaAln:
@@ -244,6 +259,9 @@ cdef class BwaAln:
         cdef bwa_seq_t* s
         cdef char* s_char
         cdef kstring_t* kstr
+        cdef gap_opt_t* gap_opt
+
+        gap_opt = opt.gap_opt()
 
         kstr = <kstring_t*>calloc(sizeof(kstring_t), 1)
 
@@ -255,17 +273,17 @@ cdef class BwaAln:
             seqs[i].tid = -1
 
         # this is `bwa aln`, and the rest is `bwa samse`
-        bwa_cal_sa_reg_gap(0, self._index.bwt(), num_seqs, seqs, opt._delegate)
+        bwa_cal_sa_reg_gap(0, self._index.bwt(), num_seqs, seqs, gap_opt)
 
         # create the full alignment
         for i in range(num_seqs):
             s = &seqs[i]
             # bwa_cal_sa_reg_gap frees name, seq, rseq, and qual, so add them back in again
             self._copy_seq(queries[i], s)
-            bwa_aln2seq_core(s.n_aln, s.aln, s, 1, opt._max_hits)
+            bwa_aln2seq_core(s.n_aln, s.aln, s, 1, opt.max_hits)
 
         # # calculate the genomic position given the suffix array offsite
-        bwa_cal_pac_pos_with_bwt(self._index.bns(), num_seqs, seqs, opt._delegate.max_diff, opt._delegate.fnr, self._index.bwt())
+        bwa_cal_pac_pos_with_bwt(self._index.bns(), num_seqs, seqs, gap_opt.max_diff, gap_opt.fnr, self._index.bwt())
 
         # refine gapped alignment
         bwa_refine_gapped(self._index.bns(), num_seqs, seqs, self._index.pac())

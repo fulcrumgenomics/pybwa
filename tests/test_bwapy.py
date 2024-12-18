@@ -5,11 +5,9 @@ from pysam import FastxRecord
 
 from bwapy import BwaAln
 from bwapy import BwaAlnOptions
-from bwapy import BwaAlnOptionsBuilder
 from bwapy import BwaIndex
 from bwapy.libbwamem import BwaMem
 from bwapy.libbwamem import BwaMemOptions
-from bwapy.libbwamem import BwaMemOptionsBuilder
 
 
 @pytest.fixture()
@@ -25,11 +23,6 @@ def test_bwa_index(ref_fasta: Path) -> None:
 
 def test_bwaaln_options() -> None:
     BwaAlnOptions()
-
-
-def test_bwaalln_options_builder() -> None:
-    builder = BwaAlnOptionsBuilder()
-    builder.build()
     # TODO: test setting individual options...
 
 
@@ -47,7 +40,7 @@ def test_bwaaln(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert len(recs) == 1
     rec = recs[0]
     assert rec.query_name == "test"
-    assert rec.reference_start == 810
+    assert rec.reference_start == 80
     assert rec.cigarstring == "80M"
 
 
@@ -55,14 +48,8 @@ def test_bwamem_options() -> None:
     BwaMemOptions()
 
 
-def test_bwamem_options_builder() -> None:
-    builder = BwaMemOptionsBuilder()
-    builder.build()
-    # TODO: test setting individual options...
-
-
 def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
-    opt = BwaMemOptions()
+    opt = BwaMemOptions(finalize=True)
     bwa = BwaMem(prefix=ref_fasta)
 
     recs = bwa.align(opt=opt, queries=[fastx_record])
@@ -71,4 +58,5 @@ def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     rec = recs[0][0]
     assert rec.query_name == "test"
     assert rec.reference_start == 80
-    assert rec.cigarstring == "80M"
+    assert rec.cigarstring == "80M", print(str(rec))
+    # TODO: test multi-mapping etc
