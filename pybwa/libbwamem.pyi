@@ -45,7 +45,7 @@ class BwaMemOptions:
     min_seeded_bases_in_chain: int
     seed_occurrence_in_3rd_round: int
     xa_max_hits: int | tuple[int, int]
-    xa_drop_ration: float
+    xa_drop_ratio: float
     gap_open_penalty: int | tuple[int, int]
     gap_extension_penalty: int | tuple[int, int]
     clipping_penalty: int | tuple[int, int]
