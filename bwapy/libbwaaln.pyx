@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import List
 
 from libc.stdint cimport uint8_t
-from libc.stdio cimport SEEK_SET
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
 from pysam import FastxRecord, AlignedSegment
@@ -18,10 +17,7 @@ __all__ = [
 ]
 
 cdef class BwaAlnOptions:
-    """The container for options for [`BwaAln`][bwapy.BwaAln].
-
-    Use [`BwaAlnOptionsBuilder`][bwapy.BwaAlnOptionsBuilder] to use and set custom options.
-    """
+    """The container for options for [`BwaAln`][bwapy.BwaAln]."""
     cdef gap_opt_t * _delegate
 
     _max_hits: int

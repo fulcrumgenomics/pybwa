@@ -3,8 +3,6 @@
 from pathlib import Path
 
 from cpython cimport PyBytes_Check, PyUnicode_Check
-from libc.stdlib cimport calloc
-from libc.string cimport strncpy, strcat
 from pysam import AlignmentFile
 
 __all__ = [
@@ -38,7 +36,7 @@ cdef bytes force_bytes_with(object s, encoding: str | None = None, errors: str |
 cdef class BwaIndex:
     """Contains the index and nucleotide sequence for Bwa"""
 
-    def __init__(self, prefix: str | Path, bwt: bool = True, bns: bool = True, pac: bool = True):
+    def __init__(self, prefix: str | Path, bwt: bool = True, bns: bool = True, pac: bool = True) -> None:
         """Loads the bwa index.
 
         Args:

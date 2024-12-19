@@ -8,5 +8,5 @@ TEXT_ENCODING: str
 class BwaIndex:
     header: AlignmentHeader
     def __init__(
-        self, prefix: str | Path, bwt: bool = True, bns: bool = True, pac: bool = True
+        self, prefix: str | Path, bwt: bool = ..., bns: bool = ..., pac: bool = ...
     ) -> None: ...

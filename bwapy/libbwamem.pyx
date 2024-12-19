@@ -1,11 +1,19 @@
 # cython: language_level=3
 from pathlib import Path
-from typing import List, Self
+from typing import List
 from libc.string cimport memset, memcpy
-from libc.stdlib cimport calloc, free, malloc
+from libc.stdlib cimport calloc, free
 import enum
 from bwapy.libbwaindex cimport BwaIndex
 from pysam import FastxRecord, AlignedSegment
+
+__all__ = [
+    "BwaMemMode",
+    "BwaMemOptions",
+    "BwaMemOptionsBuilder",
+    "BwaMem",
+]
+
 
 # class syntax
 @enum.unique
@@ -14,7 +22,6 @@ class BwaMemMode(enum.Enum):
     PACBIO = enum.auto()
     ONT2D = enum.auto()
     INTRACTG = enum.auto()
-
 
 
 cdef class BwaMemOptions:
