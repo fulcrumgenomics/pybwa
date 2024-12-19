@@ -17,8 +17,9 @@ cdef extern from "bwt.h":
 
 cdef extern from "bwtaln.h":
     int BWA_TYPE_NO_MATCH
-    int BWA_MODE_LOGGAP
     int BWA_MODE_GAPE
+    int BWA_MODE_COMPREAD
+    int BWA_MODE_LOGGAP
 
     int __cigar_op(uint16_t __cigar)
     int __cigar_len(uint16_t __cigar)
@@ -82,6 +83,14 @@ cdef extern from "bwase.h":
     void bwase_initialize()
 
 cdef extern from "bwtaln.h":
+    ctypedef struct bwt_multi1_t:
+        uint32_t n_cigar
+        uint32_t gap
+        uint32_t mm
+        uint32_t strand
+        int ref_shift
+        uint64_t pos
+        uint16_t *cigar
     ctypedef struct bwa_seq_t:
 
         char *name
@@ -91,11 +100,17 @@ cdef extern from "bwtaln.h":
         uint32_t len
         uint32_t strand
         uint32_t type
-        int mapQ
+        uint32_t n_mm
+        uint32_t n_gapo
+        uint32_t n_gape
+        uint32_t mapQ
+        int score
         int clip_len
-        bwt_aln1_t *aln
         int n_aln
-        uint16_t pos
+        bwt_aln1_t *aln
+        int n_multi;
+        bwt_multi1_t *multi;
+        uint64_t pos
         uint16_t *cigar
         int n_cigar
         int tid
@@ -107,3 +122,7 @@ cdef extern from "bwtaln.h":
     void bwa_free_read_seq(int n_seqs, bwa_seq_t *seqs)
 
     void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt)
+
+
+# from bwase.c
+cdef extern int64_t pos_end_multi(const bwt_multi1_t *p, int len)

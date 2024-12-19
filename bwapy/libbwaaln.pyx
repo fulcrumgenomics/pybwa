@@ -182,9 +182,11 @@ cdef class BwaAln:
         strncpy(s.name, force_bytes(q.name), len(q.name))
         s.name[len(q.name)] = b'\0'
 
-    cdef _build_alignment(self, query: FastxRecord, bwa_seq_t *seq, kstring_t *kstr):
+    cdef _build_alignment(self, query: FastxRecord, bwa_seq_t *seq, opt: BwaAlnOptions, kstring_t *kstr):
         cdef int reference_id
         cdef int nm
+        cdef char XT
+        cdef bwt_multi1_t* hit
 
         # make a default, unmapped, empty record
         rec = AlignedSegment(header=self._index.header)
@@ -242,10 +244,36 @@ cdef class BwaAln:
         # # tags
         if seq.type != BWA_TYPE_NO_MATCH:
             attrs = dict()
-            attrs["MD"] = f"{seq.md}"
-            attrs["NM"] = f"{seq.nm}"
+            attrs['XT'] = b'N' if nn > 10 else "NURM"[seq.type]
+            attrs["NM" if ((opt.mode & BWA_MODE_COMPREAD) != 0) else "CM"] = f"{seq.nm}"
+            if nn > 0:
+                attrs["XN"] = nn
+            # SM, AM, X0, and X1 are for paired end reads, so omitted
+            attrs["XM"] = seq.n_mm
+            attrs["XO"] = seq.n_gapo
+            attrs["XG"] = seq.n_gapo + seq.n_gape
+            if seq.md != NULL:
+                attrs["MD"] = f"{seq.md}"
+            # print multiple hits
+            if seq.n_multi > 0:
+                XA = ""
+                for j in range(seq.n_multi):
+                    hit = &seq.multi[j]
+                    end = pos_end_multi(hit, seq.len - hit.pos)
+                    nn = bns_cnt_ambi(self._index.bns(), hit.pos, end, &reference_id)
+                    XA += self._index.bns().anns[reference_id].name
+                    XA += "," + ('-' if hit.strand != 0 else '+')
+                    XA += str(hit.pos - self._index.bns().anns[reference_id].offset + 1)
+                    if hit.cigar == NULL:
+                        XA += f",{seq.len}M"
+                    else:
+                        for k in range(hit.n_cigar):
+                            cigar_len = __cigar_len(hit.cigar[k])
+                            cigar_op = "MIDS"[__cigar_op(hit.cigar[k])]
+                            XA += "," + f"{cigar_len}{cigar_op}"
+                    XA += f",{hit.gap + hit.mm}"
+                attrs["XA"] = XA
             rec.set_tags(list(attrs.items()))
-        # # TODO:the custom bwa tags: XT, NM, XN, SM, AM, X0, X1, XM, XO, XG, XA, HN
 
         return rec
 
@@ -285,7 +313,7 @@ cdef class BwaAln:
 
         # create the AlignedSegment from FastxRecord and bwa_seq_t.
         recs = [
-            self._build_alignment(query=queries[i], seq=&seqs[i], kstr=kstr)
+            self._build_alignment(query=queries[i], seq=&seqs[i], opt=opt, kstr=kstr)
             for i in range(num_seqs)
         ]
 
