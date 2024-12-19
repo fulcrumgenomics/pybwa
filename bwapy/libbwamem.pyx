@@ -632,7 +632,7 @@ cdef class BwaMem:
             keep_all = opt.output_all_for_fragments
             if not keep_all:
                 XA = mem_gen_alt(mem_opt, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
-            num_mem_aln = 0
+            num_mem_aln = 0  # equivalent to `which` in mem_reg2sam
             for j in range(mem_alnregs.n):
                 mem_alnreg = &mem_alnregs.a[j]
 
@@ -645,7 +645,7 @@ cdef class BwaMem:
                 mem_aln = mem_reg2aln(mem_opt, self._index.bns(), self._index.pac(), seq.l, seq.s, mem_alnreg)
                 mem_aln.XA = XA[j] if not keep_all else NULL
                 if mem_alnreg.secondary >= 0:
-                    mem_aln.sub = 1  # don't output sub-optimal score
+                    mem_aln.sub = -1  # don't output sub-optimal score
                 if num_mem_aln > 0 > mem_alnreg.secondary:  # if supplementary
                     mem_aln.flag |= 0x10000 if opt.skip_mate_rescue else 0x800
                 if opt.keep_mapq_for_supplementary and num_mem_aln > 0 and mem_alnreg.is_alt > 0 and mem_aln.mapq > mem_alnregs.a[0].mapq:
@@ -692,10 +692,28 @@ cdef class BwaMem:
                 if rec.is_mapped:
                     md = <char*>(mem_aln.cigar + mem_aln.n_cigar)
                     attrs = dict()
-                    attrs["MD"] = f"{md}"
                     attrs["NM"] = f"{mem_aln.NM}"
+                    attrs["MD"] = f"{md}"
+                    # NB: mate tags are not output: MC, MQ
+                    if mem_aln.score >= 0:
+                        attrs["AS"] = mem_aln.score
+                    if mem_aln.sub >= 0:
+                        attrs["XS"] = mem_aln.sub
+                    if mem_aln.flag & 0x100 != 0:
+                        # for j in range(n):
+                        #
+                        #     if (j != num_mem_aln and list[j].flag & 0x100 != 0):
+                        #         break
+                        # if j < n:  # there are other primary hits; output them
+                        # TODO: SA
+                        pass
+                        if mem_aln.alt_sc > 0:
+                            attrs['pa'] = mem_aln.score / float(mem_aln.alt_sc)
+                    if mem_aln.XA != NULL:
+                        attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
+                    if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and self._index.bns().anns[rec.reference_id].anno[0] != 0:
+                        attrs["XR"] = self._index.bns().anns[rec.reference_id].anno
                     rec.set_tags(list(attrs.items()))
-                    # TODO: other tags: MC, MQ, AS, XS, RG, SA, pa, XA, XB, XR
 
                 num_mem_aln += 1
                 recs.append(rec)

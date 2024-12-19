@@ -245,7 +245,7 @@ cdef class BwaAln:
         if seq.type != BWA_TYPE_NO_MATCH:
             attrs = dict()
             attrs['XT'] = b'N' if nn > 10 else "NURM"[seq.type]
-            attrs["NM" if ((opt.mode & BWA_MODE_COMPREAD) != 0) else "CM"] = f"{seq.nm}"
+            attrs["NM" if ((opt._delegate.mode & BWA_MODE_COMPREAD) != 0) else "CM"] = f"{seq.nm}"
             if nn > 0:
                 attrs["XN"] = nn
             # SM, AM, X0, and X1 are for paired end reads, so omitted
