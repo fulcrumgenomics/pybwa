@@ -34,17 +34,18 @@ cdef bytes force_bytes_with(object s, encoding: str | None = None, errors: str |
 
 
 cdef class BwaIndex:
-    """Contains the index and nucleotide sequence for Bwa"""
+    """Contains the index and nucleotide sequence for Bwa.
+
+    Args:
+        prefix (str | Path): the path prefix for teh BWA index
+        bwt (bool): load the BWT (FM-index)
+        bns (bool): load the BNS (reference sequence metadata)
+        pac (bool): load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
+             random base)
+
+    """
 
     def __init__(self, prefix: str | Path, bwt: bool = True, bns: bool = True, pac: bool = True) -> None:
-        """Loads the bwa index.
-
-        Args:
-            bwt (bool): load the BWT (FM-index)
-            bns (bool): load the BNS (reference sequence metadata)
-            pac (bool): load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
-                 random base)
-        """
         cdef int mode
 
         mode = 0
