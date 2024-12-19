@@ -42,7 +42,6 @@ cdef class BwaIndex:
         bns (bool): load the BNS (reference sequence metadata)
         pac (bool): load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
              random base)
-
     """
 
     def __init__(self, prefix: str | Path, bwt: bool = True, bns: bool = True, pac: bool = True) -> None:
