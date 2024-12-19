@@ -28,9 +28,8 @@ cdef class BwaAlnOptions:
 
     def __init__(self):
         self._max_hits = 3
-        self._cinit()
 
-    cdef _cinit(self):
+    def __cinit__(self):
         self._delegate = gap_init_opt()
 
     def __dealloc__(self):

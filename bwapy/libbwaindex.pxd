@@ -45,7 +45,7 @@ cdef class BwaIndex:
     """Contains the index and nucleotide sequence for Bwa"""
     cdef bwaidx_t *_delegate
     cdef public object header
-    cdef _cinit(self, prefix, mode)
     cdef bwt_t *bwt(self)
     cdef bntseq_t *bns(self)
     cdef uint8_t *pac(self)
+    cdef _load_index(self, prefix, mode)

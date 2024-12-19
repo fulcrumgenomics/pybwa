@@ -48,6 +48,7 @@ cdef class BwaIndex:
                  random base)
         """
         cdef int mode
+
         mode = 0
         if bwt:
             mode |= BWA_IDX_BWT
@@ -55,11 +56,9 @@ cdef class BwaIndex:
             mode |= BWA_IDX_BNS
         if pac:
             mode |= BWA_IDX_PAC
-        self._cinit(f"{prefix}", mode)
+        self._load_index(f"{prefix}", mode)
 
-    cdef _cinit(self, prefix, mode):
-        cdef char *local_prefix
-
+    cdef _load_index(self, prefix, mode):
         prefix = bwa_idx_infer_prefix(force_bytes(prefix))
         if not prefix:
             # FIXME: better error message

@@ -8,6 +8,7 @@ from bwapy import BwaAlnOptions
 from bwapy import BwaIndex
 from bwapy.libbwamem import BwaMem
 from bwapy.libbwamem import BwaMemOptions
+from bwapy.libbwamem import BwaMemOptionsBuilder
 
 
 @pytest.fixture()
@@ -45,11 +46,22 @@ def test_bwaaln(ref_fasta: Path, fastx_record: FastxRecord) -> None:
 
 
 def test_bwamem_options() -> None:
-    BwaMemOptions()
+    # default options
+    options = BwaMemOptions()
+    assert options.min_seed_len == 19
+    # build with default options
+    builder = BwaMemOptionsBuilder()
+    options = builder.build()
+    assert options.min_seed_len == 19
+    # build with custom option
+    builder = BwaMemOptionsBuilder()
+    builder.min_seed_len = 20
+    options = builder.build()
+    assert options.min_seed_len == 20
 
 
 def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
-    opt = BwaMemOptions(finalize=True)
+    opt = BwaMemOptions()
     bwa = BwaMem(prefix=ref_fasta)
 
     recs = bwa.align(opt=opt, queries=[fastx_record])

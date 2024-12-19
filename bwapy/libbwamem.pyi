@@ -1,7 +1,6 @@
 import enum
 from pathlib import Path
 from typing import List
-from typing import Self
 
 from pysam import AlignedSegment
 from pysam import FastxRecord
@@ -18,9 +17,8 @@ class BwaMemMode(enum.Enum):
     INTRACTG = enum.auto()
 
 class BwaMemOptions:
-    _ignore_alt: bool
     def __init__(self, finalize: bool = False) -> None: ...
-    def finalize(self) -> Self: ...
+    _ignore_alt: bool
     min_seed_len: int
     mode: BwaMemMode
     band_width: int
@@ -51,6 +49,10 @@ class BwaMemOptions:
     gap_open_penalty: int | tuple[int, int]
     gap_extension_penalty: int | tuple[int, int]
     clipping_penalty: int | tuple[int, int]
+
+class BwaMemOptionsBuilder(BwaMemOptions):
+    def __init__(self, options: BwaMemOptions | None = None) -> None: ...
+    def build(self) -> BwaMemOptions: ...
 
 class BwaMem:
     _index: BwaIndex
