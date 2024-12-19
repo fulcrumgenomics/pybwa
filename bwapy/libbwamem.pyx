@@ -655,34 +655,34 @@ cdef class BwaMem:
             attrs["AS"] = mem_aln.score
         if mem_aln.sub >= 0:
             attrs["XS"] = mem_aln.sub
-        if mem_aln.flag & 0x100 == 0:  # secondary
-            # find if there are other primary hits, and if so, output them in the SA tag
-            for i in range(mem_aln_n):
-                if i == which or mem_aln_v[i].flag & 0x100 == 0:
-                    break
-            if i < mem_aln_n:
-                for i in range(mem_aln_n):
-                    mem_aln_other = &mem_aln_v[i]
-                    if i == which or mem_aln_other.flag & 0x100 != 0:
-                        continue
-                    SA = self._index.bns().anns[mem_aln_other.rid].name + ","
-                    SA += f"{mem_aln_other.pos + 1},"
-                    SA += "+-"[mem_aln_other.is_rev] + ","
-                    for k in range(mem_aln_other.n_cigar):
-                        cigar_op = mem_aln_other.cigar[i] & 0xf
-                        cigar_len = mem_aln_other.cigar[i] >> 4
-                        SA += f"{cigar_len}" + "MIDSH"[cigar_op]
-                    SA += f",{mem_aln_other.mapq}"
-                    SA += f",{mem_aln_other.NM}"
-                    SA += ";"
-                attrs["SA"] = SA
-            if mem_aln.alt_sc > 0:
-                attrs['pa'] = mem_aln.score / float(mem_aln.alt_sc)
-        if mem_aln.XA != NULL:
-            attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
-        if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and \
-                self._index.bns().anns[rec.reference_id].anno[0] != 0:
-            attrs["XR"] = self._index.bns().anns[rec.reference_id].anno
+        # if mem_aln.flag & 0x100 == 0:  # secondary
+        #     # find if there are other primary hits, and if so, output them in the SA tag
+        #     for i in range(mem_aln_n):
+        #         if i == which or mem_aln_v[i].flag & 0x100 == 0:
+        #             break
+        #     if i < mem_aln_n:
+        #         for i in range(mem_aln_n):
+        #             mem_aln_other = &mem_aln_v[i]
+        #             if i == which or mem_aln_other.flag & 0x100 != 0:
+        #                 continue
+        #             SA = self._index.bns().anns[mem_aln_other.rid].name + ","
+        #             SA += f"{mem_aln_other.pos + 1},"
+        #             SA += "+-"[mem_aln_other.is_rev] + ","
+        #             for k in range(mem_aln_other.n_cigar):
+        #                 cigar_op = mem_aln_other.cigar[i] & 0xf
+        #                 cigar_len = mem_aln_other.cigar[i] >> 4
+        #                 SA += f"{cigar_len}" + "MIDSH"[cigar_op]
+        #             SA += f",{mem_aln_other.mapq}"
+        #             SA += f",{mem_aln_other.NM}"
+        #             SA += ";"
+        #         attrs["SA"] = SA
+        #     if mem_aln.alt_sc > 0:
+        #         attrs['pa'] = mem_aln.score / float(mem_aln.alt_sc)
+        # if mem_aln.XA != NULL:
+        #     attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
+        # if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and \
+        #         self._index.bns().anns[rec.reference_id].anno[0] != 0:
+        #     attrs["XR"] = self._index.bns().anns[rec.reference_id].anno
         rec.set_tags(list(attrs.items()))
 
         return rec
@@ -704,6 +704,7 @@ cdef class BwaMem:
         cdef int mem_aln_n
         cdef char *md
         cdef mem_opt_t *mem_opt
+        print(f"bwamem [start] num_seqs: {len(queries)}")
 
         mem_opt = opt.mem_opt()
 
@@ -711,33 +712,40 @@ cdef class BwaMem:
 
         # copy FastqProxy into bwa_seq_t
         num_seqs = len(queries)
+        print(f"bwamem [start] num_seqs: {num_seqs}")
         seqs = <kstring_t*>calloc(sizeof(kstring_t), num_seqs)
         for i in range(num_seqs):
+            print(f"bwamem [start] {i}")
             seq = &seqs[i]
             query = queries[i]
             self._copy_seq(queries[i], seq)
+            print(f"bwamem [mem_align1] i: {i}")
             mem_alnregs = mem_align1(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(), seq.l, seq.s)
             if opt.query_coord_as_primary:
+                print(f"bwamem [mem_reorder_primary5] i: {i}")
                 mem_reorder_primary5(opt.minimum_score, &mem_alnregs)
 
             # mimic mem_reg2sam from bwamem.c
             mem_aln_n = 0
-            mem_aln_v = <mem_aln_t*>calloc(sizeof(mem_aln_t), mem_alnregs.n)  # TODO: free
+            mem_aln_v = <mem_aln_t*>calloc(sizeof(mem_aln_t), mem_alnregs.n)
 
-            recs = []  # FIXME
+            recs = []
             XA = NULL
             keep_all = opt.output_all_for_fragments
             if not keep_all:
+                print(f"bwamem [mem_gen_alt] i: {i}")
                 XA = mem_gen_alt(mem_opt, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
             for j in range(mem_alnregs.n):
                 mem_alnreg = &mem_alnregs.a[j]
 
+                print(f"bwamem [loop] i: {i} j: {j}")
                 if mem_alnreg.score < opt.minimum_score:
                     continue
                 if mem_alnreg.secondary >= 0 and (mem_alnreg.is_alt or not keep_all):
                     continue
                 if 0 <= mem_alnreg.secondary < INT_MAX and mem_alnreg.score < mem_alnregs.a[mem_alnreg.secondary].score * opt.xa_drop_ration:
                     continue
+                print(f"bwamem [mem_reg2aln] i: {i} j: {j}")
                 mem_aln = mem_reg2aln(mem_opt, self._index.bns(), self._index.pac(), seq.l, seq.s, mem_alnreg)
                 mem_aln.XA = XA[j] if not keep_all else NULL
                 if mem_alnreg.secondary >= 0:
@@ -750,20 +758,25 @@ cdef class BwaMem:
                 mem_aln_v[mem_aln_n] = mem_aln
                 mem_aln_n += 1
 
+            print(f"bwamem [after] i: {i} mem_aln_n: {mem_aln_n}")
             if mem_aln_n == 0:
                 recs = [self._unmapped(query=queries[i])]
             else:
+                print(f"bwamem [_build_alignment] i: {i} mem_aln_n: {mem_aln_n}")
                 recs = [
                     self._build_alignment(opt, query, mem_aln_v, mem_aln_n, j)
                     for j in range(mem_aln_n)
                 ]
+            print(f"bwamem [freeing] i: {i} mem_aln_n: {mem_aln_n}")
             for j in range(mem_aln_n):
                 free(XA[j])
                 free(mem_aln_v[j].cigar)
             free(XA)
             free(mem_aln_v)
+            free(mem_alnregs.a)
             recs_to_return.append(recs)
 
+        print(f"bwamem [freeing]")
         for i in range(num_seqs):
             free(seqs[i].s)
         free(seqs)
