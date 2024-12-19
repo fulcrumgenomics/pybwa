@@ -77,7 +77,7 @@ unfixable = ["B"]
 force-single-line = true
 
 [tool.mypy]
-strict_optional             = false
+strict_optional             = true
 check_untyped_defs          = true
 disallow_incomplete_defs    = true
 disallow_untyped_calls      = true
