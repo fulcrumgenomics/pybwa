@@ -8,7 +8,7 @@ import mkdocs_gen_files
 
 nav = mkdocs_gen_files.Nav()
 
-library_name = "bwapy"
+library_name = "pybwa"
 root = Path(__file__).parent.parent.parent
 src = root
 module_root = root / library_name
