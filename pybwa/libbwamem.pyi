@@ -5,7 +5,7 @@ from typing import List
 from pysam import AlignedSegment
 from pysam import FastxRecord
 
-from bwapy.libbwaindex import BwaIndex
+from pybwa.libbwaindex import BwaIndex
 
 # class syntax
 @enum.unique

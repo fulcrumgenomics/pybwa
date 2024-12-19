@@ -2,7 +2,7 @@
 
 ## Recommended Installation
 
-The package `bwapy` requires cloning [`bwa`](https://github.com/lh3/bwa) into the source directory.
+The package `pybwa` requires cloning [`bwa`](https://github.com/lh3/bwa) into the source directory.
 
 ```console
 git clone git@github.com:lh3/bwa.git

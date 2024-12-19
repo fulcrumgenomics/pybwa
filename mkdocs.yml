@@ -1,5 +1,5 @@
-site_name: bwapy
-site_url: https://bwapy.readthedocs.io/en/latest/
+site_name: pybwa
+site_url: https://pybwa.readthedocs.io/en/latest/
 use_directory_urls: false
 theme:
   name: material
@@ -11,7 +11,7 @@ theme:
   navstyle: dark
   include_sidebar: true
   collapse_navigation: false
-repo_url: https://github.com/fulcrumgenomics/bwapy
+repo_url: https://github.com/fulcrumgenomics/pybwa
 plugins:
   - autorefs:
       resolve_closest: true

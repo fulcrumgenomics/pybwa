@@ -6,7 +6,7 @@ from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
 import multiprocessing
 from pathlib import Path
 
-SOURCE_DIR = Path("bwapy")
+SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
 compile_args = []
 link_args = []
@@ -16,13 +16,13 @@ library_dirs=['bwa']
 extra_objects = []  #glob.glob(os.path.join('bwa', '*.o'))
 h_files = []
 c_files = []
-for root_dir in ["bwa", "bwapy"]:
+for root_dir in ["bwa", "pybwa"]:
     h_files.extend(str(x) for x in Path(root_dir).rglob("*.h"))
     c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in ['example.c', 'main.c'])
 
 libbwaindex_module = Extension(
-    name='bwapy.libbwaindex',
-    sources=['bwapy/libbwaindex.pyx'] + c_files,
+    name='pybwa.libbwaindex',
+    sources=['pybwa/libbwaindex.pyx'] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
@@ -34,8 +34,8 @@ libbwaindex_module = Extension(
 )
 
 libbwaaln_module = Extension(
-    name='bwapy.libbwaaln',
-    sources=['bwapy/libbwaaln.pyx'] + c_files,
+    name='pybwa.libbwaaln',
+    sources=['pybwa/libbwaaln.pyx'] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
@@ -47,8 +47,8 @@ libbwaaln_module = Extension(
 )
 
 libbwamem_module = Extension(
-    name='bwapy.libbwamem',
-    sources=['bwapy/libbwamem.pyx'] + c_files,
+    name='pybwa.libbwamem',
+    sources=['pybwa/libbwamem.pyx'] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
@@ -106,7 +106,7 @@ def build():
 
     # Use Setuptools to collect files
     distribution = Distribution({
-        "name": "bwapy",
+        "name": "pybwa",
         'version': '0.0.1',  # FIXME
         'description': 'Todo',  # FIXME
         'long_description': 'FIXME',
@@ -116,9 +116,9 @@ def build():
         'license': 'MIT',
         'platforms': ['POSIX', 'UNIX', 'MacOS'],
         'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
-        'url': 'https://github.com/fulcrumgenomics/bwapy',
-        'packages': ['bwapy'],
-        'package_dirs': {'bwapy': 'bwapy'},
+        'url': 'https://github.com/fulcrumgenomics/pybwa',
+        'packages': ['pybwa'],
+        'package_dirs': {'pybwa': 'pybwa'},
         "ext_modules": extension_modules,
         "cmdclass": {
             "build_ext": cython_build_ext,

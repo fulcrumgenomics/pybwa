@@ -1,14 +1,14 @@
 [tool.poetry]
-name = "bwapy"
+name = "pybwa"
 version = "0.0.1-dev"
 description = "Python bindings for BWA"
 authors = ["Nils Homer"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/fulcrumgenomics/bwapy"
-repository = "https://github.com/fulcrumgenomics/bwapy"
+homepage = "https://github.com/fulcrumgenomics/pybwa"
+repository = "https://github.com/fulcrumgenomics/pybwa"
 keywords = ["bioinformatics"]
-packages = [{ include = "bwapy" }]
+packages = [{ include = "pybwa" }]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Environment :: Console",
@@ -23,7 +23,7 @@ classifiers = [
 ]
 include = [
 	"LICENSE",
-	{ path = "bwapy/**/*.so", format = "wheel" },
+	{ path = "pybwa/**/*.so", format = "wheel" },
 	{ path = "**/*.so", format = "wheel" },
 	{ path = "*.so", format = "wheel" },
 	#{ path = "*.so", format = "wheel" }

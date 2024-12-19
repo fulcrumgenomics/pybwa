@@ -7,8 +7,8 @@ from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
 from pysam import FastxRecord, AlignedSegment
-from bwapy.libbwaindex cimport force_bytes
-from bwapy.libbwaindex cimport BwaIndex
+from pybwa.libbwaindex cimport force_bytes
+from pybwa.libbwaindex cimport BwaIndex
 
 
 __all__ = [
@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 cdef class BwaAlnOptions:
-    """The container for options for [`BwaAln`][bwapy.BwaAln]."""
+    """The container for options for [`BwaAln`][pybwa.BwaAln]."""
     cdef gap_opt_t * _delegate
 
     _max_hits: int

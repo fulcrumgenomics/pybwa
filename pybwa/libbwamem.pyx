@@ -4,7 +4,7 @@ from typing import List
 from libc.string cimport memset, memcpy
 from libc.stdlib cimport calloc, free
 import enum
-from bwapy.libbwaindex cimport BwaIndex
+from pybwa.libbwaindex cimport BwaIndex
 from pysam import FastxRecord, AlignedSegment
 
 __all__ = [
@@ -25,7 +25,7 @@ class BwaMemMode(enum.Enum):
 
 
 cdef class BwaMemOptions:
-    """The container for options for [`BwaMem`][bwapy.BwaMem]."""
+    """The container for options for [`BwaMem`][pybwa.BwaMem]."""
     _ignore_alt: bool
     _mode: BwaMemMode | None
     cdef mem_opt_t* _options
@@ -201,7 +201,7 @@ cdef class BwaMemOptions:
 
 
 cdef class BwaMemOptionsBuilder(BwaMemOptions):
-    """The container for options for [`BwaMem`][bwapy.BwaMem]."""
+    """The container for options for [`BwaMem`][pybwa.BwaMem]."""
     cdef mem_opt_t* _options0
 
     def __init__(self, options: BwaMemOptions | None = None):

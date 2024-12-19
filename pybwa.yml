@@ -1,4 +1,4 @@
-name: bwapy
+name: pybwa
 channels:
   - defaults
   - conda-forge

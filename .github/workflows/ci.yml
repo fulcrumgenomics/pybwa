@@ -61,22 +61,22 @@ jobs:
     - name: Style checking
       shell: bash
       run: |
-        poetry run ruff format --check bwapy tests
+        poetry run ruff format --check pybwa tests
 
     - name: Run lint
       shell: bash
       run: |
-        poetry run ruff check bwapy tests
+        poetry run ruff check pybwa tests
 
     - name: Run mypy
       shell: bash
       run: |
-        poetry run mypy bwapy tests --config=pyproject.toml
+        poetry run mypy pybwa tests --config=pyproject.toml
 
     - name: Run pytest
       shell: bash
       run: |
-        poetry run python -m pytest --cov=bwapy --cov-report=xml --cov-branch 
+        poetry run python -m pytest --cov=pybwa --cov-report=xml --cov-branch 
 
     - name: Run docs
       shell: bash
