@@ -595,6 +595,98 @@ cdef class BwaMem:
         rec.query_qualities = query.quality
         return rec
 
+    # mimics mem_aln2sam in bwamem.c
+    cdef _build_alignment(self, opt: BwaMemOptions, query: FastxRecord, mem_aln_t *mem_aln_v, int mem_aln_n, int which):
+        cdef mem_aln_t mem_aln
+        cdef mem_aln_t* mem_aln_other
+
+        # create a AlignedSegment record here
+        rec = self._unmapped(query=query)
+
+        mem_aln = mem_aln_v[which]
+
+        # set the flags
+        mem_aln.flag |= 0x4 if mem_aln.rid < 0 else 0
+        mem_aln.flag |= 0x10 if mem_aln.is_rev > 0 else 0
+        rec.flag = (mem_aln.flag & 0xffff) | (0x100 if (mem_aln.flag & 0x10000) != 0 else 0)
+
+        # sequence and qualities
+        rec.query_sequence = query.sequence if rec.is_forward else query.sequence[::-1]
+        if query.quality is not None:
+            rec.query_qualities = query.quality if rec.is_forward else query.quality[::-1]
+
+        if rec.is_unmapped:
+            return rec
+
+        # reference id, position, mapq, and cigar
+        rec.reference_id = mem_aln.rid
+        rec.reference_start = mem_aln.pos
+        rec.mapping_quality = mem_aln.mapq
+        cigar = ""
+        for i in range(mem_aln.n_cigar):
+            cigar_op = mem_aln.cigar[i] & 0xf
+            if opt.soft_clip_supplementary and mem_aln.is_alt == 0 and (
+                    cigar_op == 3 or cigar_op == 4):
+                cigar_op = 4 if mem_aln_n > 0 else 3  # // use hard clipping for supplementary alignments
+            cigar_len = mem_aln.cigar[i] >> 4
+            cigar = cigar + f"{cigar_len}" + "MIDS"[cigar_op]
+        rec.cigarstring = cigar
+
+        # remove leading and trailing soft-clipped bases for non-primary etc.
+        if mem_aln.n_cigar > 0 and mem_aln_n > 0 and not opt.soft_clip_supplementary and not mem_aln.is_alt:
+            qb = 0
+            qe = len(query.sequence)
+            if (mem_aln.cigar[0] & 0xf) == 4 or (mem_aln.cigar[0] & 0xf) == 3:
+                qb += mem_aln.cigar[0] >> 4
+            if (mem_aln.cigar[mem_aln.n_cigar - 1] & 0xf) == 4 or (
+                    mem_aln.cigar[mem_aln.n_cigar - 1] & 0xf) == 3:
+                qe -= mem_aln.cigar[mem_aln.n_cigar - 1] >> 4
+            rec.query_sequence = rec.query_sequence[qb:qe]
+            if query.quality is not None:
+                rec.query_qualities = rec.query_qualities[qb:qe]
+
+        # Optional tags
+        md = <char *> (mem_aln.cigar + mem_aln.n_cigar)
+        attrs = dict()
+        attrs["NM"] = f"{mem_aln.NM}"
+        attrs["MD"] = f"{md}"
+        # NB: mate tags are not output: MC, MQ
+        if mem_aln.score >= 0:
+            attrs["AS"] = mem_aln.score
+        if mem_aln.sub >= 0:
+            attrs["XS"] = mem_aln.sub
+        if mem_aln.flag & 0x100 == 0:  # secondary
+            # find if there are other primary hits, and if so, output them in the SA tag
+            for i in range(mem_aln_n):
+                if i == which or mem_aln_v[i].flag & 0x100 == 0:
+                    break
+            if i < mem_aln_n:
+                for i in range(mem_aln_n):
+                    mem_aln_other = &mem_aln_v[i]
+                    if i == which or mem_aln_other.flag & 0x100 != 0:
+                        continue
+                    SA = self._index.bns().anns[mem_aln_other.rid].name + ","
+                    SA += f"{mem_aln_other.pos + 1},"
+                    SA += "+-"[mem_aln_other.is_rev] + ","
+                    for k in range(mem_aln_other.n_cigar):
+                        cigar_op = mem_aln_other.cigar[i] & 0xf
+                        cigar_len = mem_aln_other.cigar[i] >> 4
+                        SA += f"{cigar_len}" + "MIDSH"[cigar_op]
+                    SA += f",{mem_aln_other.mapq}"
+                    SA += f",{mem_aln_other.NM}"
+                    SA += ";"
+                attrs["SA"] = SA
+            if mem_aln.alt_sc > 0:
+                attrs['pa'] = mem_aln.score / float(mem_aln.alt_sc)
+        if mem_aln.XA != NULL:
+            attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
+        if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and \
+                self._index.bns().anns[rec.reference_id].anno[0] != 0:
+            attrs["XR"] = self._index.bns().anns[rec.reference_id].anno
+        rec.set_tags(list(attrs.items()))
+
+        return rec
+
     cdef _calign(self, opt: BwaMemOptions, queries: List[FastxRecord]):
         # TODO: ignore_alt
         # TODO: refactor to make this more readable
@@ -608,6 +700,8 @@ cdef class BwaMem:
         cdef char **XA
         cdef mem_alnreg_t *mem_alnreg
         cdef mem_aln_t mem_aln
+        cdef mem_aln_t *mem_aln_v
+        cdef int mem_aln_n
         cdef char *md
         cdef mem_opt_t *mem_opt
 
@@ -627,12 +721,14 @@ cdef class BwaMem:
                 mem_reorder_primary5(opt.minimum_score, &mem_alnregs)
 
             # mimic mem_reg2sam from bwamem.c
-            recs = []
+            mem_aln_n = 0
+            mem_aln_v = <mem_aln_t*>calloc(sizeof(mem_aln_t), mem_alnregs.n)  # TODO: free
+
+            recs = []  # FIXME
             XA = NULL
             keep_all = opt.output_all_for_fragments
             if not keep_all:
                 XA = mem_gen_alt(mem_opt, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
-            num_mem_aln = 0  # equivalent to `which` in mem_reg2sam
             for j in range(mem_alnregs.n):
                 mem_alnreg = &mem_alnregs.a[j]
 
@@ -646,88 +742,30 @@ cdef class BwaMem:
                 mem_aln.XA = XA[j] if not keep_all else NULL
                 if mem_alnreg.secondary >= 0:
                     mem_aln.sub = -1  # don't output sub-optimal score
-                if num_mem_aln > 0 > mem_alnreg.secondary:  # if supplementary
+                if mem_aln_n > 0 > mem_alnreg.secondary:  # if supplementary
                     mem_aln.flag |= 0x10000 if opt.skip_mate_rescue else 0x800
-                if opt.keep_mapq_for_supplementary and num_mem_aln > 0 and mem_alnreg.is_alt > 0 and mem_aln.mapq > mem_alnregs.a[0].mapq:
+                if opt.keep_mapq_for_supplementary and mem_aln_n > 0 and mem_alnreg.is_alt > 0 and mem_aln.mapq > mem_alnregs.a[0].mapq:
                     mem_aln.mapq = mem_alnregs.a[0].mapq  # lower
-                # create a AlignedSegment record here
-                rec = self._unmapped(query=queries[i])
 
-                # set the flags
-                mem_aln.flag |= 0x4 if mem_aln.rid < 0 else 0
-                mem_aln.flag |= 0x10 if mem_aln.is_rev > 0 else 0
-                rec.flag = (mem_aln.flag & 0xffff) | (0x100 if (mem_aln.flag & 0x10000) != 0 else 0)
+                mem_aln_v[mem_aln_n] = mem_aln
+                mem_aln_n += 1
 
-                # reference id, position, mapq, and cigar
-                if rec.is_mapped:
-                    rec.reference_id = mem_aln.rid
-                    rec.reference_start = mem_aln.pos
-                    rec.mapping_quality = mem_aln.mapq
-                    cigar = ""
-                    for k in range(mem_aln.n_cigar):
-                        cigar_op = mem_aln.cigar[k] & 0xf
-                        if opt.soft_clip_supplementary and mem_aln.is_alt == 0 and (cigar_op == 3 or cigar_op == 4):
-                            cigar_op = 4 if num_mem_aln > 0 else 3  # // use hard clipping for supplementary alignments
-                        cigar_len = mem_aln.cigar[k] >> 4
-                        cigar = cigar + f"{cigar_len}" + "MIDS"[cigar_op]
-                    rec.cigarstring = cigar
-
-                # sequence and qualities
-                rec.query_sequence = query.sequence if rec.is_forward else query.sequence[::-1]
-                if query.quality is not None:
-                    rec.query_qualities = query.quality if rec.is_forward else query.quality[::-1]
-
-                # remove leading and trailing soft-clipped bases for non-primary etc.
-                if rec.is_mapped and mem_aln.n_cigar > 0 and num_mem_aln > 0 and not opt.soft_clip_supplementary and not mem_aln.is_alt:
-                    qb = 0
-                    qe = seq.l
-                    if (mem_aln.cigar[0] & 0xf) == 4 or (mem_aln.cigar[0] & 0xf) == 3:
-                        qb += mem_aln.cigar[0] >> 4
-                    if (mem_aln.cigar[mem_aln.n_cigar-1] & 0xf) == 4 or (mem_aln.cigar[mem_aln.n_cigar-1] & 0xf) == 3:
-                        qe -= mem_aln.cigar[mem_aln.n_cigar-1] >> 4
-                    rec.query_sequence = rec.query_sequence [qb:qe]
-                    if query.quality is not None:
-                        rec.query_qualities = rec.query_qualities[qb:qe]
-
-                if rec.is_mapped:
-                    md = <char*>(mem_aln.cigar + mem_aln.n_cigar)
-                    attrs = dict()
-                    attrs["NM"] = f"{mem_aln.NM}"
-                    attrs["MD"] = f"{md}"
-                    # NB: mate tags are not output: MC, MQ
-                    if mem_aln.score >= 0:
-                        attrs["AS"] = mem_aln.score
-                    if mem_aln.sub >= 0:
-                        attrs["XS"] = mem_aln.sub
-                    if mem_aln.flag & 0x100 != 0:
-                        # for j in range(n):
-                        #
-                        #     if (j != num_mem_aln and list[j].flag & 0x100 != 0):
-                        #         break
-                        # if j < n:  # there are other primary hits; output them
-                        # TODO: SA
-                        pass
-                        if mem_aln.alt_sc > 0:
-                            attrs['pa'] = mem_aln.score / float(mem_aln.alt_sc)
-                    if mem_aln.XA != NULL:
-                        attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
-                    if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and self._index.bns().anns[rec.reference_id].anno[0] != 0:
-                        attrs["XR"] = self._index.bns().anns[rec.reference_id].anno
-                    rec.set_tags(list(attrs.items()))
-
-                num_mem_aln += 1
-                recs.append(rec)
-            if num_mem_aln == 0:  # unmapped
-                recs.append(self._unmapped(query=queries[i]))
-            if not keep_all:
-                free(XA)
+            if mem_aln_n == 0:
+                recs = [self._unmapped(query=queries[i])]
+            else:
+                recs = [
+                    self._build_alignment(opt, query, mem_aln_v, mem_aln_n, j)
+                    for j in range(mem_aln_n)
+                ]
+            for j in range(mem_aln_n):
+                free(XA[j])
+                free(mem_aln_v[j].cigar)
+            free(XA)
+            free(mem_aln_v)
             recs_to_return.append(recs)
 
-        # TODO: free stuff (see mem_reg2sam)
-        # TODO: free cigars?
         for i in range(num_seqs):
             free(seqs[i].s)
         free(seqs)
 
-        # TODO: how do we handle retval
         return recs_to_return
