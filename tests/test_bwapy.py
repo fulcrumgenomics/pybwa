@@ -3,12 +3,12 @@ from pathlib import Path
 import pytest
 from pysam import FastxRecord
 
-from bwapy import BwaAln
-from bwapy import BwaAlnOptions
-from bwapy import BwaIndex
-from bwapy.libbwamem import BwaMem
-from bwapy.libbwamem import BwaMemOptions
-from bwapy.libbwamem import BwaMemOptionsBuilder
+from pybwa import BwaAln
+from pybwa import BwaAlnOptions
+from pybwa import BwaIndex
+from pybwa.libbwamem import BwaMem
+from pybwa.libbwamem import BwaMemOptions
+from pybwa.libbwamem import BwaMemOptionsBuilder
 
 
 @pytest.fixture()
