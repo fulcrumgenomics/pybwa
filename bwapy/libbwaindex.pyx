@@ -40,9 +40,9 @@ cdef class BwaIndex:
         """Loads the bwa index.
 
         Args:
-            bwt: load the BWT (FM-index)
-            bns: load the BNS (reference sequence metadata)
-            pac: load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
+            bwt (bool): load the BWT (FM-index)
+            bns (bool): load the BNS (reference sequence metadata)
+            pac (bool): load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
                  random base)
         """
         cdef int mode
