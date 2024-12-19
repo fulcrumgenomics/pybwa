@@ -76,7 +76,7 @@ def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
         nthreads=multiprocessing.cpu_count() * 2,
 
         # Tell Cython we're using Python 3. Becomes default in Cython 3
-        compiler_directives={"language_level": "3"},
+        compiler_directives={"language_level": "3", 'embedsignature': True},
 
         # (Optional) Always rebuild, even if files untouched
         force=True,
