@@ -6,7 +6,7 @@ from typing import List
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
-from pysam import FastxRecord, AlignedSegment
+from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwaindex cimport BwaIndex
 
@@ -203,7 +203,7 @@ cdef class BwaAln:
         rec.is_supplementary = False
         rec.is_unmapped = True
         rec.query_sequence = query.sequence
-        rec.query_qualities = query.quality
+        rec.query_qualities = qualitystring_to_array(query.quality)
 
         if seq.type == BWA_TYPE_NO_MATCH:  # unmapped read
             # TODO: custom bwa tags: RG, BC, XC
@@ -214,7 +214,7 @@ cdef class BwaAln:
         # if on the reverse strand, reverse the query sequence and qualities
         rec.query_sequence = query.sequence[::-1]
         if query.quality is not None:
-            rec.query_qualities = query.quality[::-1]
+            rec.query_qualities = qualitystring_to_array(query.quality[::-1])
 
         # reference id
         nn = bns_cnt_ambi(self._index.bns(), seq.pos, ref_len_in_alignment, &reference_id)
@@ -261,7 +261,7 @@ cdef class BwaAln:
                     hit = &seq.multi[j]
                     end = pos_end_multi(hit, seq.len - hit.pos)
                     nn = bns_cnt_ambi(self._index.bns(), hit.pos, end, &reference_id)
-                    XA += self._index.bns().anns[reference_id].name
+                    XA += str(self._index.bns().anns[reference_id].name)
                     XA += "," + ('-' if hit.strand != 0 else '+')
                     XA += str(hit.pos - self._index.bns().anns[reference_id].offset + 1)
                     if hit.cigar == NULL:

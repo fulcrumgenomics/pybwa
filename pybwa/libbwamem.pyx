@@ -5,7 +5,7 @@ from libc.string cimport memset, memcpy
 from libc.stdlib cimport calloc, free
 import enum
 from pybwa.libbwaindex cimport BwaIndex
-from pysam import FastxRecord, AlignedSegment
+from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
 
 __all__ = [
     "BwaMemMode",
@@ -592,7 +592,7 @@ cdef class BwaMem:
         rec.is_supplementary = False
         rec.is_unmapped = True
         rec.query_sequence = query.sequence
-        rec.query_qualities = query.quality
+        rec.query_qualities = qualitystring_to_array(query.quality)
         return rec
 
     def _add_sa_tag(self, records: list[AlignedSegment]) -> None:
@@ -681,7 +681,9 @@ cdef class BwaMem:
                 if not rec.is_secondary:
                     rec.query_sequence = query.sequence if rec.is_forward else query.sequence[::-1]
                     if query.quality is not None:
-                        rec.query_qualities = query.quality if rec.is_forward else query.quality[::-1]
+                        rec.query_qualities = qualitystring_to_array(
+                            query.quality if rec.is_forward else query.quality[::-1]
+                        )
 
                 # reference id, position, mapq, and cigar
                 rec.reference_id = mem_aln.rid
@@ -708,7 +710,7 @@ cdef class BwaMem:
                     if trailing_op == 3 or trailing_op == 4:
                         qe -= mem_aln.cigar[mem_aln.n_cigar - 1] >> 4
                     rec.query_sequence = rec.query_sequence[qb:qe]
-                    if query.quality is not None:
+                    if rec.query_qualities is not None:
                         rec.query_qualities = rec.query_qualities[qb:qe]
 
                 # Optional tags
@@ -727,7 +729,7 @@ cdef class BwaMem:
                     attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
                 if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and \
                         self._index.bns().anns[rec.reference_id].anno[0] != 0:
-                    attrs["XR"] = self._index.bns().anns[rec.reference_id].anno
+                    attrs["XR"] = str(self._index.bns().anns[rec.reference_id].anno)
                 rec.set_tags(list(attrs.items()))
 
                 mapped_recs.append(rec)
