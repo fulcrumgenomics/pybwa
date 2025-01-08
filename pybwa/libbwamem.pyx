@@ -567,6 +567,10 @@ cdef class BwaMem:
             one alignment per query
         """
         return self._calign(opt, queries)
+    
+    @staticmethod
+    def __to_str(_bytes: bytes) -> str:
+        return _bytes.decode('utf-8')
 
     cdef _copy_seq(self, q: FastxRecord, kstring_t *seq):
         seq_len = len(q.sequence)
@@ -718,7 +722,7 @@ cdef class BwaMem:
                 if mem_aln.n_cigar > 0:
                     attrs["NM"] = mem_aln.NM
                     md = <char *> (mem_aln.cigar + mem_aln.n_cigar)
-                    attrs["MD"] = md.decode('utf-8')
+                    attrs["MD"] = self.__to_str(md)
                 # NB: mate tags are not output: MC, MQ
                 if mem_aln.score >= 0:
                     attrs["AS"] = mem_aln.score

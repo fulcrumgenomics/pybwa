@@ -159,6 +159,10 @@ cdef class BwaAln:
             one alignment per query
         """
         return self._calign(opt,  queries)
+    
+    @staticmethod
+    def __to_str(_bytes: bytes) -> str:
+        return _bytes.decode('utf-8')
 
     cdef _copy_seq(self, q: FastxRecord, bwa_seq_t* s, is_comp: bool):
         seq_len = len(q.sequence)
@@ -245,8 +249,8 @@ cdef class BwaAln:
         # # tags
         if seq.type != BWA_TYPE_NO_MATCH:
             attrs = dict()
-            attrs['XT'] = b'N' if nn > 10 else "NURM"[seq.type]
-            attrs["NM" if ((opt._delegate.mode & BWA_MODE_COMPREAD) != 0) else "CM"] = int(seq.nm)
+            tag = "NM" if ((opt._delegate.mode & BWA_MODE_COMPREAD) != 0) else "CM"
+            attrs[tag] = int(seq.nm)
             if nn > 0:
                 attrs["XN"] = nn
             if seq.type != BWA_TYPE_MATESW:  # X0 and X1 are not available for this type of alignment
@@ -258,7 +262,7 @@ cdef class BwaAln:
             attrs["XO"] = seq.n_gapo
             attrs["XG"] = seq.n_gapo + seq.n_gape
             if seq.md != NULL:
-                attrs["MD"] = seq.md.decode("utf-8")
+                attrs["MD"] = self.__to_str(seq.md)
             # print multiple hits
             if seq.n_multi > 0:
                 XA = ""
@@ -266,19 +270,24 @@ cdef class BwaAln:
                     hit = &seq.multi[j]
                     end = pos_end_multi(hit, seq.len - hit.pos)
                     nn = bns_cnt_ambi(self._index.bns(), hit.pos, end, &reference_id)
-                    XA += str(self._index.bns().anns[reference_id].name)
+                    XA += self.__to_str(self._index.bns().anns[reference_id].name)
                     XA += "," + ('-' if hit.strand != 0 else '+')
                     XA += str(hit.pos - self._index.bns().anns[reference_id].offset + 1)
+                    XA += ","
                     if hit.cigar == NULL:
-                        XA += f",{seq.len}M"
+                        XA += f"{seq.len}M"
                     else:
                         for k in range(hit.n_cigar):
                             cigar_len = __cigar_len(hit.cigar[k])
                             cigar_op = "MIDS"[__cigar_op(hit.cigar[k])]
-                            XA += "," + f"{cigar_len}{cigar_op}"
-                    XA += f",{hit.gap + hit.mm}"
+                            XA += f"{cigar_len}{cigar_op}"
+                    XA += f",{hit.gap + hit.mm};"
                 attrs["XA"] = XA
-            rec.set_tags(list(attrs.items()))
+            # NB: the type 'A' (printable character) of the XA tag must be explicitly given
+            # below, therefore we extract the attrs dictionary as a list of tuples first.
+            tags = list(attrs.items())
+            tags.append(('XT', b'N' if nn > 10 else "NURM"[seq.type], 'A'))
+            rec.set_tags(tags)
 
         return rec
 
