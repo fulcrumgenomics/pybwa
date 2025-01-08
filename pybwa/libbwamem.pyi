@@ -30,6 +30,7 @@ class BwaMemOptions:
     skip_pairing: bool
     output_all_for_fragments: bool
     interleaved_paired_end: bool
+    short_split_as_secondary: bool
     skip_mate_rescue: bool
     soft_clip_supplementary: bool
     with_xr_tag: bool

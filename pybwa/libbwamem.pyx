@@ -86,38 +86,52 @@ cdef class BwaMemOptions:
             return self._options.n_threads
 
     property skip_pairing:
+        """bwa mem -P"""
         def __get__(self):
             return (self._options.flag & MEM_F_NOPAIRING) != 0
 
     property output_all_for_fragments:
+        """bwa mem -a"""
         def __get__(self):
             return (self._options.flag & MEM_F_ALL) != 0
 
     property interleaved_paired_end:
+        """bwa mem -p"""
         def __get__(self):
             return (self._options.flag & (MEM_F_PE | MEM_F_SMARTPE)) != 0
 
-    property skip_mate_rescue:
+    property short_split_as_secondary:
+        """bwa mem -M"""
         def __get__(self):
             return (self._options.flag & MEM_F_NO_MULTI) != 0
 
+    property skip_mate_rescue:
+        """bwa mem -S"""
+        def __get__(self):
+            return (self._options.flag & MEM_F_NO_RESCUE) != 0
+
     property soft_clip_supplementary:
+        """bwa mem -Y"""
         def __get__(self):
             return (self._options.flag & MEM_F_SOFTCLIP) != 0
 
     property with_xr_tag:
+        """bwa mem -V"""
         def __get__(self):
             return (self._options.flag & MEM_F_REF_HDR) != 0
 
     property query_coord_as_primary:
+        """bwa mem -5"""
         def __get__(self):
             return (self._options.flag & (MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ)) != 0
 
     property keep_mapq_for_supplementary:
+        """bwa mem -q"""
         def __get__(self):
             return (self._options.flag & MEM_F_KEEP_SUPP_MAPQ) != 0
 
     property with_xb_tag:
+        """bwa mem -u"""
         def __get__(self):
             return (self._options.flag & MEM_F_XB) != 0
 
@@ -356,54 +370,70 @@ cdef class BwaMemOptionsBuilder(BwaMemOptions):
         return self
 
     property skip_pairing:
+        """bwa mem -P"""
         def __get__(self):
             return super().skip_pairing
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_NOPAIRING)
 
     property output_all_for_fragments:
+        """bwa mem -a"""
         def __get__(self):
             return super().output_all_for_fragments
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_ALL)
 
     property interleaved_paired_end:
+        """bwa mem -p"""
         def __get__(self):
             return super().interleaved_paired_end
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_PE | MEM_F_SMARTPE)
-
-    property skip_mate_rescue:
+    
+    property short_split_as_secondary:
+        """bwa mem -M"""
         def __get__(self):
-            return super().skip_pairing
+            return (self._options.flag & MEM_F_NO_MULTI) != 0
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_NO_MULTI)
 
+    property skip_mate_rescue:
+        """bwa mem -S"""
+        def __get__(self):
+            return super().skip_pairing
+        def __set__(self, value: bool):
+            self._set_flag(value, MEM_F_NO_RESCUE)
+
     property soft_clip_supplementary:
+        """bwa mem -Y"""
         def __get__(self):
             return super().soft_clip_supplementary
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_SOFTCLIP)
 
     property with_xr_tag:
+        """bwa mem -V"""
         def __get__(self):
             return super().with_xr_tag
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_REF_HDR)
 
     property query_coord_as_primary:
+        """bwa mem -5"""
         def __get__(self):
             return super().query_coord_as_primary
         def __set__(self, value: bool):
-            self._set_flag(value, MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ) #/ always apply MEM_F_KEEP_SUPP_MAPQ with -5
+            self._set_flag(value, MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ) # always apply MEM_F_KEEP_SUPP_MAPQ with -5
 
     property keep_mapq_for_supplementary:
+        """bwa mem -q"""
         def __get__(self):
             return super().keep_mapq_for_supplementary
         def __set__(self, value: bool):
             self._set_flag(value, MEM_F_KEEP_SUPP_MAPQ)
 
     property with_xb_tag:
+        """bwa mem -u"""
         def __get__(self):
             return super().with_xb_tag
         def __set__(self, value: bool):
@@ -607,13 +637,16 @@ cdef class BwaMem:
         for i, record in enumerate(records):
             if record.is_secondary:
                 continue
+            # TODO: bwa mem uses the original cigar, not the one modified 
+            # when not using opt.soft_clip_supplementary.  Therefore, we
+            # change any hard-clip back to soft-clip
             SA = ""
             for j, other in enumerate(records):
                 if i == j or other.is_secondary:
                     continue
                 SA = f"{other.reference_name},{other.reference_start+1},"
                 SA += "+" if other.is_forward else "-"
-                SA += f",{other.cigarstring}"
+                SA += f",{other.cigarstring.replace('H', 'S')}"
                 SA += f",{other.mapq},{other.get_tag('NM')};"
             record.set_tag("SA", SA)
 
@@ -659,7 +692,7 @@ cdef class BwaMem:
                 mem_alnreg = &mem_alnregs.a[j]
                 if mem_alnreg.score < opt.minimum_score:
                     continue
-                if mem_alnreg.secondary >= 0 and (mem_alnreg.is_alt or not keep_all):
+                if mem_alnreg.secondary >= 0 and (mem_alnreg.is_alt > 0 or not keep_all):
                     continue
                 if 0 <= mem_alnreg.secondary < INT_MAX and mem_alnreg.score < mem_alnregs.a[mem_alnreg.secondary].score * opt.xa_drop_ratio:
                     continue
@@ -668,9 +701,9 @@ cdef class BwaMem:
                 if mem_alnreg.secondary >= 0:
                     mem_aln.sub = -1  # don't output sub-optimal score
                 if len(mapped_recs) > 0 and mem_alnreg.secondary < 0:  # if supplementary
-                    mem_aln.flag |= 0x10000 if opt.skip_mate_rescue else 0x800
-                if opt.keep_mapq_for_supplementary and len(mapped_recs) > 0 and mem_alnreg.is_alt > 0 and mem_aln.mapq > mem_alnregs.a[0].mapq:
-                    mem_aln.mapq = mem_alnregs.a[0].mapq  # lower
+                    mem_aln.flag |= 0x10000 if opt.short_split_as_secondary else 0x800
+                if not opt.keep_mapq_for_supplementary and len(mapped_recs) > 0 and mem_alnreg.is_alt == 0 and mem_aln.mapq > mapped_recs[0].mapping_quality:
+                    mem_aln.mapq = mapped_recs[0].mapping_quality  # lower
 
                 rec = self._unmapped(query=query)
 
@@ -681,30 +714,36 @@ cdef class BwaMem:
                 if rec.is_unmapped:
                     continue
 
-                # sequence and qualities
-                if not rec.is_secondary:
-                    rec.query_sequence = query.sequence if rec.is_forward else reverse_complement(query.sequence)
+                # for secondary alignments, do not add sequence and qualities
+                if rec.is_secondary:
+                    rec.query_sequence = None
+                    rec.query_qualities = None
+                elif rec.is_reverse:
+                    rec.query_sequence = reverse_complement(query.sequence)
                     if query.quality is not None:
-                        rec.query_qualities = qualitystring_to_array(
-                            query.quality if rec.is_forward else query.quality[::-1]
-                        )
+                        # NB: cannot use rec.query_qualities as it is invalidated by setting
+                        # query_sequence above
+                        rec.query_qualities = qualitystring_to_array(query.quality[::-1])
 
                 # reference id, position, mapq, and cigar
                 rec.reference_id = mem_aln.rid
                 rec.reference_start = mem_aln.pos
                 rec.mapping_quality = mem_aln.mapq
                 cigar = ""
+                cigar_len_sum = 0
                 for k in range(mem_aln.n_cigar):
                     cigar_op = mem_aln.cigar[k] & 0xf
-                    if opt.soft_clip_supplementary and mem_aln.is_alt == 0 and (
+                    if not opt.soft_clip_supplementary and mem_aln.is_alt == 0 and (
                             cigar_op == 3 or cigar_op == 4):
-                        cigar_op = 4 if rec.is_supplementary else 3  # // use hard clipping for supplementary alignments
+                        cigar_op = 4 if j > 0 else 3  # // use hard clipping for supplementary alignments
                     cigar_len = mem_aln.cigar[k] >> 4
-                    cigar += f"{cigar_len}" + "MIDS"[cigar_op]
+                    cigar += f"{cigar_len}" + "MIDSH"[cigar_op]
+                    if cigar_op < 4:
+                        cigar_len_sum += cigar_len
                 rec.cigarstring = cigar
 
                 # remove leading and trailing soft-clipped bases for non-primary etc.
-                if mem_aln.n_cigar > 0 and not rec.is_secondary and not opt.soft_clip_supplementary and not mem_aln.is_alt:
+                if mem_aln.n_cigar > 0 and j > 0 and not opt.soft_clip_supplementary and mem_aln.is_alt == 0:
                     qb = 0
                     qe = len(query.sequence)
                     leading_op = mem_aln.cigar[0] & 0xf
@@ -713,9 +752,11 @@ cdef class BwaMem:
                         qb += mem_aln.cigar[0] >> 4
                     if trailing_op == 3 or trailing_op == 4:
                         qe -= mem_aln.cigar[mem_aln.n_cigar - 1] >> 4
-                    rec.query_sequence = rec.query_sequence[qb:qe]
-                    if rec.query_qualities is not None:
-                        rec.query_qualities = rec.query_qualities[qb:qe]
+                    query_qualities = rec.query_qualities # as setting query_sequence may invalidate this
+                    if rec.query_sequence is not None:
+                        rec.query_sequence = rec.query_sequence[qb:qe]
+                    if query_qualities is not None:
+                        rec.query_qualities = query_qualities[qb:qe]
 
                 # Optional tags
                 attrs = dict()
