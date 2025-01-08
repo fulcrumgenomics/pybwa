@@ -17,6 +17,8 @@ cdef extern from "bwt.h":
 
 cdef extern from "bwtaln.h":
     int BWA_TYPE_NO_MATCH
+    int BWA_TYPE_MATESW
+
     int BWA_MODE_GAPE
     int BWA_MODE_COMPREAD
     int BWA_MODE_LOGGAP
@@ -92,7 +94,6 @@ cdef extern from "bwtaln.h":
         uint64_t pos
         uint16_t *cigar
     ctypedef struct bwa_seq_t:
-
         char *name
         uint8_t *seq
         uint8_t *rseq
@@ -111,6 +112,8 @@ cdef extern from "bwtaln.h":
         int n_multi;
         bwt_multi1_t *multi;
         uint64_t pos
+        uint64_t c1
+        uint64_t c2
         uint16_t *cigar
         int n_cigar
         int tid

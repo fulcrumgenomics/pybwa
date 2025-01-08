@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
 
 from pybwa import BwaAln
@@ -37,11 +38,27 @@ def test_bwaaln(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     opt = BwaAlnOptions()
     bwa = BwaAln(prefix=ref_fasta)
 
-    recs = bwa.align(opt=opt, queries=[fastx_record])
-    assert len(recs) == 1
+    revcomp_seq = None if not fastx_record.sequence else reverse_complement(fastx_record.sequence)
+    revcomp_record = FastxRecord(name="revcomp", sequence=revcomp_seq)
+
+    recs = bwa.align(opt=opt, queries=[fastx_record, revcomp_record])
+    assert len(recs) == 2
     rec = recs[0]
     assert rec.query_name == "test"
+    assert not rec.is_paired
+    assert not rec.is_read1
+    assert not rec.is_read2
     assert rec.reference_start == 80
+    assert rec.is_forward
+    assert rec.cigarstring == "80M"
+
+    rec = recs[1]
+    assert rec.query_name == "revcomp"
+    assert not rec.is_paired
+    assert not rec.is_read1
+    assert not rec.is_read2
+    assert rec.reference_start == 80
+    assert rec.is_reverse
     assert rec.cigarstring == "80M"
 
 
@@ -64,11 +81,29 @@ def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     opt = BwaMemOptions()
     bwa = BwaMem(prefix=ref_fasta)
 
-    recs = bwa.align(opt=opt, queries=[fastx_record])
-    assert len(recs) == 1
+    revcomp_seq = None if not fastx_record.sequence else reverse_complement(fastx_record.sequence)
+    revcomp_record = FastxRecord(name="revcomp", sequence=revcomp_seq)
+
+    recs = bwa.align(opt=opt, queries=[fastx_record, revcomp_record])
+    assert len(recs) == 2
+
     assert len(recs[0]) == 1
     rec = recs[0][0]
     assert rec.query_name == "test"
+    assert not rec.is_paired
+    assert not rec.is_read1
+    assert not rec.is_read2
     assert rec.reference_start == 80
+    assert rec.is_forward
     assert rec.cigarstring == "80M", print(str(rec))
-    # TODO: test multi-mapping etc
+
+    assert len(recs[1]) == 1
+    rec = recs[1][0]
+    assert rec.query_name == "revcomp"
+    assert not rec.is_paired
+    assert not rec.is_read1
+    assert not rec.is_read2
+    assert rec.reference_start == 80
+    assert rec.is_reverse
+    assert rec.cigarstring == "80M", print(str(rec))
+    # TODO: test multi-mapping, reverse strand, etc

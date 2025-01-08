@@ -1,6 +1,7 @@
 # cython: language_level=3
 from pathlib import Path
 from typing import List
+from fgpyo.sequence import reverse_complement
 from libc.string cimport memset, memcpy
 from libc.stdlib cimport calloc, free
 import enum
@@ -584,7 +585,7 @@ cdef class BwaMem:
         rec.reference_start = -1
         rec.mapping_quality = 0
         rec.is_paired = False
-        rec.is_read1 = True
+        rec.is_read1 = False
         rec.is_read2 = False
         rec.is_qcfail = False
         rec.is_duplicate = False
@@ -647,7 +648,6 @@ cdef class BwaMem:
             XA = NULL
             keep_all = opt.output_all_for_fragments
             if not keep_all:
-                print(f"XA: {keep_all}")
                 XA = mem_gen_alt(mem_opt, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
 
             mapped_recs = []
@@ -679,7 +679,7 @@ cdef class BwaMem:
 
                 # sequence and qualities
                 if not rec.is_secondary:
-                    rec.query_sequence = query.sequence if rec.is_forward else query.sequence[::-1]
+                    rec.query_sequence = query.sequence if rec.is_forward else reverse_complement(query.sequence)
                     if query.quality is not None:
                         rec.query_qualities = qualitystring_to_array(
                             query.quality if rec.is_forward else query.quality[::-1]
@@ -716,9 +716,9 @@ cdef class BwaMem:
                 # Optional tags
                 attrs = dict()
                 if mem_aln.n_cigar > 0:
-                    attrs["NM"] = f"{mem_aln.NM}"
+                    attrs["NM"] = mem_aln.NM
                     md = <char *> (mem_aln.cigar + mem_aln.n_cigar)
-                    attrs["MD"] = f"{md}"
+                    attrs["MD"] = md.decode('utf-8')
                 # NB: mate tags are not output: MC, MQ
                 if mem_aln.score >= 0:
                     attrs["AS"] = mem_aln.score

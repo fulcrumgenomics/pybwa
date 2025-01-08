@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import List
+from fgpyo.sequence import reverse_complement
 
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
@@ -159,7 +160,7 @@ cdef class BwaAln:
         """
         return self._calign(opt,  queries)
 
-    cdef _copy_seq(self, q: FastxRecord, bwa_seq_t* s):
+    cdef _copy_seq(self, q: FastxRecord, bwa_seq_t* s, is_comp: bool):
         seq_len = len(q.sequence)
         s.len = seq_len
         s.clip_len = seq_len
@@ -171,12 +172,13 @@ cdef class BwaAln:
         # use seq_reverse from bwaseqio.c
         for i, base in enumerate(q.sequence):
             s.seq[i] = nst_nt4_table[ord(base)]
+            s.rseq[i] = nst_nt4_table[ord(base)]
             s.qual[i] = 40  # FIXME: parameterize
         s.seq[seq_len] = b'\0'
         s.qual[seq_len] = b'\0'
         seq_reverse(seq_len, s.seq,
                     0)  #  // *IMPORTANT*: will be reversed back in bwa_refine_gapped()
-        seq_reverse(seq_len, s.rseq, 0)
+        seq_reverse(seq_len, s.rseq, 1 if is_comp else 0)
 
         s.name = <char *> calloc(sizeof(char), len(q.name) + 1)
         strncpy(s.name, force_bytes(q.name), len(q.name))
@@ -195,7 +197,7 @@ cdef class BwaAln:
         rec.reference_start = -1
         rec.mapping_quality = 0
         rec.is_paired = False
-        rec.is_read1 = True
+        rec.is_read1 = False
         rec.is_read2 = False
         rec.is_qcfail = False
         rec.is_duplicate = False
@@ -209,12 +211,8 @@ cdef class BwaAln:
             # TODO: custom bwa tags: RG, BC, XC
             return rec
 
+        # get the span of reference bases
         ref_len_in_alignment = pos_end(seq) - seq.pos
-
-        # if on the reverse strand, reverse the query sequence and qualities
-        rec.query_sequence = query.sequence[::-1]
-        if query.quality is not None:
-            rec.query_qualities = qualitystring_to_array(query.quality[::-1])
 
         # reference id
         nn = bns_cnt_ambi(self._index.bns(), seq.pos, ref_len_in_alignment, &reference_id)
@@ -227,6 +225,9 @@ cdef class BwaAln:
         # strand, reference start, and mapping quality
         if seq.strand:
             rec.is_reverse = True
+            rec.query_sequence = reverse_complement(query.sequence)
+            if query.quality is not None:
+                rec.query_qualities = qualitystring_to_array(query.quality[::-1])
         rec.reference_start = seq.pos - self._index.bns().anns[rec.reference_id].offset  # 0-based
         rec.mapping_quality = seq.mapQ
 
@@ -245,15 +246,19 @@ cdef class BwaAln:
         if seq.type != BWA_TYPE_NO_MATCH:
             attrs = dict()
             attrs['XT'] = b'N' if nn > 10 else "NURM"[seq.type]
-            attrs["NM" if ((opt._delegate.mode & BWA_MODE_COMPREAD) != 0) else "CM"] = f"{seq.nm}"
+            attrs["NM" if ((opt._delegate.mode & BWA_MODE_COMPREAD) != 0) else "CM"] = int(seq.nm)
             if nn > 0:
                 attrs["XN"] = nn
+            if seq.type != BWA_TYPE_MATESW:  # X0 and X1 are not available for this type of alignment
+                attrs["X0"] = seq.c1
+                if seq.c1 <= opt.stop_at_max_best_hits:
+                    attrs["X1"] = seq.c2
             # SM, AM, X0, and X1 are for paired end reads, so omitted
             attrs["XM"] = seq.n_mm
             attrs["XO"] = seq.n_gapo
             attrs["XG"] = seq.n_gapo + seq.n_gape
             if seq.md != NULL:
-                attrs["MD"] = f"{seq.md}"
+                attrs["MD"] = seq.md.decode("utf-8")
             # print multiple hits
             if seq.n_multi > 0:
                 XA = ""
@@ -292,7 +297,7 @@ cdef class BwaAln:
         num_seqs = len(queries)
         seqs = <bwa_seq_t*>calloc(sizeof(bwa_seq_t), num_seqs)
         for i in range(num_seqs):
-            self._copy_seq(queries[i], &seqs[i])
+            self._copy_seq(queries[i], &seqs[i], (opt._delegate.mode & BWA_MODE_COMPREAD) != 0)
             seqs[i].tid = -1
 
         # this is `bwa aln`, and the rest is `bwa samse`
@@ -302,7 +307,7 @@ cdef class BwaAln:
         for i in range(num_seqs):
             s = &seqs[i]
             # bwa_cal_sa_reg_gap frees name, seq, rseq, and qual, so add them back in again
-            self._copy_seq(queries[i], s)
+            self._copy_seq(queries[i], s, (opt._delegate.mode & BWA_MODE_COMPREAD) != 0)
             bwa_aln2seq_core(s.n_aln, s.aln, s, 1, opt.max_hits)
 
         # # calculate the genomic position given the suffix array offsite
