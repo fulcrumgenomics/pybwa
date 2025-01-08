@@ -285,8 +285,8 @@ cdef class BwaAln:
                 attrs["XA"] = XA
             # NB: the type 'A' (printable character) of the XA tag must be explicitly given
             # below, therefore we extract the attrs dictionary as a list of tuples first.
-            tags = list(attrs.items())
-            tags.append(('XT', b'N' if nn > 10 else "NURM"[seq.type], 'A'))
+            tags = [('XT', b'N' if nn > 10 else "NURM"[seq.type], 'A')]
+            tags.extend(list(attrs.items()))
             rec.set_tags(tags)
 
         return rec
