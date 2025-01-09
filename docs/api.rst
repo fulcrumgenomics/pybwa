@@ -37,7 +37,7 @@ align and return a *single* :class:`~pysam.AlignedSegment` per input read:
 
 gives:
 
-.. code-block::
+.. code-block:: console
 
    read.1	0	chr1	1	37	7M	*	0	0	GATTACA	*	XT:A:U	NM:i:0	X0:i:1	X1:i:0	XM:i:0	XO:i:0	XG:i:0	MD:Z:7
 
@@ -52,7 +52,7 @@ align and return a *list* of :class:`~pysam.AlignedSegment` per input read:
 
 gives:
 
-.. code-block::
+.. code-block:: console
 
    chr1	0	chr1	1	60	35M	*	0	0	CTCAAGGTTGTTGCAAGGGGGTCTATGTGAACAAA	*	NM:i:0	MD:Z:35	AS:i:35	XS:i:0
 
