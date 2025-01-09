@@ -60,6 +60,7 @@ mkdocs-literate-nav = { version = ">=0.6.1" }
 mkdocs-section-index = { version = ">=0.3.9" }
 mkdocstrings-python = { version = ">=1.12.2" }
 mkdocstrings = { version = ">=0.27.0" }
+sphinx = { version = "^7.0.0", optional = true }
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "cython>=3.0.11", "setuptools>=75.1.0"]
