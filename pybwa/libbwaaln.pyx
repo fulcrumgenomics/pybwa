@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 cdef class BwaAlnOptions:
-    """The container for options for [`BwaAln`][pybwa.BwaAln]."""
+    """The container for options for :class:`pybwa.BwaAln."""
     cdef gap_opt_t * _delegate
 
     _max_hits: int
@@ -42,14 +42,14 @@ cdef class BwaAlnOptions:
             self._delegate.s_mm = value
 
     property max_gap_opens:
-        """bwa aln -o <int>"""
+        """:code:`bwa aln -o <int>`"""
         def __get__(self):
             return self._delegate.max_gapo
         def __set__(self, value: int):
            self._delegate.max_gapo = value
 
     property max_gap_extensions:
-        """bwa aln -e <int>"""
+        """:code:`bwa aln -e <int>`"""
         def __get__(self):
             return self._delegate.max_gapo
         def __set__(self, value: int):
@@ -58,56 +58,56 @@ cdef class BwaAlnOptions:
                 self._delegate.mode &= ~BWA_MODE_GAPE
 
     property min_indel_to_end_distance:
-        """bwa aln -i <int>"""
+        """:code:`bwa aln -i <int>`"""
         def __get__(self):
             return self._delegate.indel_end_skip
         def __set__(self, value: int):
            self._delegate.indel_end_skip = value
 
     property max_occurrences_for_extending_long_deletion:
-        """bwa aln -d <int>"""
+        """:code:`bwa aln -d <int>`"""
         def __get__(self):
             return self._delegate.max_del_occ
         def __set__(self, value: int):
            self._delegate.max_del_occ = value
 
     property seed_length:
-        """bwa aln -l <int>"""
+        """:code:`bwa aln -l <int>`"""
         def __get__(self):
             return self._delegate.seed_len
         def __set__(self, value: int):
            self._delegate.seed_len = value
 
     property max_mismatches_in_seed:
-        """bwa aln -k <int>"""
+        """:code:`bwa aln -k <int>`"""
         def __get__(self):
             return self._delegate.max_seed_diff
         def __set__(self, value: int):
            self._delegate.max_seed_diff = value
 
     property mismatch_penalty:
-        """bwa aln -M <int>"""
+        """:code:`bwa aln -M <int>`"""
         def __get__(self):
             return self._delegate.s_mm
         def __set__(self, value: int):
            self._delegate.s_mm = value
 
     property gap_open_penalty:
-        """bwa aln -O <int>"""
+        """:code:`bwa aln -O <int>`"""
         def __get__(self):
             return self._delegate.s_gapo
         def __set__(self, value: int):
            self._delegate.s_gapo = value
 
     property gap_extension_penalty:
-        """bwa aln -E <int>"""
+        """:code:`bwa aln -E <int>`"""
         def __get__(self):
             return self._delegate.s_gape
         def __set__(self, value: int):
            self._delegate.s_gape = value
 
     property stop_at_max_best_hits:
-        """bwa aln -R <int>"""
+        """:code:`bwa aln -R <int>`"""
         def __get__(self):
             return self._delegate.max_top2
         def __set__(self, value: int):
@@ -121,7 +121,7 @@ cdef class BwaAlnOptions:
            self._max_hits = value
 
     property log_scaled_gap_penalty:
-        """bwa aln -L"""
+        """:code:`bwa aln -L`"""
         def __get__(self):
             return self._delegate.mode & BWA_MODE_LOGGAP > 0
         def __set__(self, value: int):
@@ -132,7 +132,7 @@ cdef class BwaAlnOptions:
 
 
 cdef class BwaAln:
-    """The class to align reads with `bwa aln`."""
+    """The class to align reads with :code:`bwa aln`."""
 
     cdef BwaIndex _index
 

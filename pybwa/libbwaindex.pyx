@@ -34,7 +34,11 @@ cdef bytes force_bytes_with(object s, encoding: str | None = None, errors: str |
 
 
 cdef class BwaIndex:
-    """Contains the index and nucleotide sequence for Bwa.
+    """Contains the index and nucleotide sequence for Bwa.  Use :code:`bwa index` on the command
+    line to generate the bwa index.
+
+    Note: the accompanying sequence dictionary must exist (i.e. `.dict` file, which can be generated
+    with :code:`samtools dict <fasta>`).
 
     Args:
         prefix (str | Path): the path prefix for teh BWA index
