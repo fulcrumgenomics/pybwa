@@ -11,7 +11,7 @@ API.
 Examples
 ========
 
-Two alignment commands are supported: `bwa aln` with the :class:`~pybwa.BwaAln` object and `bwa mem` with :class:`~pybwa.BwaMem` object.
+Two alignment commands are supported: :code:`bwa aln` with the :class:`~pybwa.BwaAln` object and :code:`bwa mem` with :class:`~pybwa.BwaMem` object.
 The constructor of both objects require either (1) a path prefix of the index (typically the FASTA), or (2) an already
 created :class:`~pybwa.BwaIndex` object.
 
@@ -85,8 +85,8 @@ API versus Command-line Differences
 ===================================
 
 The reported alignments from `pybwa` may differ from those reported by the `bwa` command line.
-In particular when the latter is run with multiple threads (see `bwa aln -t` and `bwa mem -t`),
-and when the latter processes multiple chunks (see `bwa aln -m` and `bwa mem -K`).
+In particular when the latter is run with multiple threads (see :code:`bwa aln -t` and :code:`bwa mem -t`),
+and when the latter processes multiple chunks (see :code:`bwa aln -m` and :code:`bwa mem -K`).
 
 Furthermore, when multiple alignments with the same *alignment score* exist for one read, both the chosen primary
 alignment *AND* number of non-primary (i.e. secondary) alignments may differ.
