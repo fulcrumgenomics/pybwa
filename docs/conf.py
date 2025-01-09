@@ -27,6 +27,7 @@ if os.path.exists(_libdir):
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosummary',
+              'sphinx.ext.extlinks',
               'sphinx.ext.todo', 
               'sphinx.ext.ifconfig',
               'sphinx.ext.intersphinx',

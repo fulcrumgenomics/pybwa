@@ -28,7 +28,7 @@ or
    mem = BwaMem(prefix="/path/to/genome.fasta")
 
 The :meth:`pybwa.BwaAln.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord` s) to
-align and return a *single* :class:`~pysam.AlignedSegment` per input read:
+align and return a *single* :class:`pysam.AlignedSegment` per input read:
 
 .. code-block:: python
 
