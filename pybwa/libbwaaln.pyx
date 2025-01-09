@@ -36,21 +36,22 @@ cdef class BwaAlnOptions:
         return self._delegate
 
     property max_mismatches:
-        def __get__(self):
+        """:code:`bwa aln -n <int>`"""
+        def __get__(self) -> int:
             return self._delegate.s_mm
         def __set__(self, value: int):
             self._delegate.s_mm = value
 
     property max_gap_opens:
         """:code:`bwa aln -o <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.max_gapo
         def __set__(self, value: int):
            self._delegate.max_gapo = value
 
     property max_gap_extensions:
         """:code:`bwa aln -e <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.max_gapo
         def __set__(self, value: int):
             self._delegate.max_gape = value
@@ -59,70 +60,70 @@ cdef class BwaAlnOptions:
 
     property min_indel_to_end_distance:
         """:code:`bwa aln -i <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.indel_end_skip
         def __set__(self, value: int):
            self._delegate.indel_end_skip = value
 
     property max_occurrences_for_extending_long_deletion:
         """:code:`bwa aln -d <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.max_del_occ
         def __set__(self, value: int):
            self._delegate.max_del_occ = value
 
     property seed_length:
         """:code:`bwa aln -l <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.seed_len
         def __set__(self, value: int):
            self._delegate.seed_len = value
 
     property max_mismatches_in_seed:
         """:code:`bwa aln -k <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.max_seed_diff
         def __set__(self, value: int):
            self._delegate.max_seed_diff = value
 
     property mismatch_penalty:
         """:code:`bwa aln -M <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.s_mm
         def __set__(self, value: int):
            self._delegate.s_mm = value
 
     property gap_open_penalty:
         """:code:`bwa aln -O <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.s_gapo
         def __set__(self, value: int):
            self._delegate.s_gapo = value
 
     property gap_extension_penalty:
         """:code:`bwa aln -E <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.s_gape
         def __set__(self, value: int):
            self._delegate.s_gape = value
 
     property stop_at_max_best_hits:
         """:code:`bwa aln -R <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.max_top2
         def __set__(self, value: int):
            self._delegate.max_top2 = value
 
     property max_hits:
-        """bwa samse -n <int>"""
-        def __get__(self):
+        """:code:`bwa samse -n <int>`"""
+        def __get__(self) -> int:
             return self._max_hits
         def __set__(self, value: int):
            self._max_hits = value
 
     property log_scaled_gap_penalty:
         """:code:`bwa aln -L`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._delegate.mode & BWA_MODE_LOGGAP > 0
         def __set__(self, value: int):
             if value:

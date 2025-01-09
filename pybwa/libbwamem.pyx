@@ -21,8 +21,11 @@ __all__ = [
 class BwaMemMode(enum.Enum):
     """The read type for overriding multiple options"""
     PACBIO = enum.auto()
+    """PacBio reads to ref"""
     ONT2D = enum.auto()
+    """Oxford Nanopore 2D-reads to ref"""
     INTRACTG = enum.auto()
+    """intra-species contigs to ref"""
 
 
 cdef class BwaMemOptions:
@@ -47,7 +50,7 @@ cdef class BwaMemOptions:
 
     property min_seed_len:
         """:code:`bwa mem -k <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.min_seed_len
 
     property mode:
@@ -57,140 +60,137 @@ cdef class BwaMemOptions:
 
     property band_width:
         """:code:`bwa mem -w <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.w
 
     property match_score:
         """:code:`bwa mem -A <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.a
 
     property mismatch_penalty:
         """:code:`bwa mem -A <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.b
 
     property minimum_score:
         """:code:`bwa mem -T <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.T
 
     property unpaired_penalty:
         """:code:`bwa mem -U <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.pen_unpaired
 
     property n_threads:
         """:code:`bwa mem -t <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.n_threads
 
     property skip_pairing:
         """:code:`bwa mem -P`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_NOPAIRING) != 0
 
     property output_all_for_fragments:
         """:code:`bwa mem -a`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_ALL) != 0
 
     property interleaved_paired_end:
         """:code:`bwa mem -p`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & (MEM_F_PE | MEM_F_SMARTPE)) != 0
 
     property short_split_as_secondary:
         """:code:`bwa mem -M`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_NO_MULTI) != 0
 
     property skip_mate_rescue:
         """:code:`bwa mem -S`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_NO_RESCUE) != 0
 
     property soft_clip_supplementary:
         """:code:`bwa mem -Y`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_SOFTCLIP) != 0
 
     property with_xr_tag:
         """:code:`bwa mem -V`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_REF_HDR) != 0
 
     property query_coord_as_primary:
         """:code:`bwa mem -5`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & (MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ)) != 0
 
     property keep_mapq_for_supplementary:
         """:code:`bwa mem -q`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_KEEP_SUPP_MAPQ) != 0
 
     property with_xb_tag:
         """:code:`bwa mem -u`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return (self._options.flag & MEM_F_XB) != 0
 
     property max_occurrences:
         """:code:`bwa mem -c <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.max_occ
 
     property off_diagonal_x_dropoff:
         """:code:`bwa mem -d <float>`"""
-        def __get__(self):
+        def __get__(self) -> float:
             return self._options.XA_drop_ratio
 
     property ignore_alternate_contigs:
         """:code:`bwa mem -j`"""
-        def __get__(self):
+        def __get__(self) -> bool:
             return self._ignore_alt
 
     property internal_seed_split_factor:
         """:code:`bwa mem -r <float>`"""
-        def __get__(self):
+        def __get__(self) -> float:
             return self._options.split_factor
 
     property drop_chain_fraction:
         """:code:`bwa mem -D <float>`"""
-        def __get__(self):
+        def __get__(self) -> float:
             return self._options.drop_ratio
-        def __set__(self, value: float):
-            self._options.drop_ratio = value
-            self._options0.drop_ratio = 1
 
     property max_mate_rescue_rounds:
         """:code:`bwa mem -m <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.max_matesw
 
     property min_seeded_bases_in_chain:
         """:code:`bwa mem -W <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.min_chain_weight
 
     property seed_occurrence_in_3rd_round:
         """:code:`bwa mem -y <int>`"""
-        def __get__(self):
+        def __get__(self) -> int:
             return self._options.max_mem_intv
 
     property xa_max_hits:
         """:code:`bwa mem -h <int<,int>>`"""
-        def __get__(self):
+        def __get__(self) -> int | tuple[int, int]:
             return self._options.max_XA_hits, self._options.max_XA_hits_alt
 
     property xa_drop_ratio:
         """:code:`bwa mem -y <float>`"""
-        def __get__(self):
+        def __get__(self) -> float:
             return self._options.XA_drop_ratio
 
     property gap_open_penalty:
         """:code:`bwa mem -O <int<,int>>`"""
-        def __get__(self):
+        def __get__(self) -> int | tuple[int, int]:
             if self._options.o_del == self._options.o_ins:
                 return self._options.o_del
             else:
@@ -198,7 +198,7 @@ cdef class BwaMemOptions:
 
     property gap_extension_penalty:
         """:code:`bwa mem -E <int<,int>>`"""
-        def __get__(self):
+        def __get__(self) -> int | tuple[int, int]:
             if self._options.e_del == self._options.e_ins:
                 return self._options.e_del
             else:
@@ -207,7 +207,7 @@ cdef class BwaMemOptions:
 
     property clipping_penalty:
         """:code:`bwa mem -L <int<,int>>`"""
-        def __get__(self):
+        def __get__(self) -> int | tuple[int, int]:
             if self._options.pen_clip5 == self._options.pen_clip3:
                 return self._options.pen_clip5
             else:

@@ -115,5 +115,8 @@ Bwa Mem
 .. autoclass:: pybwa.BwaMemOptions
    :members:
 
+.. autoclass:: pybwa.BwaMemMode
+   :members:
+
 .. autoclass:: pybwa.BwaMem
    :members:
