@@ -27,7 +27,7 @@ or
    from pybwa import BwaMem
    mem = BwaMem(prefix="/path/to/genome.fasta")
 
-The :meth:`~pybwa.BwaAln.align` method accepts a list of reads (as either strings or :class:`~pysam.FastxRecord`s) to
+The :meth:`pybwa.BwaAln.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord`s) to
 align and return a *single* :class:`~pysam.AlignedSegment` per input read:
 
 .. code-block:: python
@@ -41,8 +41,8 @@ gives:
 
    read.1	0	chr1	1	37	7M	*	0	0	GATTACA	*	XT:A:U	NM:i:0	X0:i:1	X1:i:0	XM:i:0	XO:i:0	XG:i:0	MD:Z:7
 
-The :meth:`~pybwa.BwaMem.align` method accepts a list of reads (as either strings or :class:`~pysam.FastxRecord`s) to
-align and return a *list* of :class:`~pysam.AlignedSegment` per input read:
+The :meth:`pybwa.BwaMem.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord`s) to
+align and return a *list* of :class:`pysam.AlignedSegment` per input read:
 
 .. code-block:: python
 
@@ -56,7 +56,7 @@ gives:
 
    chr1	0	chr1	1	60	35M	*	0	0	CTCAAGGTTGTTGCAAGGGGGTCTATGTGAACAAA	*	NM:i:0	MD:Z:35	AS:i:35	XS:i:0
 
-The :meth:`~pybwa.BwaAln.align` method accepts custom options provided as a :class:`~pybwa.BwaAlnOptions` object.
+The :meth:`pybwa.BwaAln.align` method accepts custom options provided as a :class:`~pybwa.BwaAlnOptions` object.
 It is constructed directly and options set on the object:
 
 .. code-block:: python
@@ -66,7 +66,7 @@ It is constructed directly and options set on the object:
    recs = aln.align(queries=["GATTACA"], opt=opt)
 
 
-The :meth:`~pybwa.BwaMem.align` method accepts custom options provided as a :class:`~pybwa.BwaMemOptions` object.
+The :meth:`pybwa.BwaMem.align` method accepts custom options provided as a :class:`~pybwa.BwaMemOptions` object.
 It is constructed via the :class:`~pybwa.BwaMemOptionsBuilder` class, to support scaling gap open and extend penalties
 when a custom match score, or the specification of presets (via `mode`).
 
