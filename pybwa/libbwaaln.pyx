@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 cdef class BwaAlnOptions:
-    """The container for options for :class:`pybwa.BwaAln."""
+    """The container for options for :class:`pybwa.BwaAln`."""
     cdef gap_opt_t * _delegate
 
     _max_hits: int
