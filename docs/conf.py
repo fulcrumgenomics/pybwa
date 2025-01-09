@@ -32,7 +32,10 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.intersphinx',
               'sphinx.ext.napoleon']
 
-intersphinx_mapping = {'python': ('http://docs.python.org/3.8', None)}
+intersphinx_mapping = {
+    'python': ('http://docs.python.org/3.8', None),
+    'pysam': ('https://pysam.readthedocs.io/en/latest', None)
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

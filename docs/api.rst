@@ -27,7 +27,7 @@ or
    from pybwa import BwaMem
    mem = BwaMem(prefix="/path/to/genome.fasta")
 
-The :meth:`pybwa.BwaAln.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord`s) to
+The :meth:`pybwa.BwaAln.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord` s) to
 align and return a *single* :class:`~pysam.AlignedSegment` per input read:
 
 .. code-block:: python
@@ -41,7 +41,7 @@ gives:
 
    read.1	0	chr1	1	37	7M	*	0	0	GATTACA	*	XT:A:U	NM:i:0	X0:i:1	X1:i:0	XM:i:0	XO:i:0	XG:i:0	MD:Z:7
 
-The :meth:`pybwa.BwaMem.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord`s) to
+The :meth:`pybwa.BwaMem.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord` s) to
 align and return a *list* of :class:`pysam.AlignedSegment` per input read:
 
 .. code-block:: python
