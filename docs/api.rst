@@ -8,6 +8,9 @@ data.  It is a lightweight wrapper of `bwa`_.
 This page provides a quick introduction in using `pybwa`_ followed by the
 API.
 
+Examples
+========
+
 Two alignment commands are supported: `bwa aln` with the :class:`~pybwa.BwaAln` object and `bwa mem` with :class:`~pybwa.BwaMem` object.
 The constructor of both objects require either (1) a path prefix of the index (typically the FASTA), or (2) an already
 created :class:`~pybwa.BwaIndex` object.
