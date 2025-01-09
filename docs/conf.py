@@ -53,6 +53,7 @@ copyright = u'2024, Fulcrum Genomics'
 # Included at the end of each rst file
 rst_epilog = '''
 .. _pybwa: https://github.com/fulcrumgenomics/pybwa
+.. _bwa: https://github.com/lh3/bwa
 .. _python: http://python.org/
 .. _conda: https://conda.io/docs/
 '''
@@ -118,7 +119,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  Major themes that come with
 # Sphinx are currently 'default' and 'sphinxdoc'.
-html_theme = 'default'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

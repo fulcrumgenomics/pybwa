@@ -38,6 +38,7 @@ fgpyo = ">=0.7.0"
 python = ">=3.9.0,<4.0"
 pysam = ">=0.22.1"
 typing_extensions = { version = ">=3.7.4", python = "<3.12" }
+sphinx-rtd-theme = "^3.0.2"
 
 [tool.poetry.group.dev.dependencies]
 # dependencies for linting, style checking, and unit testing
@@ -50,17 +51,7 @@ black = ">=24.8.0"  # for readthedocs
 
 [tool.poetry.group.docs.dependencies]
 # dependencies for building docs 
-mkdocs-autorefs = { version = ">=0.5.0" }
-mkdocs-include-markdown-plugin = { version = ">=6.0.1" }
-mkdocs-material = { version = ">=9.2.8" }
-mkdocs-table-reader-plugin = { version = ">=2.0.1" }
-mkdocs = { version = ">=1.5.2" }
-mkdocs-gen-files = { version = ">=0.5.0" }
-mkdocs-literate-nav = { version = ">=0.6.1" }
-mkdocs-section-index = { version = ">=0.3.9" }
-mkdocstrings-python = { version = ">=1.12.2" }
-mkdocstrings = { version = ">=0.27.0" }
-sphinx = { version = "^7.0.0", optional = true }
+sphinx = { version = ">=7.0.0"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "cython>=3.0.11", "setuptools>=75.1.0"]

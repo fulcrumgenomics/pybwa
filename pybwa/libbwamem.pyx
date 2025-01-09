@@ -586,16 +586,24 @@ cdef class BwaMem:
             raise Exception("Either prefix or index must be given")
 
     # TODO: support paired end
-    def align(self, opt: BwaMemOptions, queries: List[FastxRecord]) -> List[List[AlignedSegment]]:
+    def align(self, queries: List[FastxRecord] | List[str], opt: BwaMemOptions | None = None) -> List[List[AlignedSegment]]:
         """Align one or more queries with `bwa aln`.
 
         Args:
-            opt: the alignment options
             queries: the queries to align
+            opt: the alignment options, or None to use the default options
 
         Returns:
             one alignment per query
         """
+        opt = BwaMemOptionsBuilder().build if opt is None else opt
+        if len(queries) == 0:
+            return []
+        elif isinstance(queries[0], str):
+            queries = [
+                FastxRecord(name=f"read.{i}", sequence=sequence)
+                for i, sequence in enumerate(queries)
+            ]
         return self._calign(opt, queries)
     
     @staticmethod

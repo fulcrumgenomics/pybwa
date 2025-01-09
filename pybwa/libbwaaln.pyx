@@ -148,16 +148,26 @@ cdef class BwaAln:
         bwase_initialize()
 
     # TODO: a list of records...
-    def align(self, opt: BwaAlnOptions, queries: List[FastxRecord]) -> List[AlignedSegment]:
+    def align(self, queries: List[FastxRecord] | List[str], opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
         """Align one or more queries with `bwa aln`.
 
         Args:
-            opt: the alignment options
             queries: the queries to align
+            opt: the alignment options, or None to use the default options
 
         Returns:
             one alignment per query
         """
+        if len(queries) == 0:
+            return []
+        elif isinstance(queries[0], str):
+            queries = [
+                FastxRecord(name=f"read.{i}", sequence=sequence)
+                for i, sequence in enumerate(queries)
+            ]
+        opt = BwaAlnOptions() if opt is None else opt
+
+
         return self._calign(opt,  queries)
     
     @staticmethod
