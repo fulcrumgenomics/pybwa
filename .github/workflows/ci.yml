@@ -82,8 +82,8 @@ jobs:
       shell: bash
       run: |
         set -euo pipefail
-        # FIXME: use --strict
-        poetry run mkdocs build
+        cd docs
+        poetry run make html
 
     - name: Upload code coverage
       uses: codecov/codecov-action@v4.5.0
