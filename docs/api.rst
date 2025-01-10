@@ -68,7 +68,7 @@ It is constructed directly and options set on the object:
 
 The :meth:`pybwa.BwaMem.align` method accepts custom options provided as a :class:`~pybwa.BwaMemOptions` object.
 It is constructed via the :class:`~pybwa.BwaMemOptionsBuilder` class, to support scaling gap open and extend penalties
-when a custom match score, or the specification of presets (via `mode`).
+when a using custom match score, or the specification of presets (via `mode`).
 
 .. code-block:: python
 
