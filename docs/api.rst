@@ -100,10 +100,10 @@ API
 Bwa Aln
 =======
 
-.. autoclass:: pybwa.libbwaaln.BwaAlnOptions
+.. autoclass:: pybwa.BwaAlnOptions
    :members:
 
-.. autoclass:: pybwa.libbwaaln.BwaAln
+.. autoclass:: pybwa.BwaAln
    :members:
 
 Bwa Mem
@@ -119,4 +119,10 @@ Bwa Mem
    :members:
 
 .. autoclass:: pybwa.BwaMem
+   :members:
+
+Bwa Index
+=========
+
+.. autoclass:: pybwa.BwaIndex
    :members:
