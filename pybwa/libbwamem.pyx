@@ -652,6 +652,7 @@ cdef class BwaMem:
 
         # copy FastqProxy into bwa_seq_t
         num_seqs = len(queries)
+        mem_opt = opt.mem_opt()
 
         seqs = <kstring_t*>calloc(sizeof(kstring_t), num_seqs)
         for i in range(num_seqs):
