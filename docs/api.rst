@@ -27,6 +27,9 @@ or
    from pybwa import BwaMem
    mem = BwaMem(prefix="/path/to/genome.fasta")
 
+The :class:`~pybwa.BwaIndex` object is useful when re-using the same index, such that it only needs to be loaded into
+memory once.  Both constructors for the :class:`~pybwa.BwaAln` and :class:`~pybwa.BwaMem` objects accept an index.
+
 The :meth:`pybwa.BwaAln.align` method accepts a list of reads (as either strings or :class:`pysam.FastxRecord` s) to
 align and return a *single* :class:`pysam.AlignedSegment` per input read:
 
@@ -75,13 +78,13 @@ It is constructed directly and options set on the object:
    opt.min_seed_len = 32
    recs = aln.align(queries=["GATTACA"], opt=opt)
 
-Note: the match score when set only scales other options (:code:`-TdBOELU`) unless the latter are specified
-**and** only after the :meth:`~pybwa.BwaMemOptions.finalize` has been called.
-The options become immutable unless :code:`copy=True` is passed to :meth:`~pybwa.BwaMemOptions.finalize`.
-
-The :class:`~pybwa.BwaIndex` object is useful when re-using the same index, such that it only needs to be loaded into memory
-once.
-Both constructors for the :class:`~pybwa.BwaAln` and :class:`~pybwa.BwaMem` objects accept an index.
+Note: the :meth:`~pybwa.BwaMemOptions.finalize` method will both apply the presets as specified by the
+:meth:`~pybwa.BwaMemOptions.mode` option, as well as scale various other options (:code:`-TdBOELU`) based on the
+:attr:`~pybwa.BwaMemOptions.match_score`.  The presets and scaling will only be applied to other options that have not
+been modified from their defaults.  After calling the :meth:`~pybwa.BwaMemOptions.finalize` method, the options are
+immutable, unless :code:`copy=True` is passed to :meth:`~pybwa.BwaMemOptions.finalize` method, in which case a copy
+of the options are returned by the method.   Regardless, the :meth:`~pybwa.BwaMemOptions.finalize` method *does not*
+need to be called before the :meth:`pybwa.BwaMem.align` is invoked, as the latter will do so (making a local copy).
 
 API versus Command-line Differences
 ===================================
