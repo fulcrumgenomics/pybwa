@@ -85,7 +85,7 @@ def test_bwamem_options() -> None:
     # finalize, returning itself finalized
     options.finalize()
     assert options.finalized
-    assert options.min_seed_len == 20
+    assert options.min_seed_len == 20  # type:ignore[unreachable]
 
     # raise an exception if we try to set a new value
     with pytest.raises(AttributeError):

@@ -27,15 +27,6 @@ class BwaMemMode(enum.Enum):
     """intra-species contigs to ref"""
 
 
-def finalized(func):
-
-    def wrapper_func():
-
-        func()
-
-    return wrapper_func()
-
-
 cdef class BwaMemOptions:
     """The container for options for :class:`~pybwa.BwaMem`."""
     _finalized: bool
