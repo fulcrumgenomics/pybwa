@@ -38,7 +38,9 @@ cdef class BwaMemOptions:
     def _assert_not_finalized(self, attr_name: str) -> None:
         """Raises an AttributeError if the options have been finalized.
 
-        This is used in each setter below, as cython does not support decorating properties.
+        This is used in each setter below to enforce that setters are not used after
+         :meth:`~pybwa.BwaMemOptions.finalize` is called.  This could be a property decorator,
+         but cython does not support decorating properties.
         """
         if self._finalized:
             raise AttributeError(f"can't set attribute: {attr_name}")
@@ -547,6 +549,14 @@ cdef class BwaMem:
     cdef BwaIndex _index
 
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
+        """Constructs the :code:`bwa mem` aligner.
+
+        One of `prefix` or `index` must be specified.
+
+        Args:
+            prefix: the path prefix for the BWA index (typically a FASTA)
+            index: the index to use
+        """
         if prefix is not None:
             assert Path(prefix).exists()
             self._index = BwaIndex(prefix=prefix)
@@ -564,7 +574,8 @@ cdef class BwaMem:
             opt: the alignment options, or None to use the default options
 
         Returns:
-            one alignment per query
+            a list of alignments (:class:`~pysam.AlignedSegment`) per query
+            :code:`List[List[AlignedSegment]]`.
         """
         if opt is None:
             opt = BwaMemOptions().finalize()
