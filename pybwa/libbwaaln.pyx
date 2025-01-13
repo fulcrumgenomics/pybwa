@@ -33,6 +33,7 @@ cdef class BwaAlnOptions:
         free(self._delegate)
 
     cdef gap_opt_t* gap_opt(self):
+        """Returns the options struct to use with the bwa C library methods"""
         return self._delegate
 
     property max_mismatches:
@@ -138,6 +139,14 @@ cdef class BwaAln:
     cdef BwaIndex _index
 
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
+        """Constructs the :code:`bwa aln` aligner.
+
+        One of `prefix` or `index` must be specified.
+
+        Args:
+            prefix: the path prefix for the BWA index (typically a FASTA)
+            index: the index to use
+        """
         if prefix is not None:
             assert Path(prefix).exists()
             self._index = BwaIndex(prefix=prefix)
@@ -148,7 +157,6 @@ cdef class BwaAln:
 
         bwase_initialize()
 
-    # TODO: a list of records...
     def align(self, queries: List[FastxRecord] | List[str], opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
         """Align one or more queries with `bwa aln`.
 
@@ -157,7 +165,8 @@ cdef class BwaAln:
             opt: the alignment options, or None to use the default options
 
         Returns:
-            one alignment per query
+            one alignment (:class:`~pysam.AlignedSegment`) per query
+            :code:`List[List[AlignedSegment]]`.
         """
         if len(queries) == 0:
             return []

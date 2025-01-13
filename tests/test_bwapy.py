@@ -9,7 +9,6 @@ from pybwa import BwaAlnOptions
 from pybwa import BwaIndex
 from pybwa.libbwamem import BwaMem
 from pybwa.libbwamem import BwaMemOptions
-from pybwa.libbwamem import BwaMemOptionsBuilder
 
 
 @pytest.fixture()
@@ -66,15 +65,31 @@ def test_bwamem_options() -> None:
     # default options
     options = BwaMemOptions()
     assert options.min_seed_len == 19
-    # build with default options
-    builder = BwaMemOptionsBuilder()
-    options = builder.build()
-    assert options.min_seed_len == 19
-    # build with custom option
-    builder = BwaMemOptionsBuilder()
-    builder.min_seed_len = 20
-    options = builder.build()
+
+    # finalize, returning a copy
+    copy = options.finalize(copy=True)
+    assert copy.min_seed_len == 19
+    assert copy.finalized
+    assert not options.finalized
+
+    # update min seed len
+    options.min_seed_len = 20
     assert options.min_seed_len == 20
+
+    # finalize, returning a copy with a new value
+    copy = options.finalize(copy=True)
+    assert copy.min_seed_len == 20
+    assert copy.finalized
+    assert not options.finalized
+
+    # finalize, returning itself finalized
+    options.finalize()
+    assert options.finalized
+    assert options.min_seed_len == 20  # type:ignore[unreachable]
+
+    # raise an exception if we try to set a new value
+    with pytest.raises(AttributeError):
+        options.min_seed_len = 19
 
 
 def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
@@ -95,7 +110,7 @@ def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert not rec.is_read2
     assert rec.reference_start == 80
     assert rec.is_forward
-    assert rec.cigarstring == "80M", print(str(rec))
+    assert rec.cigarstring == "80M"
 
     assert len(recs[1]) == 1
     rec = recs[1][0]
@@ -105,5 +120,5 @@ def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert not rec.is_read2
     assert rec.reference_start == 80
     assert rec.is_reverse
-    assert rec.cigarstring == "80M", print(str(rec))
+    assert rec.cigarstring == "80M"
     # TODO: test multi-mapping, reverse strand, etc

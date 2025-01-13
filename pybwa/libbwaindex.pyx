@@ -41,7 +41,7 @@ cdef class BwaIndex:
     with :code:`samtools dict <fasta>`).
 
     Args:
-        prefix (str | Path): the path prefix for teh BWA index
+        prefix (str | Path): the path prefix for the BWA index (typically a FASTA)
         bwt (bool): load the BWT (FM-index)
         bns (bool): load the BNS (reference sequence metadata)
         pac (bool): load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
