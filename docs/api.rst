@@ -66,16 +66,18 @@ It is constructed directly and options set on the object:
    recs = aln.align(queries=["GATTACA"], opt=opt)
 
 
-The :meth:`pybwa.BwaMem.align` method accepts custom options provided as a :class:`~pybwa.BwaMemOptions` object.
-It is constructed via the :class:`~pybwa.BwaMemOptionsBuilder` class, to support scaling gap open and extend penalties
-when a using custom match score, or the specification of presets (via `mode`).
+Similarly, the :meth:`pybwa.BwaMem.align` method accepts custom options provided as a :class:`~pybwa.BwaMemOptions` object.
+It is constructed directly and options set on the object:
 
 .. code-block:: python
 
-   builder = BwaMemOptionsBuilder()
-   builder.min_seed_len = 32
-   opt: BwaMemOptions = builder.build()
+   opt = BwaMemOptions()
+   opt.min_seed_len = 32
    recs = aln.align(queries=["GATTACA"], opt=opt)
+
+Note: the match score when set only scales other options (:code:`-TdBOELU`) unless the latter are specified
+**and** only after the :meth:`~pybwa.BwaMemOptions.finalize` has been called.
+The options become immutable unless :code:`copy=True` is passed to :meth:`~pybwa.BwaMemOptions.finalize`.
 
 The :class:`~pybwa.BwaIndex` object is useful when re-using the same index, such that it only needs to be loaded into memory
 once.
@@ -108,9 +110,6 @@ Bwa Aln
 
 Bwa Mem
 =======
-
-.. autoclass:: pybwa.BwaMemOptionsBuilder
-   :members:
 
 .. autoclass:: pybwa.BwaMemOptions
    :members:
