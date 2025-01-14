@@ -12,10 +12,8 @@ jobs:
         PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12"]
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/checkout@v4
       with:
-        repository: "lh3/bwa"
-        path: "bwa"
+        submodules: 'true'
     - name: Set up Python ${{matrix.PYTHON_VERSION}}
       uses: actions/setup-python@v1
       with:

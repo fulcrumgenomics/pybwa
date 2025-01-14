@@ -5,10 +5,11 @@ build:
     python: "3.9"
   jobs:
     pre_install:
-      - git clone https://github.com/lh3/bwa.git
       - pip install poetry==1.8.3
       - poetry config virtualenvs.create false
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install
+submodules:
+  include: all
 sphinx:
   configuration: docs/conf.py
 python:
