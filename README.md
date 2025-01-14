@@ -21,7 +21,7 @@
 
 # pybwa
 
-Python language bindings for [bwa][bwa-link]
+Python language bindings for [bwa][bwa-link].
 
 See documentation on [pybwa.readthedocs.org][rtd-link].
 

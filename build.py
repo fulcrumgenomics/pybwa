@@ -1,10 +1,10 @@
-from setuptools import Extension, Distribution
+import multiprocessing
+from pathlib import Path
 from typing import List
 
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
-import multiprocessing
-from pathlib import Path
+from setuptools import Extension, Distribution
 
 SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
@@ -13,7 +13,7 @@ link_args = []
 include_dirs = ["bwa"]
 libraries = ['m', 'z', 'pthread']
 library_dirs=['bwa']
-extra_objects = []  #glob.glob(os.path.join('bwa', '*.o'))
+extra_objects = []
 h_files = []
 c_files = []
 for root_dir in ["bwa", "pybwa"]:
@@ -107,9 +107,9 @@ def build():
     # Use Setuptools to collect files
     distribution = Distribution({
         "name": "pybwa",
-        'version': '0.0.1',  # FIXME
-        'description': 'Todo',  # FIXME
-        'long_description': 'FIXME',
+        'version': '0.0.1',
+        'description': 'Python bindings for BWA',
+        'long_description': __doc__,
         'long_description_content_type': 'text/x-rst',
         'author': 'Nils Homer',
         'author_email': 'nils@fulcrumgenomics.com',

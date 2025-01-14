@@ -60,7 +60,7 @@ gives:
    chr1	0	chr1	1	60	35M	*	0	0	CTCAAGGTTGTTGCAAGGGGGTCTATGTGAACAAA	*	NM:i:0	MD:Z:35	AS:i:35	XS:i:0
 
 The :meth:`pybwa.BwaAln.align` method accepts custom options provided as a :class:`~pybwa.BwaAlnOptions` object.
-It is constructed directly and options set on the object:
+It is constructed directly with options set on the object:
 
 .. code-block:: python
 
@@ -70,7 +70,7 @@ It is constructed directly and options set on the object:
 
 
 Similarly, the :meth:`pybwa.BwaMem.align` method accepts custom options provided as a :class:`~pybwa.BwaMemOptions` object.
-It is constructed directly and options set on the object:
+It is constructed directly with options set on the object:
 
 .. code-block:: python
 
@@ -90,13 +90,14 @@ API versus Command-line Differences
 ===================================
 
 The reported alignments from `pybwa` may differ from those reported by the `bwa` command line.
-In particular when the latter is run with multiple threads (see :code:`bwa aln -t` and :code:`bwa mem -t`),
-and when the latter processes multiple chunks (see :code:`bwa aln -m` and :code:`bwa mem -K`).
+This is true when `bwa` is run with multiple threads (see :code:`bwa aln -t` and :code:`bwa mem -t`),
+or when `bwa` processes multiple chunks (see :code:`bwa aln -m` and :code:`bwa mem -K`).
 
 Furthermore, when multiple alignments with the same *alignment score* exist for one read, both the chosen primary
 alignment *AND* number of non-primary (i.e. secondary) alignments may differ.
 As a result, the mapping quality may also differ slightly.
-This is due an implementation detail in which the order of random numbers are used.
+This is due to an implementation detail in which the order of random numbers used is different between this wrapper
+and command-line.
 
 ===
 API
