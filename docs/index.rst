@@ -12,5 +12,6 @@ Documentation Contents
 .. toctree::
    :maxdepth: 2
 
+   install.rst
    api.rst
 
