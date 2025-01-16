@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: 'true'
 
       - uses: rickstaa/action-contains-tag@v1
         id: contains_tag
@@ -66,6 +67,9 @@ jobs:
       - name: Build package
         run: poetry build --format=sdist
 
+      - name: Print contents
+        run: tar -tf dist/*.tar.gz
+
       - uses: actions/upload-artifact@v4
         with:
           name: pybwa-sdist
@@ -101,6 +105,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
+          submodules: true
 
       - name: Generate a Changelog
         uses: orhun/git-cliff-action@v3
