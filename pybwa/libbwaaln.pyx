@@ -18,13 +18,66 @@ __all__ = [
 ]
 
 cdef class BwaAlnOptions:
-    """The container for options for :class:`pybwa.BwaAln`."""
+    """The container for options for :class:`pybwa.BwaAln`.
+    
+    Args:
+        max_mismatches (int | None): :code:`-n <int>`
+        max_gap_opens (int | None): :code:`-o <int>`
+        max_gap_extensions (int | None): :code:`-e <int>`
+        min_indel_to_end_distance (int | None): :code:`-i <int>`
+        max_occurrences_for_extending_long_deletion (int | None): :code:`-d <int>`
+        seed_length (int | None): :code:`-l <int>`
+        max_mismatches_in_seed (int | None): :code:`-k <int>`
+        mismatch_penalty (int | None): :code:`-M <int>`
+        gap_open_penalty (int | None): :code:`-O <int>`
+        gap_extension_penalty (int | None): :code:`-E <int>`
+        stop_at_max_best_hits (int | None): :code:`-R <int>`
+        max_hits (int | None): :code:`bwa samse -n <int>`
+        log_scaled_gap_penalty (in | None): `code:`-L`
+    """
     cdef gap_opt_t * _delegate
 
     _max_hits: int
 
-    def __init__(self):
-        self._max_hits = 3
+    def __init__(self,
+                 max_mismatches: int | None = None,
+                 max_gap_opens: int | None = None,
+                 max_gap_extensions: int | None = None,
+                 min_indel_to_end_distance: int | None = None,
+                 max_occurrences_for_extending_long_deletion: int | None = None,
+                 seed_length: int | None = None,
+                 max_mismatches_in_seed: int | None = None,
+                 mismatch_penalty: int | None = None,
+                 gap_open_penalty: int | None = None,
+                 gap_extension_penalty: int | None = None,
+                 stop_at_max_best_hits: int | None = None,
+                 max_hits: int | None = 3,
+                 log_scaled_gap_penalty: bool | None = None
+                 ):
+        if max_mismatches is not None:
+            self.max_mismatches = max_mismatches
+        if max_gap_extensions is not None:
+            self.max_gap_extensions = max_gap_extensions
+        if min_indel_to_end_distance is not None:
+            self.min_indel_to_end_distance = min_indel_to_end_distance
+        if max_occurrences_for_extending_long_deletion is not None:
+            self.max_occurrences_for_extending_long_deletion = max_occurrences_for_extending_long_deletion
+        if seed_length is not None:
+            self.seed_length = seed_length
+        if max_mismatches_in_seed is not None:
+            self.max_mismatches_in_seed = max_mismatches_in_seed
+        if mismatch_penalty is not None:
+            self.mismatch_penalty = mismatch_penalty
+        if gap_open_penalty is not None:
+            self.gap_open_penalty = gap_open_penalty
+        if gap_extension_penalty is not None:
+            self.gap_extension_penalty = gap_extension_penalty
+        if stop_at_max_best_hits is not None:
+            self.stop_at_max_best_hits = stop_at_max_best_hits
+        if max_hits is not None:
+            self.max_hits = max_hits
+        if log_scaled_gap_penalty is not None:
+            self.log_scaled_gap_penalty = 1 if log_scaled_gap_penalty else 0
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
@@ -157,12 +210,12 @@ cdef class BwaAln:
 
         bwase_initialize()
 
-    def align(self, queries: List[FastxRecord] | List[str], opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
+    def align(self, queries: List[FastxRecord] | List[str] | None = None, opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
         """Align one or more queries with `bwa aln`.
 
         Args:
             queries: the queries to align
-            opt: the alignment options, or None to use the default options
+            opt: the alignment options | None = None, or None to use the default options
 
         Returns:
             one alignment (:class:`~pysam.AlignedSegment`) per query
