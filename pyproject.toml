@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pybwa"
-version = "0.0.1"
+version = "1.0.0"
 description = "Python bindings for BWA"
 authors = ["Nils Homer"]
 license = "MIT"
