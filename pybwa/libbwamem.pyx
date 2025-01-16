@@ -8,6 +8,7 @@ import enum
 from pybwa.libbwaindex cimport BwaIndex
 from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
 
+
 __all__ = [
     "BwaMemMode",
     "BwaMemOptions",
@@ -15,7 +16,6 @@ __all__ = [
 ]
 
 
-# class syntax
 @enum.unique
 class BwaMemMode(enum.Enum):
     """The read type for overriding multiple options"""

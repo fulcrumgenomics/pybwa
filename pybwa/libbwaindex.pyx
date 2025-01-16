@@ -83,7 +83,7 @@ cdef class BwaIndex:
 
         Args:
             fasta (str | Path): the path to the FASTA to index
-            method (BwaIndexBuildMethod): the BWT construction algorithm (:code:`bwa index -a <str>`
+            method (BwaIndexBuildMethod): the BWT construction algorithm (:code:`bwa index -a <str>`)
             prefix (str | Path | None): the path prefix for the BWA index (typically a FASTA)
             block_size (int): block size for the bwtsw algorithm (effective with -a bwtsw)
             out_64 (bool): index files named as :code:`<in.fasta>.64.*` instead of :code:`<in.fasta>.*`

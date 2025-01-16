@@ -118,7 +118,7 @@ Bwa Mem
 .. autoclass:: pybwa.BwaMemOptions
    :members:
 
-.. autoclass:: pybwa.BwaMemMode
+.. autoenum:: pybwa.BwaMemMode
    :members:
 
 .. autoclass:: pybwa.BwaMem
@@ -128,4 +128,7 @@ Bwa Index
 =========
 
 .. autoclass:: pybwa.BwaIndex
+   :members:
+
+.. autoenum:: pybwa.BwaIndexBuildMethod
    :members:

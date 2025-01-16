@@ -32,7 +32,9 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.todo', 
               'sphinx.ext.ifconfig',
               'sphinx.ext.intersphinx',
-              'sphinx.ext.napoleon']
+              'sphinx.ext.napoleon',
+              'enum_tools.autoenum',
+              ]
 
 intersphinx_mapping = {
     'python': ('http://docs.python.org/3.8', None),
