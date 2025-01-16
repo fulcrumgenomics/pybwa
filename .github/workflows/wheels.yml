@@ -7,28 +7,55 @@ on:
 
 jobs:
   build-wheels:
-    name: Build wheels for ${{ matrix.python }}
-    runs-on: ubuntu-24.04
+    name: Build wheels for ${{ matrix.python }}-${{ matrix.platform.target }}_${{ matrix.platform.arch }} on ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.os }}
     strategy:
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12"]
+        python: [cp39, cp310, cp311, cp312]
+        platform:
+          - os: ubuntu-latest
+            target: manylinux
+            arch: x86_64
+          - os: ubuntu-latest
+            target: musllinux
+            arch: x86_64
+          # These don't work right now - they just hang while pulling the build image from quay.
+          # If this doesn't resolve itself, we could try to configure different images:
+          # https://cibuildwheel.readthedocs.io/en/stable/options/.
+          # - os: ubuntu-latest
+          #   target: manylinux
+          #   arch: aarch64
+          # - os: ubuntu-latest
+          #   target: musllinux
+          #   arch: aarch64
+          - os: macos-latest
+            target: macosx
+            arch: x86_64
+          - os: macos-latest
+            target: macosx
+            arch: arm64
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: "true"
 
-      - name: Set up Python ${{ matrix.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python }}
+          python-version: 3.8
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.15.0
 
       - name: Build wheels
-        run: pip wheel --no-deps -w wheelhouse .
+        run: python -m cibuildwheel --output-dir wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.platform.arch }}
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.platform.target }}_${{ matrix.platform.arch }}
+          CIBW_BUILD_VERBOSITY: 1
 
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: pybwa-wheels-${{ matrix.python }}
-          path: ./wheelhouse/pybwa*.whl
+          name: pybwa-wheels-${{ matrix.python }}-${{ matrix.platform.target }}_${{ matrix.platform.arch }}
+          path: ./wheelhouse/*.whl
           if-no-files-found: error
