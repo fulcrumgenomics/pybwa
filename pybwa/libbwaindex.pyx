@@ -3,11 +3,23 @@
 from pathlib import Path
 
 from cpython cimport PyBytes_Check, PyUnicode_Check
-from pysam import AlignmentFile
+from pysam import AlignmentFile, FastxFile
+import enum
+
 
 __all__ = [
     "BwaIndex",
+    "BwaIndexBuildMethod",
 ]
+
+@enum.unique
+class BwaIndexBuildMethod(enum.Enum):
+    """The BWT construction algorithm (:code:`bwa index -a <str>`)"""
+
+    AUTO = enum.auto()
+    RB2 = enum.auto()
+    BWTSW = enum.auto()
+    IS = enum.auto()
 
 
 cdef str ERROR_HANDLER = 'strict'
@@ -60,11 +72,40 @@ cdef class BwaIndex:
             mode |= BWA_IDX_PAC
         self._load_index(f"{prefix}", mode)
 
+    @classmethod
+    def index(cls,
+              fasta: str | Path,
+              method: BwaIndexBuildMethod= BwaIndexBuildMethod.AUTO,
+              prefix: str | Path | None = None,
+              block_size: int = 10000000,
+              out_64: bool = False) -> None:
+        """Indexes a given FASTA.  Also builds the sequence dictionary (.dict).
+
+        Args:
+            fasta (str | Path): the path to the FASTA to index
+            method (BwaIndexBuildMethod): the BWT construction algorithm (:code:`bwa index -a <str>`
+            prefix (str | Path | None): the path prefix for the BWA index (typically a FASTA)
+            block_size (int): block size for the bwtsw algorithm (effective with -a bwtsw)
+            out_64 (bool): index files named as :code:`<in.fasta>.64.*` instead of :code:`<in.fasta>.*`
+        """
+        if prefix is None:
+            prefix = fasta
+
+        # Build the BWA index
+        bwa_idx_build(force_bytes(f"{fasta}"), force_bytes(f"{prefix}"), method.value, block_size)
+
+        # Build the sequence dictionary
+        dict_fn = Path(prefix.with_suffix(".dict"))
+        with FastxFile(filename=f"{fasta}") as reader, dict_fn.open("w") as writer:
+            writer.write("@HD\tVN:1.5\tSO:unsorted\n")
+            for rec in reader:
+                writer.write(f"@SQ\tSN:{rec.name}\tLN:{len(rec.sequence)}\n")
+
+
     cdef _load_index(self, prefix, mode):
         prefix = bwa_idx_infer_prefix(force_bytes(prefix))
         if not prefix:
-            # FIXME: better error message
-            raise Exception("Could not find the index")
+            raise Exception(f"Could not find the index at: {prefix}")
 
         self._delegate = bwa_idx_load(prefix, mode)
 

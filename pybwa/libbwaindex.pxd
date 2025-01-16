@@ -16,6 +16,7 @@ cdef extern from "bwa.h":
     int BWA_IDX_BWT
     int BWA_IDX_BNS
     int BWA_IDX_PAC
+    int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_size)
 
 
 cdef extern from "bwt.h":

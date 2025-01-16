@@ -18,6 +18,21 @@ def ref_fasta() -> Path:
     return fasta
 
 
+def test_bwa_index_build(ref_fasta: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_dir = Path(str(tmp_path_factory.mktemp("test_bwa_index_build")))
+    prefix = tmp_dir / ref_fasta.name
+
+    # Build the index
+    BwaIndex.index(fasta=ref_fasta, prefix=prefix)
+    # Load it
+    BwaIndex(prefix=prefix)
+
+
+@pytest.fixture(scope="function")
+def temp_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("test_vcf")
+
+
 def test_bwa_index(ref_fasta: Path) -> None:
     BwaIndex(prefix=ref_fasta)
 
