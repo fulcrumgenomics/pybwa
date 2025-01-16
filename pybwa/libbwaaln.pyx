@@ -33,7 +33,7 @@ cdef class BwaAlnOptions:
         gap_extension_penalty (int | None): :code:`-E <int>`
         stop_at_max_best_hits (int | None): :code:`-R <int>`
         max_hits (int | None): :code:`bwa samse -n <int>`
-        log_scaled_gap_penalty (in | None): `code:`-L`
+        log_scaled_gap_penalty (in | None): :code:`-L`
     """
     cdef gap_opt_t * _delegate
 
