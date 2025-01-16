@@ -1,6 +1,13 @@
-name: CI
+name: tests
 
-on: push
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "!**"
+  workflow_call:
+
 env:
   POETRY_VERSION: 1.8
 
