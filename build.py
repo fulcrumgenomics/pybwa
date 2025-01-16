@@ -118,7 +118,7 @@ def build():
         'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
         'url': 'https://github.com/fulcrumgenomics/pybwa',
         'packages': ['pybwa'],
-        'package_dirs': {'pybwa': 'pybwa'},
+        'package_dir': {'pybwa': 'pybwa'},
         "ext_modules": extension_modules,
         "cmdclass": {
             "build_ext": cython_build_ext,
