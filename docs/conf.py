@@ -26,13 +26,13 @@ if os.path.exists(_libdir):
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc',
+              'sphinx.ext.napoleon', # must go **before** typehints below
               'sphinx_autodoc_typehints',
               'sphinx.ext.autosummary',
               'sphinx.ext.extlinks',
               'sphinx.ext.todo', 
               'sphinx.ext.ifconfig',
               'sphinx.ext.intersphinx',
-              'sphinx.ext.napoleon',
               'enum_tools.autoenum',
               ]
 
@@ -226,3 +226,9 @@ latex_documents = [
 
 # If false, no module index is generated.
 # latex_use_modindex = True
+
+# For sphinx-autodoc-typehints
+always_use_bars_union = True
+typehints_defaults = 'comma'
+typehints_use_signature = True
+typehints_use_signature_return = True
