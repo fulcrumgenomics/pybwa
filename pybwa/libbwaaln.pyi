@@ -7,20 +7,22 @@ from pysam import FastxRecord
 from pybwa.libbwaindex import BwaIndex
 
 class BwaAlnOptions:
-    def __init__(self,
-                 max_mismatches: int | None = None,
-                 max_gap_opens: int | None = None,
-                 max_gap_extensions: int | None = None,
-                 min_indel_to_end_distance: int | None = None,
-                 max_occurrences_for_extending_long_deletion: int | None = None,
-                 seed_length: int | None = None,
-                 max_mismatches_in_seed: int | None = None,
-                 mismatch_penalty: int | None = None,
-                 gap_open_penalty: int | None = None,
-                 gap_extension_penalty: int | None = None,
-                 stop_at_max_best_hits: int | None = None,
-                 max_hits: int | None = 3,
-                 log_scaled_gap_penalty: bool | None = None) -> None: ...
+    def __init__(
+        self,
+        max_mismatches: int | None = None,
+        max_gap_opens: int | None = None,
+        max_gap_extensions: int | None = None,
+        min_indel_to_end_distance: int | None = None,
+        max_occurrences_for_extending_long_deletion: int | None = None,
+        seed_length: int | None = None,
+        max_mismatches_in_seed: int | None = None,
+        mismatch_penalty: int | None = None,
+        gap_open_penalty: int | None = None,
+        gap_extension_penalty: int | None = None,
+        stop_at_max_best_hits: int | None = None,
+        max_hits: int | None = 3,
+        log_scaled_gap_penalty: bool | None = None,
+    ) -> None: ...
     max_mismatches: int  # -n <int>
     # fnr:float # -n <float>
     max_gap_opens: int  # -o <int>

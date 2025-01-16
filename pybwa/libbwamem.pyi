@@ -17,7 +17,40 @@ class BwaMemMode(enum.Enum):
     INTRACTG = enum.auto()
 
 class BwaMemOptions:
-    def __init__(self, finalize: bool = False) -> None: ...
+    def __init__(
+        self,
+        min_seed_len: int | None = None,
+        mode: BwaMemMode | None = None,
+        band_width: int | None = None,
+        match_score: int | None = None,
+        mismatch_penalty: int | None = None,
+        minimum_score: int | None = None,
+        unpaired_penalty: int | None = None,
+        n_threads: int | None = None,
+        skip_pairing: bool | None = None,
+        output_all_for_fragments: bool | None = None,
+        interleaved_paired_end: bool | None = None,
+        short_split_as_secondary: bool | None = None,
+        skip_mate_rescue: bool | None = None,
+        soft_clip_supplementary: bool | None = None,
+        with_xr_tag: bool | None = None,
+        query_coord_as_primary: bool | None = None,
+        keep_mapq_for_supplementary: bool | None = None,
+        with_xb_tag: bool | None = None,
+        max_occurrences: int | None = None,
+        off_diagonal_x_dropoff: float | None = None,
+        ignore_alternate_contigs: bool | None = None,
+        internal_seed_split_factor: float | None = None,
+        drop_chain_fraction: float | None = None,
+        max_mate_rescue_rounds: int | None = None,
+        min_seeded_bases_in_chain: int | None = None,
+        seed_occurrence_in_3rd_round: int | None = None,
+        xa_max_hits: int | tuple[int, int] | None = None,
+        xa_drop_ratio: float | None = None,
+        gap_open_penalty: int | tuple[int, int] | None = None,
+        gap_extension_penalty: int | tuple[int, int] | None = None,
+        clipping_penalty: int | tuple[int, int] | None = None,
+    ) -> None: ...
     _finalized: bool
     _ignore_alt: bool
     _mode: BwaMemMode | None

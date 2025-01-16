@@ -28,7 +28,41 @@ class BwaMemMode(enum.Enum):
 
 
 cdef class BwaMemOptions:
-    """The container for options for :class:`~pybwa.BwaMem`."""
+    """The container for options for :class:`~pybwa.BwaMem`.
+
+    Args:
+        min_seed_len (int): :code:`bwa mem -k <int>`
+        mode (BwaMemMode): :code:`bwa mem -x <str>`
+        band_width (int): :code:`bwa mem -w <int>`
+        match_score (int): :code:`bwa mem -A <int>`
+        mismatch_penalty (int): :code:`bwa mem -A <int>`
+        minimum_score (int): :code:`bwa mem -T <int>`
+        unpaired_penalty (int): :code:`bwa mem -U <int>`
+        n_threads (int): :code:`bwa mem -t <int>`
+        skip_pairing (bool): :code:`bwa mem -P`
+        output_all_for_fragments (bool): :code:`bwa mem -a`
+        interleaved_paired_end (bool): :code:`bwa mem -p`
+        short_split_as_secondary (bool): :code:`bwa mem -M`
+        skip_mate_rescue (bool): :code:`bwa mem -S`
+        soft_clip_supplementary (bool): :code:`bwa mem -Y`
+        with_xr_tag (bool): :code:`bwa mem -V`
+        query_coord_as_primary (bool): :code:`bwa mem -5`
+        keep_mapq_for_supplementary (bool): :code:`bwa mem -q`
+        with_xb_tag (bool): :code:`bwa mem -u`
+        max_occurrences (int): :code:`bwa mem -c <int>`
+        off_diagonal_x_dropoff (float): :code:`bwa mem -d <float>`
+        ignore_alternate_contigs (bool): :code:`bwa mem -j`
+        internal_seed_split_factor (float): :code:`bwa mem -r <float>`
+        drop_chain_fraction (float): :code:`bwa mem -D <float>`
+        max_mate_rescue_rounds (int): :code:`bwa mem -m <int>`
+        min_seeded_bases_in_chain (int): :code:`bwa mem -W <int>`
+        seed_occurrence_in_3rd_round (int): :code:`bwa mem -y <int>`
+        xa_max_hits (int | tuple[int, int]): :code:`bwa mem -h <int<,int>>`
+        xa_drop_ratio (float): :code:`bwa mem -y <float>`
+        gap_open_penalty (int | tuple[int, int]): :code:`bwa mem -O <int<,int>>`
+        gap_extension_penalty (int | tuple[int, int]): :code:`bwa mem -E <int<,int>>`
+        clipping_penalty (int | tuple[int, int]): :code:`bwa mem -L <int<,int>>`
+    """
     _finalized: bool
     _ignore_alt: bool
     _mode: BwaMemMode | None
@@ -45,21 +79,104 @@ cdef class BwaMemOptions:
         if self._finalized:
             raise AttributeError(f"can't set attribute: {attr_name}")
 
-    def __init__(self, options: BwaMemOptions | None = None):
-        """Builds a new `BwaMemOptions` instance.
-
-        Args:
-            options: initialize these options from the given options
-        """
-        if options is None:
-            self._finalized = False
-            self._ignore_alt = False
-            self._mode = None
-        else:
-            self._finalized = options._finalized
-            self._ignore_alt = options._ignore_alt
-            self._mode = options._mode
-
+    def __init__(self,
+                 min_seed_len: int | None = None,
+                 mode: BwaMemMode | None = None,
+                 band_width: int | None = None,
+                 match_score: int | None = None,
+                 mismatch_penalty: int | None = None,
+                 minimum_score: int | None = None,
+                 unpaired_penalty: int | None = None,
+                 n_threads: int | None = None,
+                 skip_pairing: bool | None = None,
+                 output_all_for_fragments: bool | None = None,
+                 interleaved_paired_end: bool | None = None,
+                 short_split_as_secondary: bool | None = None,
+                 skip_mate_rescue: bool | None = None,
+                 soft_clip_supplementary: bool | None = None,
+                 with_xr_tag: bool | None = None,
+                 query_coord_as_primary: bool | None = None,
+                 keep_mapq_for_supplementary: bool | None = None,
+                 with_xb_tag: bool | None = None,
+                 max_occurrences: int | None = None,
+                 off_diagonal_x_dropoff: float | None = None,
+                 ignore_alternate_contigs: bool | None = None,
+                 internal_seed_split_factor: float | None = None,
+                 drop_chain_fraction: float | None = None,
+                 max_mate_rescue_rounds: int | None = None,
+                 min_seeded_bases_in_chain: int | None = None,
+                 seed_occurrence_in_3rd_round: int | None = None,
+                 xa_max_hits: int | tuple[int, int] | None = None,
+                 xa_drop_ratio: float | None = None,
+                 gap_open_penalty: int | tuple[int, int] | None = None,
+                 gap_extension_penalty: int | tuple[int, int] | None = None,
+                 clipping_penalty: int | tuple[int, int] | None = None) -> None:
+        self._finalized = False
+        self._ignore_alt = False
+        self._mode = None
+        if min_seed_len is not None:
+            self.min_seed_len = min_seed_len
+        if mode is not None:
+            self.mode = mode
+        if band_width is not None:
+            self.band_width = band_width
+        if match_score is not None:
+            self.match_score = match_score
+        if mismatch_penalty is not None:
+            self.mismatch_penalty = mismatch_penalty
+        if minimum_score is not None:
+            self.minimum_score = minimum_score
+        if unpaired_penalty is not None:
+            self.unpaired_penalty = unpaired_penalty
+        if n_threads is not None:
+            self.n_threads = n_threads
+        if skip_pairing is not None:
+            self.skip_pairing = skip_pairing
+        if output_all_for_fragments is not None:
+            self.output_all_for_fragments = output_all_for_fragments
+        if interleaved_paired_end is not None:
+            self.interleaved_paired_end = interleaved_paired_end
+        if short_split_as_secondary is not None:
+            self.short_split_as_secondary = short_split_as_secondary
+        if skip_mate_rescue is not None:
+            self.skip_mate_rescue = skip_mate_rescue
+        if soft_clip_supplementary is not None:
+            self.soft_clip_supplementary = soft_clip_supplementary
+        if with_xr_tag is not None:
+            self.with_xr_tag = with_xr_tag
+        if query_coord_as_primary is not None:
+            self.query_coord_as_primary = query_coord_as_primary
+        if keep_mapq_for_supplementary is not None:
+            self.keep_mapq_for_supplementary = keep_mapq_for_supplementary
+        if with_xb_tag is not None:
+            self.with_xb_tag = with_xb_tag
+        if max_occurrences is not None:
+            self.max_occurrences = max_occurrences
+        if off_diagonal_x_dropoff is not None:
+            self.off_diagonal_x_dropoff = off_diagonal_x_dropoff
+        if ignore_alternate_contigs is not None:
+            self.ignore_alternate_contigs = ignore_alternate_contigs
+        if internal_seed_split_factor is not None:
+            self.internal_seed_split_factor = internal_seed_split_factor
+        if drop_chain_fraction is not None:
+            self.drop_chain_fraction = drop_chain_fraction
+        if max_mate_rescue_rounds is not None:
+            self.max_mate_rescue_rounds = max_mate_rescue_rounds
+        if min_seeded_bases_in_chain is not None:
+            self.min_seeded_bases_in_chain = min_seeded_bases_in_chain
+        if seed_occurrence_in_3rd_round is not None:
+            self.seed_occurrence_in_3rd_round = seed_occurrence_in_3rd_round
+        if xa_max_hits is not None:
+            self.xa_max_hits = xa_max_hits
+        if xa_drop_ratio is not None:
+            self.xa_drop_ratio = xa_drop_ratio
+        if gap_open_penalty is not None:
+            self.gap_open_penalty = gap_open_penalty
+        if gap_extension_penalty is not None:
+            self.gap_extension_penalty = gap_extension_penalty
+        if clipping_penalty is not None:
+            self.clipping_penalty = clipping_penalty
+        
     cdef _copy_options(self, dst: BwaMemOptions, src: BwaMemOptions):
         memcpy(dst._options, src._options, sizeof(mem_opt_t))
         memcpy(dst._options0, src._options0, sizeof(mem_opt_t))
