@@ -124,6 +124,13 @@ jobs:
       pull-requests: read
     needs: make-changelog
     steps:
+     - name: Download the sdist
+       uses: actions/download-artifact@v4
+       with:
+          name: pybwa-sdist
+          path: pybwa-sdist.zip
+      - name: Unzip
+        run: unzip pybwa-sdist.zip
       - name: Create Draft Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -132,3 +139,7 @@ jobs:
           body: ${{ needs.make-changelog.outputs.release_body }}
           draft: false
           prerelease: false
+          files: |
+            pybwa*tar.gz
+
+
