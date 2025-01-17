@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: 'true'
 
       - uses: rickstaa/action-contains-tag@v1
         id: contains_tag
@@ -66,6 +67,9 @@ jobs:
       - name: Build package
         run: poetry build --format=sdist
 
+      - name: Print contents
+        run: tar -tf dist/*.tar.gz
+
       - uses: actions/upload-artifact@v4
         with:
           name: pybwa-sdist
@@ -101,6 +105,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
+          submodules: true
 
       - name: Generate a Changelog
         uses: orhun/git-cliff-action@v3
@@ -119,6 +124,13 @@ jobs:
       pull-requests: read
     needs: make-changelog
     steps:
+     - name: Download the sdist
+       uses: actions/download-artifact@v4
+       with:
+          name: pybwa-sdist
+          path: pybwa-sdist.zip
+      - name: Unzip
+        run: unzip pybwa-sdist.zip
       - name: Create Draft Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -127,3 +139,7 @@ jobs:
           body: ${{ needs.make-changelog.outputs.release_body }}
           draft: false
           prerelease: false
+          files: |
+            pybwa*tar.gz
+
+
