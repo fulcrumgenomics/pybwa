@@ -124,13 +124,13 @@ jobs:
       pull-requests: read
     needs: make-changelog
     steps:
-     - name: Download the sdist
-       uses: actions/download-artifact@v4
-       with:
+      - name: Download the sdist
+        uses: actions/download-artifact@v4
+        with:
           name: pybwa-sdist
-          path: pybwa-sdist.zip
-      - name: Unzip
-        run: unzip pybwa-sdist.zip
+      - name: Display structure of downloaded files
+        shell: bash
+        run: ls -R
       - name: Create Draft Release
         id: create_release
         uses: softprops/action-gh-release@v2
