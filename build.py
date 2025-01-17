@@ -1,11 +1,44 @@
 import multiprocessing
+import os
 import platform
+import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 from typing import List
 
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
 from setuptools import Extension, Distribution
+
+@contextmanager
+def changedir(path):
+    save_dir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(save_dir)
+
+@contextmanager
+def with_patches():
+    patches = sorted([
+        os.path.abspath(patch)
+        for patch in Path("patches").iterdir()
+        if patch.is_file() and patch.suffix == ".patch"
+    ])
+    with changedir("bwa"):
+        for patch in patches:
+            retcode = subprocess.call(f"git apply {patch}", shell=True)
+            if retcode != 0:
+                raise RuntimeError(f"Failed to apply patch {patch}")
+    try:
+        yield
+    finally:
+        commands = ["git submodule deinit -f .", "git submodule update --init"]
+        for command in commands:
+            retcode = subprocess.call(command, shell=True)
+            if retcode != 0:
+                raise RuntimeError(f"Failed to reset submodules: {command}")
 
 SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
@@ -110,46 +143,48 @@ Operating System :: MacOS
 
 
 def build():
-    # Collect and cythonize all files
-    extension_modules = cythonize_helper([
-        libbwaindex_module,
-        libbwaaln_module,
-        libbwamem_module
-    ])
+    # apply patches to bwa, then revert them after
+    with with_patches():
+        # Collect and cythonize all files
+        extension_modules = cythonize_helper([
+            libbwaindex_module,
+            libbwaaln_module,
+            libbwamem_module
+        ])
 
-    # Use Setuptools to collect files
-    distribution = Distribution({
-        "name": "pybwa",
-        'version': '0.0.1',
-        'description': 'Python bindings for BWA',
-        'long_description': __doc__,
-        'long_description_content_type': 'text/x-rst',
-        'author': 'Nils Homer',
-        'author_email': 'nils@fulcrumgenomics.com',
-        'license': 'MIT',
-        'platforms': ['POSIX', 'UNIX', 'MacOS'],
-        'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
-        'url': 'https://github.com/fulcrumgenomics/pybwa',
-        'packages': ['pybwa', 'pybwa.include.bwa'],
-        'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa'},
-        'package_data': {'': ['*.pxd', '*.h', '*.c', 'py.typed', '*.pyi'], },
-        "ext_modules": extension_modules,
-        "cmdclass": {
-            "build_ext": cython_build_ext,
-        },
-    })
+        # Use Setuptools to collect files
+        distribution = Distribution({
+            "name": "pybwa",
+            'version': '0.0.1',
+            'description': 'Python bindings for BWA',
+            'long_description': __doc__,
+            'long_description_content_type': 'text/x-rst',
+            'author': 'Nils Homer',
+            'author_email': 'nils@fulcrumgenomics.com',
+            'license': 'MIT',
+            'platforms': ['POSIX', 'UNIX', 'MacOS'],
+            'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
+            'url': 'https://github.com/fulcrumgenomics/pybwa',
+            'packages': ['pybwa', 'pybwa.include.bwa'],
+            'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa'},
+            'package_data': {'': ['*.pxd', '*.h', '*.c', 'py.typed', '*.pyi'], },
+            "ext_modules": extension_modules,
+            "cmdclass": {
+                "build_ext": cython_build_ext,
+            },
+        })
 
-    # Grab the build_ext command and copy all files back to source dir.
-    # Done so Poetry grabs the files during the next step in its build.
-    build_ext_cmd = distribution.get_command_obj("build_ext")
-    build_ext_cmd.ensure_finalized()
-    # Set the value to 1 for "inplace", with the goal to build extensions
-    # in build directory, and then copy all files back to the source dir
-    # (under the hood, "copy_extensions_to_source" will be called after
-    # building the extensions). This is done so Poetry grabs the files
-    # during the next step in its build.
-    build_ext_cmd.inplace = 1
-    build_ext_cmd.run()
+        # Grab the build_ext command and copy all files back to source dir.
+        # Done so Poetry grabs the files during the next step in its build.
+        build_ext_cmd = distribution.get_command_obj("build_ext")
+        build_ext_cmd.ensure_finalized()
+        # Set the value to 1 for "inplace", with the goal to build extensions
+        # in build directory, and then copy all files back to the source dir
+        # (under the hood, "copy_extensions_to_source" will be called after
+        # building the extensions). This is done so Poetry grabs the files
+        # during the next step in its build.
+        build_ext_cmd.inplace = 1
+        build_ext_cmd.run()
 
 
 if __name__ == "__main__":

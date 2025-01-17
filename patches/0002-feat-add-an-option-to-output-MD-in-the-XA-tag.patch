@@ -1,0 +1,198 @@
+From 028b2a7f2129a6eb8038079c539a54526bb08422 Mon Sep 17 00:00:00 2001
+From: Nils Homer <nh13@users.noreply.github.com>
+Date: Fri, 17 Jan 2025 00:29:08 -0800
+Subject: [PATCH 2/2] feat: add an option to output MD in the XA tag
+
+---
+ bwape.c  | 12 +++++++-----
+ bwase.c  | 31 +++++++++++++++++++++----------
+ bwase.h  |  2 +-
+ bwtaln.h |  1 +
+ 4 files changed, 30 insertions(+), 16 deletions(-)
+
+diff --git a/bwape.c b/bwape.c
+index fa4f7f7..986cab8 100644
+--- a/bwape.c
++++ b/bwape.c
+@@ -621,7 +621,7 @@ ubyte_t *bwa_paired_sw(const bntseq_t *bns, const ubyte_t *_pacseq, int n_seqs,
+ 	return pacseq;
+ }
+ 
+-void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const fn_fa[2], pe_opt_t *popt, const char *rg_line)
++void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const fn_fa[2], pe_opt_t *popt, const char *rg_line, int with_md)
+ {
+ 	extern bwa_seqio_t *bwa_open_reads(int mode, const char *fn_fa);
+ 	int i, j, n_seqs;
+@@ -692,7 +692,7 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
+ 
+ 		fprintf(stderr, "[bwa_sai2sam_pe_core] refine gapped alignments... ");
+ 		for (j = 0; j < 2; ++j)
+-			bwa_refine_gapped(bns, n_seqs, seqs[j], pacseq);
++			bwa_refine_gapped(bns, n_seqs, seqs[j], pacseq, with_md);
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC); t = clock();
+ 		if (pac == 0) free(pacseq);
+ 
+@@ -732,12 +732,12 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
+ 
+ int bwa_sai2sam_pe(int argc, char *argv[])
+ {
+-	int c;
++	int c, with_md = 0;
+ 	pe_opt_t *popt;
+ 	char *prefix, *rg_line = 0;
+ 
+ 	popt = bwa_init_pe_opt();
+-	while ((c = getopt(argc, argv, "a:o:sPn:N:c:f:Ar:")) >= 0) {
++	while ((c = getopt(argc, argv, "a:o:sPn:N:c:f:Ar:d")) >= 0) {
+ 		switch (c) {
+ 		case 'r':
+ 			if ((rg_line = bwa_set_rg(optarg)) == 0) return 1;
+@@ -751,6 +751,7 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 		case 'c': popt->ap_prior = atof(optarg); break;
+ 		case 'f': xreopen(optarg, "w", stdout); break;
+ 		case 'A': popt->force_isize = 1; break;
++		case 'd': with_md = 1; break;
+ 		default: return 1;
+ 		}
+ 	}
+@@ -768,6 +769,7 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 		fprintf(stderr, "         -P       preload index into memory (for base-space reads only)\n");
+ 		fprintf(stderr, "         -s       disable Smith-Waterman for the unmapped mate\n");
+ 		fprintf(stderr, "         -A       disable insert size estimate (force -s)\n\n");
++		fprintf(stderr, "         -d       output the MD to each alignment in the XA tag, otherwise use \".\"\n\n");
+ 		fprintf(stderr, "Notes: 1. For SOLiD reads, <in1.fq> corresponds R3 reads and <in2.fq> to F3.\n");
+ 		fprintf(stderr, "       2. For reads shorter than 30bp, applying a smaller -o is recommended to\n");
+ 		fprintf(stderr, "          to get a sensible speed at the cost of pairing accuracy.\n");
+@@ -778,7 +780,7 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 		fprintf(stderr, "[%s] fail to locate the index\n", __func__);
+ 		return 1;
+ 	}
+-	bwa_sai2sam_pe_core(prefix, argv + optind + 1, argv + optind+3, popt, rg_line);
++	bwa_sai2sam_pe_core(prefix, argv + optind + 1, argv + optind+3, popt, rg_line, with_md);
+ 	free(prefix); free(popt);
+ 	return 0;
+ }
+diff --git a/bwase.c b/bwase.c
+index eb43c02..12fe47e 100644
+--- a/bwase.c
++++ b/bwase.c
+@@ -284,11 +284,11 @@ void bwa_correct_trimmed(bwa_seq_t *s)
+ 	s->len = s->full_len;
+ }
+ 
+-void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t *_pacseq)
++void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t *_pacseq, int with_md)
+ {
+ 	ubyte_t *pacseq;
+ 	int i, j, k;
+-	kstring_t *str;
++	kstring_t *str = (kstring_t*)calloc(1, sizeof(kstring_t));
+ 
+ 	if (!_pacseq) {
+ 		pacseq = (ubyte_t*)calloc(bns->l_pac/4+1, 1);
+@@ -305,7 +305,18 @@ void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t
+ 				q->cigar = bwa_refine_gapped_core(bns->l_pac, pacseq, s->len, q->strand? s->rseq : s->seq, q->ref_shift, &q->pos, &n_cigar);
+ 				q->n_cigar = n_cigar;
+ 				if (q->cigar) s->multi[k++] = *q;
+-			} else s->multi[k++] = *q;
++			} else {
++				s->multi[k++] = *q;
++				if (with_md) { // create the cigar, needed for bwa_cal_md1 below
++					q->n_cigar = 1;
++					q->cigar = calloc(q->n_cigar, sizeof(uint32_t));
++					q->cigar[0] = __cigar_create(FROM_M, s->len);
++				}
++			}
++			if (with_md) {
++				int nm;
++				q->md = bwa_cal_md1(q->n_cigar, q->cigar, s->len, q->pos, q->strand? s->rseq : s->seq, bns->l_pac, pacseq, str, &nm);
++			}
+ 		}
+ 		s->n_multi = k; // this squeezes out gapped alignments which failed the CIGAR generation
+ 		if (s->type == BWA_TYPE_NO_MATCH || s->type == BWA_TYPE_MATESW || s->n_gapo == 0) continue;
+@@ -313,7 +324,6 @@ void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t
+ 		if (s->cigar == 0) s->type = BWA_TYPE_NO_MATCH;
+ 	}
+ 	// generate MD tag
+-	str = (kstring_t*)calloc(1, sizeof(kstring_t));
+ 	for (i = 0; i != n_seqs; ++i) {
+ 		bwa_seq_t *s = seqs + i;
+ 		if (s->type != BWA_TYPE_NO_MATCH) {
+@@ -505,7 +515,7 @@ void bwase_initialize()
+ 	for (i = 1; i != 256; ++i) g_log_n[i] = (int)(4.343 * log(i) + 0.5);
+ }
+ 
+-void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_fa, int n_occ, const char *rg_line)
++void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_fa, int n_occ, const char *rg_line, int with_md)
+ {
+ 	extern bwa_seqio_t *bwa_open_reads(int mode, const char *fn_fa);
+ 	int i, n_seqs, m_aln;
+@@ -558,7 +568,7 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC); t = clock();
+ 
+ 		fprintf(stderr, "[bwa_aln_core] refine gapped alignments... ");
+-		bwa_refine_gapped(bns, n_seqs, seqs, 0);
++		bwa_refine_gapped(bns, n_seqs, seqs, 0, with_md);
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC); t = clock();
+ 
+ 		fprintf(stderr, "[bwa_aln_core] print alignments... ");
+@@ -579,11 +589,12 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 
+ int bwa_sai2sam_se(int argc, char *argv[])
+ {
+-	int c, n_occ = 3;
++	int c, n_occ = 3, with_md = 0;
+ 	char *prefix, *rg_line = 0;
+-	while ((c = getopt(argc, argv, "hn:f:r:")) >= 0) {
++	while ((c = getopt(argc, argv, "hdn:f:r:")) >= 0) {
+ 		switch (c) {
+ 		case 'h': break;
++		case 'd': with_md = 1; break;
+ 		case 'r':
+ 			if ((rg_line = bwa_set_rg(optarg)) == 0) return 1;
+ 			break;
+@@ -594,14 +605,14 @@ int bwa_sai2sam_se(int argc, char *argv[])
+ 	}
+ 
+ 	if (optind + 3 > argc) {
+-		fprintf(stderr, "Usage: bwa samse [-n max_occ] [-f out.sam] [-r RG_line] <prefix> <in.sai> <in.fq>\n");
++		fprintf(stderr, "Usage: bwa samse [-n max_occ] [-d] [-f out.sam] [-r RG_line] <prefix> <in.sai> <in.fq>\n");
+ 		return 1;
+ 	}
+ 	if ((prefix = bwa_idx_infer_prefix(argv[optind])) == 0) {
+ 		fprintf(stderr, "[%s] fail to locate the index\n", __func__);
+ 		return 1;
+ 	}
+-	bwa_sai2sam_se_core(prefix, argv[optind+1], argv[optind+2], n_occ, rg_line);
++	bwa_sai2sam_se_core(prefix, argv[optind+1], argv[optind+2], n_occ, rg_line, with_md);
+ 	free(prefix);
+ 	return 0;
+ }
+diff --git a/bwase.h b/bwase.h
+index 26a9f68..c6f72f4 100644
+--- a/bwase.h
++++ b/bwase.h
+@@ -14,7 +14,7 @@ extern "C" {
+ 	// Calculate the approximate position of the sequence from the specified bwt with loaded suffix array.
+ 	void bwa_cal_pac_pos_core(const bntseq_t *bns, const bwt_t* bwt, bwa_seq_t* seq, const int max_mm, const float fnr);
+ 	// Refine the approximate position of the sequence to an actual placement for the sequence.
+-	void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t *_pacseq);
++	void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t *_pacseq, int with_md);
+ 	// Backfill certain alignment properties mainly centering around number of matches.
+ 	void bwa_aln2seq(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s);
+ 	// Calculate the end position of a read given a certain sequence.
+diff --git a/bwtaln.h b/bwtaln.h
+index 71ea627..ec8103a 100644
+--- a/bwtaln.h
++++ b/bwtaln.h
+@@ -61,6 +61,7 @@ typedef struct {
+ 	int ref_shift;
+ 	bwtint_t pos;
+ 	bwa_cigar_t *cigar;
++	char *md;
+ } bwt_multi1_t;
+ 
+ typedef struct {
+-- 
+2.39.5 (Apple Git-154)
+

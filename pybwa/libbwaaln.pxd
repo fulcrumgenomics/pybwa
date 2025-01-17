@@ -80,7 +80,7 @@ cdef extern void bwa_aln2seq_core(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s
 
 cdef extern from "bwase.h":
     int64_t pos_end(const bwa_seq_t *p)
-    void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, unsigned char *_pacseq)
+    void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, unsigned char *_pacseq, int with_md)
     char *bwa_cal_md1(int n_cigar, uint16_t *cigar, int len, uint64_t pos, unsigned char *seq, uint64_t l_pac, unsigned char *pacseq, kstring_t *str, int *_nm)
     void bwase_initialize()
 

@@ -34,10 +34,12 @@ cdef class BwaAlnOptions:
         stop_at_max_best_hits (int | None): :code:`-R <int>`
         max_hits (int | None): :code:`bwa samse -n <int>`
         log_scaled_gap_penalty (in | None): :code:`-L`
+        with_md (bool): output the MD to each alignment in the XA tag, otherwise use :code:`"."`
     """
     cdef gap_opt_t * _delegate
 
     _max_hits: int
+    _with_md: bool
 
     def __init__(self,
                  max_mismatches: int | None = None,
@@ -52,7 +54,8 @@ cdef class BwaAlnOptions:
                  gap_extension_penalty: int | None = None,
                  stop_at_max_best_hits: int | None = None,
                  max_hits: int | None = 3,
-                 log_scaled_gap_penalty: bool | None = None
+                 log_scaled_gap_penalty: bool | None = None,
+                 with_md: bool | None = False
                  ):
         if max_mismatches is not None:
             self.max_mismatches = max_mismatches
@@ -78,6 +81,8 @@ cdef class BwaAlnOptions:
             self.max_hits = max_hits
         if log_scaled_gap_penalty is not None:
             self.log_scaled_gap_penalty = 1 if log_scaled_gap_penalty else 0
+        if with_md is not None:
+            self.with_md = with_md
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
@@ -185,6 +190,15 @@ cdef class BwaAlnOptions:
             else:
                 self._delegate.mode &= ~BWA_MODE_LOGGAP
 
+    property with_md:
+        """:code:`bwa samse -d
+        
+        Output the MD to each alignment in the XA tag, otherwise use :code:`"."`.
+        """
+        def __get__(self) -> bool:
+            return self._with_md
+        def __set__(self, value: bool):
+           self._with_md = value
 
 cdef class BwaAln:
     """The class to align reads with :code:`bwa aln`."""
@@ -396,7 +410,7 @@ cdef class BwaAln:
         bwa_cal_pac_pos_with_bwt(self._index.bns(), num_seqs, seqs, gap_opt.max_diff, gap_opt.fnr, self._index.bwt())
 
         # refine gapped alignment
-        bwa_refine_gapped(self._index.bns(), num_seqs, seqs, self._index.pac())
+        bwa_refine_gapped(self._index.bns(), num_seqs, seqs, self._index.pac(), opt.with_md)
 
         # create the AlignedSegment from FastxRecord and bwa_seq_t.
         recs = [
