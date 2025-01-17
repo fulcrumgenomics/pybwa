@@ -23,3 +23,30 @@ void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, 
         p->n_multi = n_multi;
     }
 }
+
+void bwa_cal_sa_reg_gap_threaded(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt)
+{
+#ifdef HAVE_PTHREAD
+    if (opt->n_threads <= 1) { // no multi-threading at all
+        bwa_cal_sa_reg_gap(0, bwt, n_seqs, seqs, opt);
+    } else {
+        pthread_t *tid;
+        pthread_attr_t attr;
+        thread_aux_t *data;
+        int j;
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+        data = (thread_aux_t*)calloc(opt->n_threads, sizeof(thread_aux_t));
+        tid = (pthread_t*)calloc(opt->n_threads, sizeof(pthread_t));
+        for (j = 0; j < opt->n_threads; ++j) {
+            data[j].tid = j; data[j].bwt = bwt;
+            data[j].n_seqs = n_seqs; data[j].seqs = seqs; data[j].opt = opt;
+            pthread_create(&tid[j], &attr, worker, data + j);
+        }
+        for (j = 0; j < opt->n_threads; ++j) pthread_join(tid[j], 0);
+        free(data); free(tid);
+    }
+#else
+    bwa_cal_sa_reg_gap(0, bwt, n_seqs, seqs, opt);
+#endif
+}

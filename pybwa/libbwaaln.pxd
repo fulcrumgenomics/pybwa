@@ -6,6 +6,9 @@ from libc.stdio cimport FILE
 cdef extern from "libbwaaln_utils.h":
     void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, int max_mm,
                                   float fnr, bwt_t *bwt)
+    void bwa_cal_sa_reg_gap_threaded(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs,
+                                     const gap_opt_t *opt)
+
 
 cdef extern from "bntseq.h":
     unsigned char nst_nt4_table[256]
