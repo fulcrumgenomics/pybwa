@@ -10,13 +10,13 @@ SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
 compile_args = []
 link_args = []
-include_dirs = ["bwa"]
+include_dirs = ["bwa", "pybwa"]
 libraries = ['m', 'z', 'pthread']
-library_dirs=['bwa']
+library_dirs=['pybwa', 'bwa']
 extra_objects = []
 h_files = []
 c_files = []
-for root_dir in ["bwa", "pybwa"]:
+for root_dir in library_dirs:
     h_files.extend(str(x) for x in Path(root_dir).rglob("*.h"))
     c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in ['example.c', 'main.c'])
 
@@ -117,8 +117,9 @@ def build():
         'platforms': ['POSIX', 'UNIX', 'MacOS'],
         'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
         'url': 'https://github.com/fulcrumgenomics/pybwa',
-        'packages': ['pybwa'],
-        'package_dir': {'pybwa': 'pybwa'},
+        'packages': ['pybwa', 'pybwa.include.bwa'],
+        'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa'},
+        'package_data': {'': ['*.pxd', '*.h', '*.c', 'py.typed', '*.pyi'], },
         "ext_modules": extension_modules,
         "cmdclass": {
             "build_ext": cython_build_ext,
