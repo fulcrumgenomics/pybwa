@@ -31,9 +31,12 @@ jobs:
           - os: macos-latest
             target: macosx
             arch: x86_64
-          - os: macos-latest
-            target: macosx
-            arch: arm64
+          # Skipping macos arm64 builds because cibuildwheel currently doesn't support testing 
+          # arm64 macos wheels on github action runners.
+          # See: https://github.com/pypa/cibuildwheel/issues/2111
+          # - os: macos-latest
+          #  target: macosx
+          #  arch: arm64
 
     steps:
       - uses: actions/checkout@v4
