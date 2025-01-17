@@ -37,6 +37,7 @@ class BwaAlnOptions:
     stop_at_max_best_hits: int  # -R <int>
     max_hits: int  # bwa samse -n <int>
     log_scaled_gap_penalty: bool = True  # -L
+    with_md: bool = True  # bwa samse -d
 
 class BwaAln:
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...

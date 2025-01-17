@@ -99,6 +99,14 @@ As a result, the mapping quality may also differ slightly.
 This is due to an implementation detail in which the order of random numbers used is different between this wrapper
 and command-line.
 
+Finally, the following additions have been made to :code:`bwa aln/samse`:
+
+#. The standard SAM tag :code:`HN` is added.  This is useful if we find too many hits
+   (:attr:`~pybwa.BwaAlnOptions.max_hits`) and therefore no hits are reported in the :code:`XA` tag, we can still
+   know how many were found.
+#. The :py:attr:`~pybwa.BwaAlnOptions.with_md` option will add the standard SAM tag :code:`MD` to the :code:`XA` tag, 
+   otherwise :code:`.` will be used.  This provides additional information on the quality of alternative alignments.
+
 ===
 API
 ===
