@@ -1,12 +1,15 @@
 # cython: language_level=3
 from pathlib import Path
 from typing import List
+
 from fgpyo.sequence import reverse_complement
-from libc.string cimport memset, memcpy
+from libc.string cimport memcpy
 from libc.stdlib cimport calloc, free
 import enum
 from pybwa.libbwaindex cimport BwaIndex
 from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
+from libc.string cimport strncpy
+from pybwa.libbwaindex cimport force_bytes
 
 
 __all__ = [
@@ -110,7 +113,8 @@ cdef class BwaMemOptions:
                  xa_drop_ratio: float | None = None,
                  gap_open_penalty: int | tuple[int, int] | None = None,
                  gap_extension_penalty: int | tuple[int, int] | None = None,
-                 clipping_penalty: int | tuple[int, int] | None = None) -> None:
+                 clipping_penalty: int | tuple[int, int] | None = None,
+                 threads: int | None = None) -> None:
         self._finalized = False
         self._ignore_alt = False
         self._mode = None
@@ -176,16 +180,16 @@ cdef class BwaMemOptions:
             self.gap_extension_penalty = gap_extension_penalty
         if clipping_penalty is not None:
             self.clipping_penalty = clipping_penalty
+        if threads is not None:
+            self.threads = threads
         
     cdef _copy_options(self, dst: BwaMemOptions, src: BwaMemOptions):
         memcpy(dst._options, src._options, sizeof(mem_opt_t))
         memcpy(dst._options0, src._options0, sizeof(mem_opt_t))
 
-    def __cinit__(self, opt: BwaMemOptions | None = None):
+    def __cinit__(self):
         self._options = mem_opt_init()
         self._options0 = mem_opt_init()
-        if opt is not None:
-            self._copy_options(self, opt)
 
     def __dealloc__(self):
         free(self._options)
@@ -659,6 +663,15 @@ cdef class BwaMemOptions:
             self._options.pen_clip5 = five_prime
             self._options.pen_clip3 = three_prime
 
+    @property
+    def threads(self) -> int:
+        """:code:`bwa mem -t <int>`"""
+        return self._options.n_threads
+
+    @threads.setter
+    def threads(self, value: int) -> None:
+        self._options.n_threads = value
+
 
 cdef class BwaMem:
     """The class to align reads with :code:`bwa mem`."""
@@ -712,14 +725,26 @@ cdef class BwaMem:
     def __to_str(_bytes: bytes) -> str:
         return _bytes.decode('utf-8')
 
-    cdef _copy_seq(self, q: FastxRecord, kstring_t *seq):
-        seq_len = len(q.sequence)
-        seq.s = <char *> calloc(sizeof(char), seq_len + 1)
-        seq.l = seq_len
-        seq.m = seq_len + 1
+    cdef _copy_seq(self, q: FastxRecord, bseq1_t *s):
+
+        # name
+        s.name = <char *> calloc(sizeof(char), len(q.name) + 1)
+        strncpy(s.name, force_bytes(q.name), len(q.name))
+        s.name[len(q.name)] = b'\0'
+
+        # comment
+        # NB: bwa mem supports appending the comment to the SAM tags verbatim! We do not.
+        s.comment = NULL
+
+        # sequence
+        s.l_seq = len(q.sequence)
+        s.seq = <char *> calloc(sizeof(char), s.l_seq + 1)
         for i, base in enumerate(q.sequence):
-            seq.s[i] = nst_nt4_table[ord(base)]
-        seq.s[seq_len] = b'\0'
+            s.seq[i] = nst_nt4_table[ord(base)]
+        s.seq[s.l_seq] = b'\0'
+
+        # qualities (always ignore)
+        s.qual = NULL
 
     def _unmapped(self, query: FastxRecord) -> AlignedSegment:
         # make a default, unmapped, empty record
@@ -763,11 +788,10 @@ cdef class BwaMem:
     cdef _calign(self, opt: BwaMemOptions, queries: List[FastxRecord]):
         # TODO: ignore_alt
         # TODO: refactor to make this more readable
-        cdef kstring_t* seqs
-        cdef kstring_t* seq
+        cdef bseq1_t* seqs
+        cdef bseq1_t* seq
         cdef char* s_char
         cdef kstring_t* kstr
-        cdef mem_alnreg_v mem_alnregs
         cdef int take_all
         cdef size_t j
         cdef char **XA
@@ -775,46 +799,32 @@ cdef class BwaMem:
         cdef mem_aln_t mem_aln
         cdef char *md
         cdef mem_opt_t *mem_opt
+        cdef mem_alns_t *mem_alns_vec
+        cdef mem_alns_t *mem_alns
 
         recs_to_return: List[List[AlignedSegment]] = []
 
-        # copy FastqProxy into bwa_seq_t
+        # copy FastxRecord into bwa_seq_t
         num_seqs = len(queries)
         mem_opt = opt.mem_opt()
+        seqs = <bseq1_t*>calloc(sizeof(bseq1_t), num_seqs)
+        for i in range(num_seqs):
+            self._copy_seq(queries[i], &seqs[i])
 
-        seqs = <kstring_t*>calloc(sizeof(kstring_t), num_seqs)
+        # process the sequences (ignores the paired end stats)
+        mem_alns_vec = mem_process_seqs_alt(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(),
+                         0, num_seqs, seqs, NULL)
+
         for i in range(num_seqs):
             seq = &seqs[i]
             query = queries[i]
-            self._copy_seq(query, seq)
-            mem_alnregs = mem_align1(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(), seq.l, seq.s)
-            if opt.query_coord_as_primary:
-                mem_reorder_primary5(opt.minimum_score, &mem_alnregs)
-            # mimic mem_reg2sam from bwamem.c
-            XA = NULL
-            keep_all = opt.output_all_for_fragments
-            if not keep_all:
-                XA = mem_gen_alt(mem_opt, self._index.bns(), self._index.pac(), &mem_alnregs, seq.l, seq.s)
+            mem_alns = &mem_alns_vec[i]
 
             mapped_recs = []
-            for j in range(mem_alnregs.n):
-                mem_alnreg = &mem_alnregs.a[j]
-                if mem_alnreg.score < opt.minimum_score:
-                    continue
-                if mem_alnreg.secondary >= 0 and (mem_alnreg.is_alt > 0 or not keep_all):
-                    continue
-                if 0 <= mem_alnreg.secondary < INT_MAX and mem_alnreg.score < mem_alnregs.a[mem_alnreg.secondary].score * opt.xa_drop_ratio:
-                    continue
-                mem_aln = mem_reg2aln(mem_opt, self._index.bns(), self._index.pac(), seq.l, seq.s, mem_alnreg)
-                mem_aln.XA = XA[j] if XA != NULL else NULL
-                if mem_alnreg.secondary >= 0:
-                    mem_aln.sub = -1  # don't output sub-optimal score
-                if len(mapped_recs) > 0 and mem_alnreg.secondary < 0:  # if supplementary
-                    mem_aln.flag |= 0x10000 if opt.short_split_as_secondary else 0x800
-                if not opt.keep_mapq_for_supplementary and len(mapped_recs) > 0 and mem_alnreg.is_alt == 0 and mem_aln.mapq > mapped_recs[0].mapping_quality:
-                    mem_aln.mapq = mapped_recs[0].mapping_quality  # lower
-
+            for j in range(mem_alns.n):
                 rec = self._unmapped(query=query)
+
+                mem_aln = mem_alns.a[j]
 
                 # set the flags
                 mem_aln.flag |= 0x4 if mem_aln.rid < 0 else 0
@@ -888,21 +898,23 @@ cdef class BwaMem:
 
                 mapped_recs.append(rec)
 
+            for j in range(mem_alns.n):
+                mem_aln = mem_alns.a[j]
                 free(mem_aln.cigar)
+                free(mem_aln.XA)
             if len(mapped_recs) == 0:
                 recs_to_return.append([self._unmapped(query=query)])
             else:
                 self._add_sa_tag(mapped_recs)
                 recs_to_return.append(mapped_recs)
 
-            if XA != NULL:
-                for j in range(len(mapped_recs)):
-                    free(XA[j])
-                free(XA)
-            free(mem_alnregs.a)
-
         for i in range(num_seqs):
-            free(seqs[i].s)
+            free(seqs[i].name)
+            free(seqs[i].comment)
+            free(seqs[i].seq)
+            free(seqs[i].qual)
+            free(mem_alns_vec[i].a)
         free(seqs)
+        free(mem_alns_vec)
 
         return recs_to_return

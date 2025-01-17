@@ -3,13 +3,25 @@
 from libc.stdint cimport uint8_t, int64_t, int32_t, uint64_t, int8_t, uint32_t
 from libc.stdio cimport FILE
 
+cdef extern from "bwa.h":
+    ctypedef struct bseq1_t:
+        int l_seq, id
+        char *name, *comment, *seq, *qual, *sam
+
+cdef extern from "libbwamem_utils.h":
+    ctypedef  struct mem_alns_t:
+        size_t n, m
+        mem_aln_t*a
+    mem_alns_t * mem_process_seqs_alt(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns,
+                                  const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs,
+                                  const mem_pestat_t *pes0)
+
 cdef extern from "limits.h":
     cdef int INT_MAX
 
 cdef extern from "bwt.h":
     ctypedef struct bwt_t:
         int sa_intv
-
 
 cdef extern from "bntseq.h":
     ctypedef  struct bntann1_t:
@@ -28,7 +40,6 @@ cdef extern from "kstring.h":
     ctypedef struct kstring_t:
         size_t l, m
         char *s
-
 
 cdef extern from "bwamem.h":
     int MEM_F_PE        
@@ -112,5 +123,3 @@ cdef extern void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str, i
 
 # from bwamem_extra.c
 cdef extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, mem_alnreg_v *a, int l_query, const char *query);
-
-

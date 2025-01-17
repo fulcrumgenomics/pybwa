@@ -50,6 +50,7 @@ if platform == 'Linux':
     libraries.append("rt")
 library_dirs=['pybwa', 'bwa']
 extra_objects = []
+define_macros = [("HAVE_PTHREAD", None), ("USE_MALLOC_WRAPPERS", None)]
 h_files = []
 c_files = []
 for root_dir in library_dirs:
@@ -58,6 +59,7 @@ for root_dir in library_dirs:
 
 if platform.system() != 'Windows':
     compile_args = [
+        "-Wno-unused-result",
         "-Wno-unreachable-code",
         "-Wno-single-bit-bitfield-constant-conversion",
         "-Wno-deprecated-declarations",
@@ -77,6 +79,7 @@ libbwaindex_module = Extension(
     language='c',
     libraries=libraries,
     library_dirs=library_dirs,
+    define_macros=define_macros
 )
 
 libbwaaln_module = Extension(
@@ -90,6 +93,7 @@ libbwaaln_module = Extension(
     language='c',
     libraries=libraries,
     library_dirs=library_dirs,
+    define_macros=define_macros
 )
 
 libbwamem_module = Extension(
@@ -103,6 +107,7 @@ libbwamem_module = Extension(
     language='c',
     libraries=libraries,
     library_dirs=library_dirs,
+    define_macros=define_macros
 )
 
 

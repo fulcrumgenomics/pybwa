@@ -5,6 +5,13 @@
 #include "bwase.h"
 #include "libbwaaln_utils.h"
 
+#ifdef HAVE_PTHREAD
+#include <pthread.h>
+#endif
+
+#ifdef USE_MALLOC_WRAPPERS
+#  include "malloc_wrap.h"
+#endif
 
 void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, int max_mm, float fnr, bwt_t *bwt)
 {
@@ -23,6 +30,24 @@ void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, 
         p->n_multi = n_multi;
     }
 }
+
+// Copy as-is from bwtaln.c
+#ifdef HAVE_PTHREAD
+typedef struct {
+    int tid;
+    bwt_t *bwt;
+    int n_seqs;
+    bwa_seq_t *seqs;
+    const gap_opt_t *opt;
+} thread_aux_t;
+
+static void *worker(void *data)
+{
+    thread_aux_t *d = (thread_aux_t*)data;
+    bwa_cal_sa_reg_gap(d->tid, d->bwt, d->n_seqs, d->seqs, d->opt);
+    return 0;
+}
+#endif
 
 void bwa_cal_sa_reg_gap_threaded(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt)
 {
@@ -43,7 +68,9 @@ void bwa_cal_sa_reg_gap_threaded(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_
             data[j].n_seqs = n_seqs; data[j].seqs = seqs; data[j].opt = opt;
             pthread_create(&tid[j], &attr, worker, data + j);
         }
-        for (j = 0; j < opt->n_threads; ++j) pthread_join(tid[j], 0);
+        for (j = 0; j < opt->n_threads; ++j)  {
+            pthread_join(tid[j], 0);
+        }
         free(data); free(tid);
     }
 #else
