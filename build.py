@@ -1,4 +1,5 @@
 import multiprocessing
+import platform
 from pathlib import Path
 from typing import List
 
@@ -12,6 +13,8 @@ compile_args = []
 link_args = []
 include_dirs = ["bwa", "pybwa"]
 libraries = ['m', 'z', 'pthread']
+if platform == 'Linux':
+    libraries.append("rt")
 library_dirs=['pybwa', 'bwa']
 extra_objects = []
 h_files = []
@@ -19,6 +22,16 @@ c_files = []
 for root_dir in library_dirs:
     h_files.extend(str(x) for x in Path(root_dir).rglob("*.h"))
     c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in ['example.c', 'main.c'])
+
+if platform.system() != 'Windows':
+    compile_args = [
+        "-Wno-unreachable-code",
+        "-Wno-single-bit-bitfield-constant-conversion",
+        "-Wno-deprecated-declarations",
+        "-Wno-unused",
+        "-Wno-strict-prototypes",
+        "-Wno-sign-compare",
+        "-Wno-error=declaration-after-statement"]
 
 libbwaindex_module = Extension(
     name='pybwa.libbwaindex',
