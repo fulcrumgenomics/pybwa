@@ -5,6 +5,14 @@
 [![Code Coverage][code-coverage-badge]][code-coverage-link]
 [![License][license-badge]][license-link]
 
+---
+
+[![Python package][python-package-badge]][python-package-link]
+[![PyPI version][pypi-badge]][pypi-link]
+[![PyPI download total][pypi-downloads-badge]][pypi-downloads-link]
+[![Bioconda][bioconda-badge]][bioconda-link]
+
+---
 
 [language-badge]:       http://img.shields.io/badge/language-python-brightgreen.svg
 [language-link]:        http://www.python.org/
@@ -18,10 +26,22 @@
 [code-coverage-link]:   https://codecov.io/gh/fulcrumgenomics/pybwa
 [license-badge]:        http://img.shields.io/badge/license-MIT-blue.svg
 [license-link]:         https://github.com/fulcrumgenomics/pybwa/blob/main/LICENSE
+[python-package-badge]: https://github.com/fulcrumgenomics/pybwa/actions/workflows/tests.yml/badge.svg
+[python-package-link]:  https://github.com/fulcrumgenomics/pybwa/actions/workflows/tests.yml
+[pypi-badge]:           https://badge.fury.io/py/pybwa.svg
+[pypi-link]:            https://pypi.python.org/pypi/pybwa
+[pypi-downloads-badge]: https://img.shields.io/pypi/dm/pybwa
+[pypi-downloads-link]:  https://pypi.python.org/pypi/pybwa
+[bioconda-badge]: https://img.shields.io/conda/dn/bioconda/pybwa.svg?label=Bioconda
+[bioconda-link]: http://bioconda.github.io/recipes/pybwa/README.html
 
 # pybwa
 
 Python language bindings for [bwa][bwa-link].
+
+Install with `pip install pybwa` or `conda install -c bioconda pybwa`.
+
+**Requires python 3.9+**
 
 See documentation on [pybwa.readthedocs.org][rtd-link].
 
