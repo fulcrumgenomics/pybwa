@@ -27,6 +27,13 @@ include = [
 	{ path = "**/*.so", format = "wheel" },
 	{ path = "*.so", format = "wheel" },
 	{ path = "bwa/*.h", format = ["sdist", "wheel"] },
+	{ path = "bwa/*.c", format = ["sdist", "wheel"] },
+	{ path = "tests", format = "sdist" },
+]
+exclude = [
+	"pybwa/**/*.so",
+	"**/*.so",
+	"*.so",
 ]
 
 [tool.poetry.build]
