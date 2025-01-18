@@ -1,3 +1,4 @@
+#include <limits.h>
 #include "bntseq.h"
 #include "bwt.h"
 #include "kstring.h"
