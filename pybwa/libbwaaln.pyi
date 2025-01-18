@@ -22,6 +22,7 @@ class BwaAlnOptions:
         stop_at_max_best_hits: int | None = None,
         max_hits: int | None = 3,
         log_scaled_gap_penalty: bool | None = None,
+        threads: int | None = None,
     ) -> None: ...
     max_mismatches: int  # -n <int>
     # fnr:float # -n <float>
@@ -38,6 +39,7 @@ class BwaAlnOptions:
     max_hits: int  # bwa samse -n <int>
     log_scaled_gap_penalty: bool = True  # -L
     with_md: bool = True  # bwa samse -d
+    threads: int  # -t <int>
 
 class BwaAln:
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...

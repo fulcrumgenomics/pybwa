@@ -35,6 +35,7 @@ cdef class BwaAlnOptions:
         max_hits (int | None): :code:`bwa samse -n <int>`
         log_scaled_gap_penalty (in | None): :code:`-L`
         with_md (bool): output the MD to each alignment in the XA tag, otherwise use :code:`"."`
+        threads (int): the number of threads to use
     """
     cdef gap_opt_t * _delegate
 
@@ -55,7 +56,8 @@ cdef class BwaAlnOptions:
                  stop_at_max_best_hits: int | None = None,
                  max_hits: int | None = 3,
                  log_scaled_gap_penalty: bool | None = None,
-                 with_md: bool | None = False
+                 with_md: bool | None = False,
+                 threads: int | None = None
                  ):
         if max_mismatches is not None:
             self.max_mismatches = max_mismatches
@@ -83,6 +85,8 @@ cdef class BwaAlnOptions:
             self.log_scaled_gap_penalty = 1 if log_scaled_gap_penalty else 0
         if with_md is not None:
             self.with_md = with_md
+        if threads is not None:
+            self.threads = threads
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
@@ -199,6 +203,14 @@ cdef class BwaAlnOptions:
             return self._with_md
         def __set__(self, value: bool):
            self._with_md = value
+
+    property threads:
+        """:code:`bwa aln -t"""
+        def __get__(self) -> int:
+            return self._delegate.n_threads
+        def __set__(self, value: int):
+            self._delegate.n_threads = value
+
 
 cdef class BwaAln:
     """The class to align reads with :code:`bwa aln`."""
@@ -397,7 +409,7 @@ cdef class BwaAln:
             seqs[i].tid = -1
 
         # this is `bwa aln`, and the rest is `bwa samse`
-        bwa_cal_sa_reg_gap(0, self._index.bwt(), num_seqs, seqs, gap_opt)
+        bwa_cal_sa_reg_gap_threaded(0, self._index.bwt(), num_seqs, seqs, gap_opt)
 
         # create the full alignment
         for i in range(num_seqs):

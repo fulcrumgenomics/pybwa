@@ -76,6 +76,29 @@ def test_bwaaln(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert rec.cigarstring == "80M"
 
 
+def test_bwaaln_threading(ref_fasta: Path, fastx_record: FastxRecord) -> None:
+    opt = BwaAlnOptions(threads=2)
+    bwa = BwaAln(prefix=ref_fasta)
+    revcomp_seq = None if not fastx_record.sequence else reverse_complement(fastx_record.sequence)
+    revcomp_record = FastxRecord(name="revcomp", sequence=revcomp_seq)
+
+    queries = [fastx_record if i % 2 == 0 else revcomp_record for i in range(100)]
+    recs = bwa.align(opt=opt, queries=queries)
+    assert len(recs) == len(queries)
+    for i, rec in enumerate(recs):
+        if i % 2 == 0:
+            assert rec.query_name == "test"
+            assert rec.is_forward
+        else:
+            assert rec.query_name == "revcomp"
+            assert rec.is_reverse
+        assert not rec.is_paired
+        assert not rec.is_read1
+        assert not rec.is_read2
+        assert rec.reference_start == 80
+        assert rec.cigarstring == "80M"
+
+
 def test_bwamem_options() -> None:
     # default options
     options = BwaMemOptions()
