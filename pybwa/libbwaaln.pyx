@@ -93,9 +93,6 @@ cdef class BwaAlnOptions:
             self.with_md = with_md
         if threads is not None:
             self.threads = threads
-        # Set gapped extension mode if we have set this
-        if self.max_gap_extensions > 0:
-            self._delegate.mode &= ~BWA_MODE_GAPE
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
@@ -128,6 +125,8 @@ cdef class BwaAlnOptions:
             return self._delegate.max_gape
         def __set__(self, value: int):
             self._delegate.max_gape = value
+            # the BWA_MODE_GAPE mode indicates that gap extensions
+            # should count against the maximum # of mismatches
             if self._delegate.max_gape > 0:
                 self._delegate.mode &= ~BWA_MODE_GAPE
             else:

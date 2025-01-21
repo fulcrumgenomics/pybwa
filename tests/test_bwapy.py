@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from fgpyo.sequence import reverse_complement
@@ -103,6 +104,51 @@ def test_bwaaln_threading(ref_fasta: Path, fastx_record: FastxRecord) -> None:
         assert not rec.is_read2
         assert rec.reference_start == 80
         assert rec.cigarstring == "80M"
+
+
+@pytest.mark.parametrize(
+    "max_gap_extensions,is_mapped,deletion_length",
+    [
+        (None, True, 4),  # 4bp deletions allowed (max diff is 4)
+        (None, False, 5),  # 5bp deletions disallowed (max diff is 4)
+        (-1, True, 1),  # 1bp deletions allowed
+        (-1, False, 2),  # 2bp deletions disallowed
+        (0, True, 1),  # 1bp deletions allowed
+        (0, False, 2),  # 2bp deletions disallowed
+        (4, True, 5),  # 5bp deletion allowed (1 open + 4 extensions)
+        (4, False, 6),  # 6bp deletion disallowed (1 open + 4 extensions)
+    ],
+)
+def test_bwaaln_with_deletion(
+    ref_fasta: Path,
+    fastx_record: FastxRecord,
+    deletion_length: int,
+    max_gap_extensions: Optional[int],
+    is_mapped: bool,
+) -> None:
+    bwa = BwaAln(prefix=ref_fasta)
+
+    # Create a deletion
+    assert fastx_record.sequence is not None
+    sequence = fastx_record.sequence[:40] + fastx_record.sequence[40 + deletion_length :]
+    fastx_record = FastxRecord(name=fastx_record.name, sequence=sequence)
+
+    opt = BwaAlnOptions(max_gap_extensions=max_gap_extensions)
+    recs = bwa.align(opt=opt, queries=[fastx_record])
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec.query_name == "test"
+    assert not rec.is_paired
+    assert not rec.is_read1
+    assert not rec.is_read2
+
+    if is_mapped:
+        assert rec.reference_start == 80
+        assert rec.is_forward
+        assert rec.cigarstring == f"40M{deletion_length}D{40-deletion_length}M"
+    else:
+        assert rec.reference_start == -1, fastx_record.sequence
+        assert rec.is_unmapped
 
 
 def test_bwa_aln_map_one_multi_mapped_max_hits_one(ref_fasta: Path) -> None:
