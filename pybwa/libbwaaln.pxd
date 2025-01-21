@@ -25,6 +25,7 @@ cdef extern from "bwtaln.h":
     int BWA_MODE_GAPE
     int BWA_MODE_COMPREAD
     int BWA_MODE_LOGGAP
+    int BWA_MODE_NONSTOP
 
     int __cigar_op(uint16_t __cigar)
     int __cigar_len(uint16_t __cigar)
