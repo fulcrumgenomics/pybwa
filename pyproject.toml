@@ -28,6 +28,7 @@ include = [
 	{ path = "*.so", format = "wheel" },
 	{ path = "bwa/*.h", format = ["sdist", "wheel"] },
 	{ path = "bwa/*.c", format = ["sdist", "wheel"] },
+	{ path = "patches/*patch", format = ["sdist", "wheel"] },
 	{ path = "tests", format = "sdist" },
 ]
 exclude = [

@@ -170,9 +170,9 @@ def build():
             'platforms': ['POSIX', 'UNIX', 'MacOS'],
             'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
             'url': 'https://github.com/fulcrumgenomics/pybwa',
-            'packages': ['pybwa', 'pybwa.include.bwa'],
-            'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa'},
-            'package_data': {'': ['*.pxd', '*.h', '*.c', 'py.typed', '*.pyi'], },
+            'packages': ['pybwa', 'pybwa.include.bwa', 'pybwa.include.patches'],
+            'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa', 'pybwa.include.patches': 'patches' },
+            'package_data': {'': ['*.pxd', '*.h', '*.c', 'py.typed', '*.pyi', '*.patch'], },
             "ext_modules": extension_modules,
             "cmdclass": {
                 "build_ext": cython_build_ext,
