@@ -75,6 +75,12 @@ def test_bwaaln(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert rec.is_reverse
     assert rec.cigarstring == "80M"
 
+    # NB: XN, XA not generated for these records
+    expected_tags = ["NM", "X0", "X1", "XM", "XO", "XG", "MD", "HN"]
+    for rec in recs:
+        for tag in expected_tags:
+            assert rec.has_tag(tag), f"Missing tag {tag} in: {rec}"
+
 
 def test_bwaaln_threading(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     opt = BwaAlnOptions(threads=2)
@@ -131,17 +137,17 @@ def test_bwamem_options() -> None:
 
 
 def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
-    opt = BwaMemOptions()
+    opt = BwaMemOptions(with_xr_tag=True)
     bwa = BwaMem(prefix=ref_fasta)
 
     revcomp_seq = None if not fastx_record.sequence else reverse_complement(fastx_record.sequence)
     revcomp_record = FastxRecord(name="revcomp", sequence=revcomp_seq)
 
-    recs = bwa.align(opt=opt, queries=[fastx_record, revcomp_record])
-    assert len(recs) == 2
+    recs_of_recs = bwa.align(opt=opt, queries=[fastx_record, revcomp_record])
+    assert len(recs_of_recs) == 2
 
-    assert len(recs[0]) == 1
-    rec = recs[0][0]
+    assert len(recs_of_recs[0]) == 1
+    rec = recs_of_recs[0][0]
     assert rec.query_name == "test"
     assert not rec.is_paired
     assert not rec.is_read1
@@ -150,8 +156,8 @@ def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert rec.is_forward
     assert rec.cigarstring == "80M"
 
-    assert len(recs[1]) == 1
-    rec = recs[1][0]
+    assert len(recs_of_recs[1]) == 1
+    rec = recs_of_recs[1][0]
     assert rec.query_name == "revcomp"
     assert not rec.is_paired
     assert not rec.is_read1
@@ -160,6 +166,13 @@ def test_bwamem(ref_fasta: Path, fastx_record: FastxRecord) -> None:
     assert rec.is_reverse
     assert rec.cigarstring == "80M"
     # TODO: test multi-mapping, reverse strand, etc
+
+    # NB: XA amd XB not generated for these records
+    expected_tags = ["NM", "MD", "AS", "XS", "XR"]
+    for recs in recs_of_recs:
+        for rec in recs:
+            for tag in expected_tags:
+                assert rec.has_tag(tag), f"Missing tag {tag} in: {rec}"
 
 
 def test_bwamem_threading(ref_fasta: Path, fastx_record: FastxRecord) -> None:

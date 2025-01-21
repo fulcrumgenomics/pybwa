@@ -114,6 +114,7 @@ cdef extern from "bwtaln.h":
         bwt_aln1_t *aln
         int n_multi;
         bwt_multi1_t *multi;
+        int n_occ;
         uint64_t pos
         uint64_t c1
         uint64_t c2
