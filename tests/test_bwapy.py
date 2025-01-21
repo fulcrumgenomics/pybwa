@@ -105,6 +105,30 @@ def test_bwaaln_threading(ref_fasta: Path, fastx_record: FastxRecord) -> None:
         assert rec.cigarstring == "80M"
 
 
+def test_bwa_aln_map_one_multi_mapped_max_hits_one(ref_fasta: Path) -> None:
+    """Tests that a query that returns too many hits (>max_hits) returns the number of hits but
+    not the list of hits themselves."""
+    opt = BwaAlnOptions(
+        threads=2,
+        max_hits=1,
+        max_mismatches=3,
+        max_mismatches_in_seed=3,
+        max_gap_opens=0,
+        max_gap_extensions=-1,
+        min_indel_to_end_distance=3,
+        seed_length=20,
+        find_all_hits=True,
+        with_md=True,
+    )
+    bwa = BwaAln(prefix=ref_fasta)
+    queries = [FastxRecord(name="NA", sequence="TTTTT")]
+    recs = bwa.align(opt=opt, queries=queries)
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec.has_tag("HN"), str(rec)
+    assert rec.get_tag("HN") == 3269888
+
+
 def test_bwamem_options() -> None:
     # default options
     options = BwaMemOptions()

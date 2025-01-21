@@ -23,6 +23,7 @@ class BwaAlnOptions:
         max_hits: int | None = 3,
         log_scaled_gap_penalty: bool | None = None,
         find_all_hits: bool | None = None,
+        with_md: bool | None = None,
         threads: int | None = None,
     ) -> None: ...
     max_mismatches: int  # -n <int>
