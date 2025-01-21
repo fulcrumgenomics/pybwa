@@ -801,6 +801,7 @@ cdef class BwaMem:
         cdef mem_opt_t *mem_opt
         cdef mem_alns_t *mem_alns_vec
         cdef mem_alns_t *mem_alns
+        cdef bntann1_t *anno
 
         recs_to_return: List[List[AlignedSegment]] = []
 
@@ -891,9 +892,9 @@ cdef class BwaMem:
                 # NB: SA is added after all the records have been created
                 if mem_aln.XA != NULL:
                     attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
-                if opt.with_xr_tag and self._index.bns().anns[rec.reference_id].anno != 0 and \
-                        self._index.bns().anns[rec.reference_id].anno[0] != 0:
-                    attrs["XR"] = str(self._index.bns().anns[rec.reference_id].anno)
+                anno = &self._index.bns().anns[rec.reference_id]
+                if opt.with_xr_tag and anno.anno != NULL and anno.anno[0] != b'\0':
+                    attrs["XR"] = str(anno.anno)
                 rec.set_tags(list(attrs.items()))
 
                 mapped_recs.append(rec)
