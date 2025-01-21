@@ -5,6 +5,7 @@ import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List
+import shutil
 
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
@@ -26,19 +27,24 @@ def with_patches():
         for patch in Path("patches").iterdir()
         if patch.is_file() and patch.suffix == ".patch"
     ])
+    has_git = shutil.which("git") is not None
     with changedir("bwa"):
         for patch in patches:
-            retcode = subprocess.call(f"git apply {patch}", shell=True)
+            if has_git:
+                retcode = subprocess.call(f"git apply {patch}", shell=True)
+            else:
+                retcode = subprocess.call(f"patch -p1 < {patch}", shell=True)
             if retcode != 0:
                 raise RuntimeError(f"Failed to apply patch {patch}")
     try:
         yield
     finally:
-        commands = ["git submodule deinit -f .", "git submodule update --init"]
-        for command in commands:
-            retcode = subprocess.call(command, shell=True)
-            if retcode != 0:
-                raise RuntimeError(f"Failed to reset submodules: {command}")
+        if has_git:
+            commands = ["git submodule deinit -f .", "git submodule update --init"]
+            for command in commands:
+                retcode = subprocess.call(command, shell=True)
+                if retcode != 0:
+                    raise RuntimeError(f"Failed to reset submodules: {command}")
 
 SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
