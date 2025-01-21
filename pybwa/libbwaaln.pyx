@@ -93,6 +93,9 @@ cdef class BwaAlnOptions:
             self.with_md = with_md
         if threads is not None:
             self.threads = threads
+        # Set gapped extension mode if we have set this
+        if self.max_gap_extensions > 0:
+            self._delegate.mode &= ~BWA_MODE_GAPE
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
@@ -127,6 +130,8 @@ cdef class BwaAlnOptions:
             self._delegate.max_gape = value
             if self._delegate.max_gape > 0:
                 self._delegate.mode &= ~BWA_MODE_GAPE
+            else:
+                self._delegate.mode |= BWA_MODE_GAPE
 
     property min_indel_to_end_distance:
         """:code:`bwa aln -i <int>`"""
