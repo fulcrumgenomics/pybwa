@@ -29,9 +29,11 @@ def with_patches():
         if patch.is_file() and patch.suffix == ".patch"
     ])
     has_git = shutil.which("git") is not None
+    has_git_dir = Path(".git").exists() and Path(".git").is_dir()
+    use_git = has_git and has_git_dir
     with changedir("bwa"):
         for patch in patches:
-            if has_git:
+            if use_git:
                 retcode = subprocess.call(f"git apply {patch}", shell=True)
             else:
                 retcode = subprocess.call(f"patch -p1 < {patch}", shell=True)
@@ -40,7 +42,7 @@ def with_patches():
     try:
         yield
     finally:
-        if has_git:
+        if use_git:
             commands = ["git submodule deinit -f .", "git submodule update --init"]
             for command in commands:
                 retcode = subprocess.call(command, shell=True)
