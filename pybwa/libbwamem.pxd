@@ -27,7 +27,8 @@ cdef extern from "bntseq.h":
     ctypedef  struct bntann1_t:
         int64_t offset
         int32_t len
-        char *name, anno
+        char *name
+        char *anno
 
     ctypedef struct bntseq_t:
         int64_t l_pac
