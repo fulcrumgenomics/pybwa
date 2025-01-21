@@ -33,7 +33,8 @@ cdef class BwaAlnOptions:
         gap_extension_penalty (int | None): :code:`-E <int>`
         stop_at_max_best_hits (int | None): :code:`-R <int>`
         max_hits (int | None): :code:`bwa samse -n <int>`
-        log_scaled_gap_penalty (in | None): :code:`-L`
+        log_scaled_gap_penalty (bool | None): :code:`-L`
+        find_all_hits (bool | None): :code:`-N`
         with_md (bool): output the MD to each alignment in the XA tag, otherwise use :code:`"."`
         threads (int): the number of threads to use
     """
@@ -56,6 +57,7 @@ cdef class BwaAlnOptions:
                  stop_at_max_best_hits: int | None = None,
                  max_hits: int | None = 3,
                  log_scaled_gap_penalty: bool | None = None,
+                 find_all_hits: bool | None = None,
                  with_md: bool | None = False,
                  threads: int | None = None
                  ):
@@ -83,6 +85,8 @@ cdef class BwaAlnOptions:
             self.max_hits = max_hits
         if log_scaled_gap_penalty is not None:
             self.log_scaled_gap_penalty = 1 if log_scaled_gap_penalty else 0
+        if find_all_hits is not None:
+            self.find_all_hits = find_all_hits
         if with_md is not None:
             self.with_md = with_md
         if threads is not None:
@@ -186,13 +190,24 @@ cdef class BwaAlnOptions:
 
     property log_scaled_gap_penalty:
         """:code:`bwa aln -L`"""
-        def __get__(self) -> int:
+        def __get__(self) -> bool:
             return self._delegate.mode & BWA_MODE_LOGGAP > 0
-        def __set__(self, value: int):
+        def __set__(self, value: bool):
             if value:
                 self._delegate.mode |= BWA_MODE_LOGGAP
             else:
                 self._delegate.mode &= ~BWA_MODE_LOGGAP
+
+    property find_all_hits:
+        """:code:`bwa aln -N`"""
+        def __get__(self) -> bool:
+            return self._delegate.mode & BWA_MODE_NONSTOP > 0
+        def __set__(self, value: bool):
+            if value:
+                self._delegate.mode |= BWA_MODE_NONSTOP
+                self.stop_at_max_best_hits = 0x7fffffff
+            else:
+                self._delegate.mode &= ~BWA_MODE_NONSTOP
 
     property with_md:
         """:code:`bwa samse -d

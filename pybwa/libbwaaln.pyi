@@ -22,6 +22,7 @@ class BwaAlnOptions:
         stop_at_max_best_hits: int | None = None,
         max_hits: int | None = 3,
         log_scaled_gap_penalty: bool | None = None,
+        find_all_hits: bool | None = None,
         threads: int | None = None,
     ) -> None: ...
     max_mismatches: int  # -n <int>
@@ -38,6 +39,7 @@ class BwaAlnOptions:
     stop_at_max_best_hits: int  # -R <int>
     max_hits: int  # bwa samse -n <int>
     log_scaled_gap_penalty: bool = True  # -L
+    find_all_hits: bool = False  # -N
     with_md: bool = True  # bwa samse -d
     threads: int  # -t <int>
 
