@@ -1,15 +1,16 @@
 import multiprocessing
 import os
 import platform
+import shutil
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List
-import shutil
 
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
 from setuptools import Extension, Distribution
+
 
 @contextmanager
 def changedir(path):
