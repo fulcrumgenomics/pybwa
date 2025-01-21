@@ -63,6 +63,8 @@ cdef class BwaAlnOptions:
                  ):
         if max_mismatches is not None:
             self.max_mismatches = max_mismatches
+        if max_gap_opens is not None:
+            self.max_gap_opens = max_gap_opens
         if max_gap_extensions is not None:
             self.max_gap_extensions = max_gap_extensions
         if min_indel_to_end_distance is not None:
@@ -84,7 +86,7 @@ cdef class BwaAlnOptions:
         if max_hits is not None:
             self.max_hits = max_hits
         if log_scaled_gap_penalty is not None:
-            self.log_scaled_gap_penalty = 1 if log_scaled_gap_penalty else 0
+            self.log_scaled_gap_penalty = log_scaled_gap_penalty
         if find_all_hits is not None:
             self.find_all_hits = find_all_hits
         if with_md is not None:
@@ -105,9 +107,10 @@ cdef class BwaAlnOptions:
     property max_mismatches:
         """:code:`bwa aln -n <int>`"""
         def __get__(self) -> int:
-            return self._delegate.s_mm
+            return self._delegate.max_diff
         def __set__(self, value: int):
-            self._delegate.s_mm = value
+            self._delegate.fnr = -1.0
+            self._delegate.max_diff = value
 
     property max_gap_opens:
         """:code:`bwa aln -o <int>`"""
@@ -119,7 +122,7 @@ cdef class BwaAlnOptions:
     property max_gap_extensions:
         """:code:`bwa aln -e <int>`"""
         def __get__(self) -> int:
-            return self._delegate.max_gapo
+            return self._delegate.max_gape
         def __set__(self, value: int):
             self._delegate.max_gape = value
             if self._delegate.max_gape > 0:
@@ -270,7 +273,6 @@ cdef class BwaAln:
                 for i, sequence in enumerate(queries)
             ]
         opt = BwaAlnOptions() if opt is None else opt
-
 
         return self._calign(opt,  queries)
     
