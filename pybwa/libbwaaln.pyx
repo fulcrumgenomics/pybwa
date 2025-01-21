@@ -382,6 +382,7 @@ cdef class BwaAln:
                             XA += f"{cigar_len}{cigar_op}"
                     XA += f",{hit.gap + hit.mm};"
                 attrs["XA"] = XA
+            attrs["HN"] = seq.n_occ
             # NB: the type 'A' (printable character) of the XA tag must be explicitly given
             # below, therefore we extract the attrs dictionary as a list of tuples first.
             tags = [('XT', b'N' if nn > 10 else "NURM"[seq.type], 'A')]
