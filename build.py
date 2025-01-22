@@ -55,7 +55,7 @@ compile_args = []
 link_args = []
 include_dirs = ["bwa", "pybwa"]
 libraries = ['m', 'z', 'pthread']
-if platform == 'Linux':
+if platform.system() == 'Linux':
     libraries.append("rt")
 library_dirs=['pybwa', 'bwa']
 extra_objects = []
