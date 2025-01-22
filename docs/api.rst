@@ -90,14 +90,8 @@ API versus Command-line Differences
 ===================================
 
 The reported alignments from `pybwa` may differ from those reported by the `bwa` command line.
-This is true when `bwa` is run with multiple threads (see :code:`bwa aln -t` and :code:`bwa mem -t`),
-or when `bwa` processes multiple chunks (see :code:`bwa aln -m` and :code:`bwa mem -K`).
-
-Furthermore, when multiple alignments with the same *alignment score* exist for one read, both the chosen primary
-alignment *AND* number of non-primary (i.e. secondary) alignments may differ.
-As a result, the mapping quality may also differ slightly.
-This is due to an implementation detail in which the order of random numbers used is different between this wrapper
-and command-line.
+This is true when `bwa` is run with a different number of threads (see :code:`bwa aln -t` and :code:`bwa mem -t`),
+or when using a different number of chunks (see :code:`bwa mem -K`).
 
 Finally, the following additions have been made to :code:`bwa aln/samse`:
 
