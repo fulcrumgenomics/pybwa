@@ -38,7 +38,7 @@ class BwaMemOptions:
         keep_mapq_for_supplementary: bool | None = None,
         with_xb_tag: bool | None = None,
         max_occurrences: int | None = None,
-        off_diagonal_x_dropoff: float | None = None,
+        off_diagonal_x_dropoff: int | None = None,
         ignore_alternate_contigs: bool | None = None,
         internal_seed_split_factor: float | None = None,
         drop_chain_fraction: float | None = None,
@@ -134,9 +134,9 @@ class BwaMemOptions:
     @max_occurrences.setter
     def max_occurrences(self, value: int) -> None: ...
     @property
-    def off_diagonal_x_dropoff(self) -> float: ...
+    def off_diagonal_x_dropoff(self) -> int: ...
     @off_diagonal_x_dropoff.setter
-    def off_diagonal_x_dropoff(self, value: float) -> None: ...
+    def off_diagonal_x_dropoff(self, value: int) -> None: ...
     @property
     def ignore_alternate_contigs(self) -> bool: ...
     @ignore_alternate_contigs.setter

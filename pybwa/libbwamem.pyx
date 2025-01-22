@@ -38,7 +38,7 @@ cdef class BwaMemOptions:
         mode (BwaMemMode): :code:`bwa mem -x <str>`
         band_width (int): :code:`bwa mem -w <int>`
         match_score (int): :code:`bwa mem -A <int>`
-        mismatch_penalty (int): :code:`bwa mem -A <int>`
+        mismatch_penalty (int): :code:`bwa mem -B <int>`
         minimum_score (int): :code:`bwa mem -T <int>`
         unpaired_penalty (int): :code:`bwa mem -U <int>`
         n_threads (int): :code:`bwa mem -t <int>`
@@ -53,7 +53,7 @@ cdef class BwaMemOptions:
         keep_mapq_for_supplementary (bool): :code:`bwa mem -q`
         with_xb_tag (bool): :code:`bwa mem -u`
         max_occurrences (int): :code:`bwa mem -c <int>`
-        off_diagonal_x_dropoff (float): :code:`bwa mem -d <float>`
+        off_diagonal_x_dropoff (int): :code:`bwa mem -d <float>`
         ignore_alternate_contigs (bool): :code:`bwa mem -j`
         internal_seed_split_factor (float): :code:`bwa mem -r <float>`
         drop_chain_fraction (float): :code:`bwa mem -D <float>`
@@ -61,7 +61,7 @@ cdef class BwaMemOptions:
         min_seeded_bases_in_chain (int): :code:`bwa mem -W <int>`
         seed_occurrence_in_3rd_round (int): :code:`bwa mem -y <int>`
         xa_max_hits (int | tuple[int, int]): :code:`bwa mem -h <int<,int>>`
-        xa_drop_ratio (float): :code:`bwa mem -y <float>`
+        xa_drop_ratio (float): :code:`bwa mem -z <float>`
         gap_open_penalty (int | tuple[int, int]): :code:`bwa mem -O <int<,int>>`
         gap_extension_penalty (int | tuple[int, int]): :code:`bwa mem -E <int<,int>>`
         clipping_penalty (int | tuple[int, int]): :code:`bwa mem -L <int<,int>>`
@@ -102,7 +102,7 @@ cdef class BwaMemOptions:
                  keep_mapq_for_supplementary: bool | None = None,
                  with_xb_tag: bool | None = None,
                  max_occurrences: int | None = None,
-                 off_diagonal_x_dropoff: float | None = None,
+                 off_diagonal_x_dropoff: int | None = None,
                  ignore_alternate_contigs: bool | None = None,
                  internal_seed_split_factor: float | None = None,
                  drop_chain_fraction: float | None = None,
@@ -336,7 +336,7 @@ cdef class BwaMemOptions:
 
     @property
     def mismatch_penalty(self) -> int:
-        """:code:`bwa mem -A <int>`"""
+        """:code:`bwa mem -B <int>`"""
         return self._options.b
 
     @mismatch_penalty.setter
@@ -496,15 +496,15 @@ cdef class BwaMemOptions:
         self._options0.max_occ = 1
 
     @property
-    def off_diagonal_x_dropoff(self) -> float:
+    def off_diagonal_x_dropoff(self) -> int:
         """:code:`bwa mem -d <float>`"""
-        return self._options.XA_drop_ratio
+        return self._options.zdrop
 
     @off_diagonal_x_dropoff.setter
-    def off_diagonal_x_dropoff(self, value: float) -> None:
+    def off_diagonal_x_dropoff(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.off_diagonal_x_dropoff.__name__)
-        self._options.XA_drop_ratio = value
-        self._options0.XA_drop_ratio = 1
+        self._options.zdrop = value
+        self._options0.zdrop = 1
 
     @property
     def ignore_alternate_contigs(self) -> bool:
@@ -591,7 +591,7 @@ cdef class BwaMemOptions:
 
     @property
     def xa_drop_ratio(self) -> float:
-        """:code:`bwa mem -y <float>`"""
+        """:code:`bwa mem -z <float>`"""
         return self._options.XA_drop_ratio
 
     @xa_drop_ratio.setter
