@@ -114,7 +114,8 @@ cdef class BwaMemOptions:
                  gap_open_penalty: int | tuple[int, int] | None = None,
                  gap_extension_penalty: int | tuple[int, int] | None = None,
                  clipping_penalty: int | tuple[int, int] | None = None,
-                 threads: int | None = None) -> None:
+                 threads: int | None = None,
+                 chunk_size: int | None = None) -> None:
         self._finalized = False
         self._ignore_alt = False
         self._mode = None
@@ -182,6 +183,8 @@ cdef class BwaMemOptions:
             self.clipping_penalty = clipping_penalty
         if threads is not None:
             self.threads = threads
+        if chunk_size is not None:
+            self.chunk_size = chunk_size
         
     cdef _copy_options(self, dst: BwaMemOptions, src: BwaMemOptions):
         memcpy(dst._options, src._options, sizeof(mem_opt_t))
@@ -282,6 +285,11 @@ cdef class BwaMemOptions:
                 opt._options.min_chain_weight = 20 if opt._mode == BwaMemMode.ONT2D else 40
             if opt._options0.min_seed_len != 1:
                 opt._options.min_seed_len = 14 if opt._mode == BwaMemMode.ONT2D else 17
+
+        # the **actual** chunk size by default scales by the # of threads, otherwise use a fixed
+        # number
+        if opt._options0.chunk_size != 1 and opt._options.chunk_size > 0:
+            opt._options.chunk_size *= opt._options.n_threads
 
         bwa_fill_scmat(
             opt._options.a, opt._options.b, opt._options.mat
@@ -672,6 +680,16 @@ cdef class BwaMemOptions:
     def threads(self, value: int) -> None:
         self._options.n_threads = value
 
+    @property
+    def chunk_size(self) -> int:
+        """:code:`bwa mem -K <int>`"""
+        return self._options.chunk_size
+
+    @chunk_size.setter
+    def chunk_size(self, value: int) -> None:
+        self._options0.chunk_size = 1
+        self._options.chunk_size = value
+
 
 cdef class BwaMem:
     """The class to align reads with :code:`bwa mem`."""
@@ -719,7 +737,22 @@ cdef class BwaMem:
                 FastxRecord(name=f"read.{i}", sequence=sequence)
                 for i, sequence in enumerate(queries)
             ]
-        return self._calign(opt, queries)
+
+        # This mimics how the `bwa mem -K` option works, where we process reads in chunks based on
+        # the total number of bases in the reads in the chunk
+        start = 0
+        results: List[List[AlignedSegment]] = []
+        while start < len(queries):
+            num_bases = 0
+            end = start
+            while end < len(queries) and num_bases < opt.chunk_size:
+                num_bases += len(queries[end].sequence)
+                end += 1
+            assert start < end
+            results.extend(self._calign(opt, queries[start:end]))
+            start = end
+
+        return results
     
     @staticmethod
     def __to_str(_bytes: bytes) -> str:
