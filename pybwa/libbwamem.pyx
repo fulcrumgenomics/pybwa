@@ -739,17 +739,18 @@ cdef class BwaMem:
             ]
 
         # This mimics how the `bwa mem -K` option works, where we process reads in chunks based on
-        # the total number of bases in the reads in the chunk
+        # the total number of bases in the reads in the chunk, and making sure we have an _even_
+        # number of reads in the chunk.
         start = 0
         results: List[List[AlignedSegment]] = []
         while start < len(queries):
             num_bases = 0
             end = start
-            while end < len(queries) and num_bases < opt.chunk_size:
+            while end < len(queries) and (num_bases < opt.chunk_size or (end-start)&1 == 1):
                 num_bases += len(queries[end].sequence)
                 end += 1
             assert start < end
-            results.extend(self._calign(opt, queries[start:end]))
+            results.extend(self._calign(opt, queries[start:end], n_processed=start))
             start = end
 
         return results
@@ -818,7 +819,7 @@ cdef class BwaMem:
                 SA += f",{other.mapq},{other.get_tag('NM')};"
             record.set_tag("SA", SA)
 
-    cdef _calign(self, opt: BwaMemOptions, queries: List[FastxRecord]):
+    cdef _calign(self, opt: BwaMemOptions, queries: List[FastxRecord], n_processed: int = 0):
         # TODO: ignore_alt
         # TODO: refactor to make this more readable
         cdef bseq1_t* seqs
@@ -847,7 +848,7 @@ cdef class BwaMem:
 
         # process the sequences (ignores the paired end stats)
         mem_alns_vec = mem_process_seqs_alt(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(),
-                         0, num_seqs, seqs, NULL)
+                         n_processed, num_seqs, seqs, NULL)
 
         for i in range(num_seqs):
             seq = &seqs[i]
