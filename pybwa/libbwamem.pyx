@@ -812,7 +812,7 @@ cdef class BwaMem:
             for j, other in enumerate(records):
                 if i == j or other.is_secondary:
                     continue
-                SA = f"{other.reference_name},{other.reference_start+1},"
+                SA += f"{other.reference_name},{other.reference_start+1},"
                 SA += "+" if other.is_forward else "-"
                 SA += f",{other.cigarstring.replace('H', 'S')}"
                 SA += f",{other.mapq},{other.get_tag('NM')};"
