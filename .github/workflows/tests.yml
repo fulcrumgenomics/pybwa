@@ -10,6 +10,7 @@ on:
 
 env:
   POETRY_VERSION: 1.8
+  CYTHON_TRACE: 1  # for code coverage
 
 jobs:
   testing:

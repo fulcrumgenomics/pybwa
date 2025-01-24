@@ -49,6 +49,10 @@ def with_patches():
                 if retcode != 0:
                     raise RuntimeError(f"Failed to reset submodules: {command}")
 
+compiler_directives = {
+    "language_level": "3",
+    'embedsignature': True,
+}
 SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
 compile_args = []
@@ -62,12 +66,25 @@ extra_objects = []
 define_macros = [("HAVE_PTHREAD", None), ("USE_MALLOC_WRAPPERS", None)]
 h_files = []
 c_files = []
+
+exclude_files = {
+    "pybwa": ["libbwaaln.c", "libbwaindex.c", "libbwamem.c"],
+    "bwa": ['example.c', 'main.c']
+}
 for root_dir in library_dirs:
     h_files.extend(str(x) for x in Path(root_dir).rglob("*.h"))
-    c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in ['example.c', 'main.c'])
+    c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in exclude_files[root_dir])
+
+# Check if we should build with linetracing for coverage
+build_with_coverage = os.environ.get("CYTHON_TRACE", "false").lower() in ("1", "true", '"true"')
+if build_with_coverage:
+    compiler_directives["linetrace"] = True
+    compiler_directives['emit_code_comments'] = True
+    define_macros.extend([('CYTHON_TRACE', 1), ('CYTHON_TRACE_NOGIL', 1), ('DCYTHON_USE_SYS_MONITORING', 0)])
+    BUILD_DIR = Path(".")  # the compiled .c files need to be next to the .pyx files for coverage
 
 if platform.system() != 'Windows':
-    compile_args = [
+    compile_args.extend([
         "-Wno-unused-result",
         "-Wno-unreachable-code",
         "-Wno-single-bit-bitfield-constant-conversion",
@@ -75,7 +92,8 @@ if platform.system() != 'Windows':
         "-Wno-unused",
         "-Wno-strict-prototypes",
         "-Wno-sign-compare",
-        "-Wno-error=declaration-after-statement"]
+        "-Wno-error=declaration-after-statement"
+    ])
 
 libbwaindex_module = Extension(
     name='pybwa.libbwaindex',
@@ -135,8 +153,8 @@ def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
         # Parallelize our build
         nthreads=multiprocessing.cpu_count() * 2,
 
-        # Tell Cython we're using Python 3. Becomes default in Cython 3
-        compiler_directives={"language_level": "3", 'embedsignature': True},
+        # Compiler directives (e.g. language, or line tracing for coverage)
+        compiler_directives=compiler_directives,
 
         # (Optional) Always rebuild, even if files untouched
         force=True,
