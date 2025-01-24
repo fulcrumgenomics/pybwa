@@ -25,6 +25,12 @@ def test_bwa_index_build(ref_fasta: Path, tmp_path_factory: pytest.TempPathFacto
 
     # Build the index
     BwaIndex.index(fasta=ref_fasta, prefix=prefix)
+
+    # Check the files exist
+    for suffix in [".bwt", ".sa", ".ann", ".pac"]:
+        assert prefix.with_suffix(prefix.suffix + suffix).exists()
+    assert prefix.with_suffix(".dict").exists()
+
     # Load it
     BwaIndex(prefix=prefix)
 
