@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Configure the libraries needed to build wheel packages on linux.
+# This script is designed to be used by cibuildwheel as CIBW_BEFORE_ALL_LINUX
+
+set -euo pipefail
+
+# dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source /etc/os-release
+
+echo "manylinux image woking on $ID"
+
+# Install pybwa development files.
+case "$ID" in
+almalinux)
+    dnf install -y bzip2-devel xz-devel libcurl-devel openssl-devel epel-release
+
+    # packages at epel
+    dnf install -y libdeflate-devel
+    ;;
+
+alpine)
+    apk add --no-cache xz-dev curl-dev libdeflate-dev
+    ;;
+
+centos)
+    yum install -y bzip2-devel xz-devel libcurl-devel openssl-devel
+
+    LIBDEFLATE_VERSION=1.20
+    curl -L -o libdeflate-v"$LIBDEFLATE_VERSION".tar.gz https://github.com/ebiggers/libdeflate/archive/refs/tags/v"$LIBDEFLATE_VERSION".tar.gz
+    tar xzf libdeflate-v"$LIBDEFLATE_VERSION".tar.gz
+    cd libdeflate-"$LIBDEFLATE_VERSION"
+    cmake -B build && cmake --build build
+    cd ./build/ && make install
+    cd ../..
+    ;;
+
+*)
+    echo "$0: unexpected Linux distribution: '$ID'" >&2
+    exit 1
+    ;;
+esac
