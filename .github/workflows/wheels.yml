@@ -30,7 +30,7 @@ jobs:
           - buildplat: [manylinux_aarch64]
             skip: ["true", true]
           # musllinux_aarch64 - takes ~ 1h5m
-          - buildplat: [musllinux_x86_64]
+          - buildplat: [musllinux_aarch64]
             skip: ["true", true]
 
     steps:
