@@ -6,7 +6,11 @@ from libc.stdio cimport FILE
 cdef extern from "bwa.h":
     ctypedef struct bseq1_t:
         int l_seq, id
-        char *name, *comment, *seq, *qual, *sam
+        char *name
+        char *comment
+        char *seq
+        char *qual
+        char *sam
 
 cdef extern from "libbwamem_utils.h":
     ctypedef  struct mem_alns_t:
