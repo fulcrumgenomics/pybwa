@@ -9,7 +9,14 @@ on:
         required: false
         type: boolean
         default: true
-
+  workflow_dispatch:
+    inputs:
+      skip:
+        description: skip known long-running builds build (>10 minutes)
+        required: false
+        type: boolean
+        default: true
+        
 jobs:
   define-buildplat:
     name: Builds os-runner and platform tag matrix to build wheels
@@ -20,7 +27,7 @@ jobs:
       - name: Define the build platform (short-running builds)
         id: buildplat
         run: |
-          if [[ "${{ github.event_name != 'workflow_call' || inputs.skip }}" == "true" ]]; then
+          if [[ "${{ github.event_name == 'pull_request' || inputs.skip }}" == "true" ]]; then
             echo 'buildplat=[["ubuntu-22.04", "manylinux_x86_64"], ["ubuntu-22.04", "musllinux_x86_64"], ["macos-13", "macosx_x86_64"], ["macos-15", "macosx_arm64"]]' >> "$GITHUB_OUTPUT"
           else
             echo 'buildplat=[["ubuntu-22.04", "manylinux_x86_64"], ["ubuntu-22.04", "musllinux_x86_64"], ["ubuntu-22.04", "manylinux_aarch64"], ["ubuntu-22.04", "musllinux_aarch64"], ["macos-13", "macosx_x86_64"], ["macos-15", "macosx_arm64"]]' >> "$GITHUB_OUTPUT"
