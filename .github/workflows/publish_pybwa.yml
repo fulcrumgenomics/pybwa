@@ -46,7 +46,7 @@ jobs:
     needs: tests
     uses: "./.github/workflows/wheels.yml"
     with:
-      skip: true
+      skip: false
 
   build-sdist:
     name: build source distribution

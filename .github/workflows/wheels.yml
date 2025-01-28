@@ -8,7 +8,7 @@ on:
         description: skip known long-running builds build (>10 minutes)
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
  build_wheels:
