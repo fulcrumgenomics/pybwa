@@ -27,7 +27,7 @@ jobs:
           fi
               
   build-wheels:
-    name: Build wheels for  ${{ matrix.python-version }}-${{ matrix.buildplat[1] }} input-${{ inputs.skip }} matrix-${{ matrix.skip }}
+    name: Build wheels for  ${{ matrix.python-version }}-${{ matrix.buildplat[1] }} input-${{ inputs.skip }}
     runs-on: ${{ matrix.buildplat[0] }}
     needs: define-buildplat
     strategy:
