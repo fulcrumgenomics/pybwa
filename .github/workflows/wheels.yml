@@ -28,10 +28,10 @@ jobs:
         exclude:
           # manylinux_aarch64 - takes ~15m
           - buildplat: [manylinux_aarch64]
-            skip: true
+            skip: "true"
           # musllinux_aarch64 - takes ~ 1h5m
           - buildplat: [musllinux_x86_64]
-            skip: true
+            skip: "true"
 
     steps:
       - uses: actions/checkout@v4
