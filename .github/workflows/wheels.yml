@@ -12,7 +12,7 @@ on:
 
 jobs:
  build_wheels:
-    name: Build wheels for  ${{ matrix.python-version }}-${{ matrix.buildplat[1] }}
+    name: Build wheels for  ${{ matrix.python-version }}-${{ matrix.buildplat[1] }} input-${{ inputs.skip }} matrix-${{ matrix.skip }}
     runs-on: ${{ matrix.buildplat[0] }}
     strategy:
       matrix:
