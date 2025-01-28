@@ -26,11 +26,11 @@ jobs:
         python-version: [cp39, cp310, cp311, cp312]
         skip: ["${{ github.event_name == 'workflow_call' && inputs.skip }}"]
         exclude:
-          # musllinux_aarch64 - takes ~1h5m
-          - buildplat: [musllinux_aarch64]
+          # manylinux_aarch64 - takes ~15m
+          - buildplat: [manylinux_aarch64]
             skip: true
           # musllinux_aarch64 - takes ~ 1h5m
-          - buildplat: [musllinux_aarch64]
+          - buildplat: [musllinux_x86_64]
             skip: true
 
     steps:
