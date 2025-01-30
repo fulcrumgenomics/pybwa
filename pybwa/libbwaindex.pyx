@@ -101,7 +101,7 @@ cdef class BwaIndex:
         # infer the prefix from the hint
         prefix_char_ptr = bwa_idx_infer_prefix(force_bytes(prefix))
         if not prefix_char_ptr:
-            raise FileNotFoundError(f"could not locate the index [prefix]: {prefix}")
+            raise FileNotFoundError(f"could not locate the index file [prefix]: {prefix}")
 
         # the path to the inferred prefix
         prefix_path: Path = Path(prefix_char_ptr.decode("utf-8"))
