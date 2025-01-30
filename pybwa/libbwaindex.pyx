@@ -31,9 +31,7 @@ cdef bytes force_bytes(object s):
 
 
 cdef bytes force_bytes_with(object s, encoding: str | None = None, errors: str | None = None):
-    """convert string or unicode object to bytes, assuming
-    utf8 encoding.
-    """
+    """convert string or unicode object to bytes, assuming utf8 encoding."""
     if s is None:
         return None
     elif PyBytes_Check(s):

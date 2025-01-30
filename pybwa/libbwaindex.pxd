@@ -42,6 +42,7 @@ cdef extern from "bntseq.h":
     void bns_destroy(bntseq_t *bns)
 
 cdef bytes force_bytes(object s)
+cdef bytes force_bytes_with(object s, encoding: str | None = *, errors: str | None = *)
 
 cdef class BwaIndex:
     """Contains the index and nucleotide sequence for Bwa"""
