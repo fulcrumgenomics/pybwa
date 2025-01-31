@@ -4,7 +4,7 @@ def make_ext(modname, pyxfilename):
     import pybwa
     return Extension(name = modname,
                      sources = [pyxfilename],
-                     include_dirs = pybwa.get_include(),
+                     include_dirs = pybwa._get_include(),
                      extra_compile_args = [
                          "-Wno-unused-result",
                          "-Wno-unreachable-code",
@@ -15,4 +15,4 @@ def make_ext(modname, pyxfilename):
                          "-Wno-sign-compare",
                          "-Wno-error=declaration-after-statement"
                      ],
-                     define_macros = pybwa.get_defines())
+                     define_macros = pybwa._get_defines())
