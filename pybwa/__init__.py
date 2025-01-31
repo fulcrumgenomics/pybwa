@@ -6,7 +6,7 @@ from pybwa.libbwaindex import *  # noqa: F403
 from pybwa.libbwamem import *  # noqa: F403
 
 
-def get_include():
+def get_include() -> list[str]:
     """return a list of include directories."""
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
@@ -31,12 +31,12 @@ def get_include():
     return includes
 
 
-def get_defines():
+def get_defines() -> list[str]:
     """return a list of defined compilation parameters."""
     return []
 
 
-def get_libraries():
+def get_libraries() -> list[str]:
     """return a list of libraries to link against."""
     # Note that this list does not include libcsamtools.so as there are
     # numerous name conflicts with libchtslib.so.
