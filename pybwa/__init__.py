@@ -6,14 +6,13 @@ from pybwa.libbwaindex import *  # noqa: F403
 from pybwa.libbwamem import *  # noqa: F403
 
 
-def get_include() -> list[str]:
+def _get_include() -> list[str]:
     """return a list of include directories."""
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
-    #
     # Header files may be stored in different relative locations
     # depending on installation mode (e.g., `python setup.py install`,
-    # `python setup.py develop`. The first entry in each list is
+    # `python setup.py develop`). The first entry in each list is
     # where develop-mode headers can be found.
     #
     pybwa_possibilities = [
@@ -31,18 +30,15 @@ def get_include() -> list[str]:
     return includes
 
 
-def get_defines() -> list[str]:
+def _get_defines() -> list[str]:
     """return a list of defined compilation parameters."""
     return []
 
 
-def get_libraries() -> list[str]:
+def _get_libraries() -> list[str]:
     """return a list of libraries to link against."""
-    # Note that this list does not include libcsamtools.so as there are
-    # numerous name conflicts with libchtslib.so.
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-    # pybwa_libs = ['libbwaaln', 'libbwaindex', 'libbwamem']
-    pybwa_libs = ["libbwaindex"]
+    pybwa_libs = ["libbwaaln", "libbwaindex", "libbwamem"]
 
     so = sysconfig.get_config_var("EXT_SUFFIX")
     return [os.path.join(dirname, x + so) for x in pybwa_libs]
