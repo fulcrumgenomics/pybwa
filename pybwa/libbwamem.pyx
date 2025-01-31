@@ -119,6 +119,23 @@ cdef class BwaMemOptions:
         self._finalized = False
         self._ignore_alt = False
         self._mode = None
+
+        # for options that scale by match score or are set by mode, zero out the `options0`, which
+        # tracks if they have been set or not.
+        self._options0.b = 0
+        self._options0.T = 0
+        self._options0.o_del = 0
+        self._options0.e_del = 0
+        self._options0.o_ins = 0
+        self._options0.e_ins = 0
+        self._options0.zdrop = 0
+        self._options0.pen_clip5 = 0
+        self._options0.pen_clip3 = 0
+        self._options0.pen_unpaired = 0
+        self._options0.split_factor = 0
+        self._options0.min_chain_weight = 0
+        self._options0.min_seed_len = 0
+
         if min_seed_len is not None:
             self.min_seed_len = min_seed_len
         if mode is not None:
@@ -185,10 +202,6 @@ cdef class BwaMemOptions:
             self.threads = threads
         if chunk_size is not None:
             self.chunk_size = chunk_size
-        
-    cdef _copy_options(self, dst: BwaMemOptions, src: BwaMemOptions):
-        memcpy(dst._options, src._options, sizeof(mem_opt_t))
-        memcpy(dst._options0, src._options0, sizeof(mem_opt_t))
 
     def __cinit__(self):
         self._options = mem_opt_init()
@@ -310,7 +323,7 @@ cdef class BwaMemOptions:
         self._options0.min_seed_len = 1
 
     @property
-    def mode(self) -> BwaMemMode:
+    def mode(self) -> BwaMemMode | None:
         """:code:`bwa mem -x <str>`"""
         return self._mode
 
@@ -389,7 +402,7 @@ cdef class BwaMemOptions:
         if value:
             self._options.flag |= flag
         else:
-            self._options.flag |= ~flag
+            self._options.flag &= ~flag
         return self
 
     @property
@@ -582,7 +595,10 @@ cdef class BwaMemOptions:
     @property
     def xa_max_hits(self) -> int | tuple[int, int]:
         """:code:`bwa mem -h <int<,int>>`"""
-        return self._options.max_XA_hits, self._options.max_XA_hits_alt
+        if self._options.max_XA_hits == self._options.max_XA_hits_alt:
+            return self._options.max_XA_hits
+        else:
+            return self._options.max_XA_hits, self._options.max_XA_hits_alt
 
     @xa_max_hits.setter
     def xa_max_hits(self, value: int | tuple[int, int]) -> None:
@@ -649,7 +665,6 @@ cdef class BwaMemOptions:
             self._options.e_del = deletions
             self._options.e_ins = insertions
 
-
     @property
     def clipping_penalty(self) -> int | tuple[int, int]:
         """:code:`bwa mem -L <int<,int>>`"""
@@ -711,7 +726,7 @@ cdef class BwaMem:
         elif index is not None:
             self._index = index
         else:
-            raise Exception("Either prefix or index must be given")
+            raise ValueError("Either prefix or index must be given")
 
     # TODO: support paired end
     def align(self, queries: List[FastxRecord] | List[str], opt: BwaMemOptions | None = None) -> List[List[AlignedSegment]]:
