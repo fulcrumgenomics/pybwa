@@ -254,7 +254,7 @@ cdef class BwaAln:
         elif index is not None:
             self._index = index
         else:
-            raise Exception("Either prefix or index must be given")
+            raise ValueError("Either prefix or index must be given")
 
         bwase_initialize()
 
