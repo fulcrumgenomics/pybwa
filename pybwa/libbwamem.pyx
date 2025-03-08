@@ -898,7 +898,7 @@ cdef class BwaMem:
                 rec.reference_id = mem_aln.rid
                 rec.reference_start = mem_aln.pos
                 rec.mapping_quality = mem_aln.mapq
-                cigar = ""
+                cigartuples = []
                 cigar_len_sum = 0
                 for k in range(mem_aln.n_cigar):
                     cigar_op = mem_aln.cigar[k] & 0xf
@@ -906,10 +906,10 @@ cdef class BwaMem:
                             cigar_op == 3 or cigar_op == 4):
                         cigar_op = 4 if j > 0 else 3  # // use hard clipping for supplementary alignments
                     cigar_len = mem_aln.cigar[k] >> 4
-                    cigar += f"{cigar_len}" + "MIDSH"[cigar_op]
+                    cigartuples.append((cigar_op, cigar_len))
                     if cigar_op < 4:
                         cigar_len_sum += cigar_len
-                rec.cigarstring = cigar
+                rec.cigartuples = cigartuples
 
                 # remove leading and trailing soft-clipped bases for non-primary etc.
                 if mem_aln.n_cigar > 0 and j > 0 and not opt.soft_clip_supplementary and mem_aln.is_alt == 0:
