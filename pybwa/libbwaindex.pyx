@@ -93,7 +93,7 @@ cdef class BwaIndex:
         bwa_idx_build(force_bytes(f"{fasta}"), force_bytes(f"{prefix}"), method.value, block_size)
 
         # Build the sequence dictionary
-        dict_fn = Path(prefix.with_suffix(".dict"))
+        dict_fn = Path(prefix).with_suffix(".dict")
         samtools.dict("-o", f"{dict_fn}", f"{fasta}")
 
 

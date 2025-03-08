@@ -39,8 +39,12 @@ def test_force_bytes_with() -> None:
 
 
 @pytest.mark.parametrize("in_place", [True, False])
+@pytest.mark.parametrize("prefix_as_str", [True, False])
 def test_bwa_index_build(
-    e_coli_k12_fasta: Path, tmp_path_factory: pytest.TempPathFactory, in_place: bool
+    e_coli_k12_fasta: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    in_place: bool,
+    prefix_as_str: bool,
 ) -> None:
     src_dir = Path(str(tmp_path_factory.mktemp("test_bwa_index_build_src")))
     fasta = src_dir / e_coli_k12_fasta.name
@@ -53,7 +57,8 @@ def test_bwa_index_build(
         prefix = dest_dir / e_coli_k12_fasta.name
 
     # Build the index
-    BwaIndex.index(fasta=fasta, prefix=None if in_place else prefix)
+    fasta_arg = f"{fasta}" if prefix_as_str else fasta
+    BwaIndex.index(fasta=fasta_arg, prefix=None if in_place else prefix)
 
     # Check the files exist
     for suffix in [".bwt", ".sa", ".ann", ".pac"]:
@@ -61,13 +66,21 @@ def test_bwa_index_build(
     assert prefix.with_suffix(".dict").exists()
 
     # Load it
+    prefix_arg = f"{prefix}" if prefix_as_str else prefix
+    BwaIndex(prefix=prefix_arg)
+
+
+@pytest.mark.parametrize("prefix_as_str", [True, False])
+def test_bwa_index_load(
+    e_coli_k12_fasta: Path, tmp_path_factory: pytest.TempPathFactory, prefix_as_str: bool
+) -> None:
+    prefix = f"{e_coli_k12_fasta}" if prefix_as_str else e_coli_k12_fasta
     BwaIndex(prefix=prefix)
 
 
-def test_bwa_index_load(e_coli_k12_fasta: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
-    # can be loaded
-    BwaIndex(prefix=e_coli_k12_fasta)
-
+def test_bwa_index_load_path_does_not_exist(
+    e_coli_k12_fasta: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     # does not load when the prefix does not exist
     with pytest.raises(FileNotFoundError, match=r"could not locate the index file \[prefix\]:.*"):
         BwaIndex(prefix="/path/does/not/exist")
