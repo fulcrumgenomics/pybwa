@@ -356,15 +356,15 @@ cdef class BwaAln:
         rec.mapping_quality = seq.mapQ
 
         # cigar
-        cigar = ""
+        cigartuples = []
         if seq.cigar:
             for j in range(seq.n_cigar):
                 cigar_len = __cigar_len(seq.cigar[j])
-                cigar_op = "MIDS"[__cigar_op(seq.cigar[j])]
-                cigar = f"{cigar}{cigar_len}{cigar_op}"
+                cigar_op = __cigar_op(seq.cigar[j])
+                cigartuples.append((cigar_op, cigar_len))
         elif seq.type != BWA_TYPE_NO_MATCH:
             cigar = f"{seq.len}M"
-        rec.cigarstring = cigar
+        rec.cigartuples = cigartuples
 
         # # tags
         if seq.type != BWA_TYPE_NO_MATCH:
