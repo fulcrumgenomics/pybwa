@@ -121,11 +121,11 @@ jobs:
           submodules: true
 
       - name: Generate a Changelog
-        uses: orhun/git-cliff-action@v3
+        uses: orhun/git-cliff-action@v4
         id: git-cliff
         with:
           config: pyproject.toml
-          args: --latest --verbose
+          args: --latest --verbose --config github
         env:
           GITHUB_REPO: ${{ github.repository }}
 
