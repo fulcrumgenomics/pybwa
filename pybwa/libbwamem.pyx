@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import List
 
+import pysam
 from fgpyo.sequence import reverse_complement
 from libc.string cimport memcpy
 from libc.stdlib cimport calloc, free
@@ -17,6 +18,16 @@ __all__ = [
     "BwaMemOptions",
     "BwaMem",
 ]
+
+cdef int _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[5]
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[0] = pysam.CMATCH
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[1] = pysam.CINS
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[2] = pysam.CDEL
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[3] = pysam.CSOFT_CLIP
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[4] = pysam.CHARD_CLIP
+
+cdef inline int _to_pysam_cigar_op(int x):
+    return _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[x]
 
 
 @enum.unique
@@ -906,7 +917,7 @@ cdef class BwaMem:
                             cigar_op == 3 or cigar_op == 4):
                         cigar_op = 4 if j > 0 else 3  # // use hard clipping for supplementary alignments
                     cigar_len = mem_aln.cigar[k] >> 4
-                    cigartuples.append((cigar_op, cigar_len))
+                    cigartuples.append((_to_pysam_cigar_op(cigar_op), cigar_len))
                     if cigar_op < 4:
                         cigar_len_sum += cigar_len
                 rec.cigartuples = cigartuples
