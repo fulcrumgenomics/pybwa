@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List
 from fgpyo.sequence import reverse_complement
 
+import pysam
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
@@ -16,6 +17,15 @@ __all__ = [
     "BwaAlnOptions",
     "BwaAln",
 ]
+
+cdef int _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[4]
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_M] = pysam.CMATCH
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_I] = pysam.CINS
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_D] = pysam.CDEL
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = pysam.CSOFT_CLIP
+
+cdef inline int _to_pysam_cigar_op(int x):
+    return _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[x]
 
 cdef class BwaAlnOptions:
     """The container for options for :class:`pybwa.BwaAln`.
@@ -361,9 +371,9 @@ cdef class BwaAln:
             for j in range(seq.n_cigar):
                 cigar_len = __cigar_len(seq.cigar[j])
                 cigar_op = __cigar_op(seq.cigar[j])
-                cigartuples.append((cigar_op, cigar_len))
+                cigartuples.append((_to_pysam_cigar_op(cigar_op), cigar_len))
         elif seq.type != BWA_TYPE_NO_MATCH:
-            cigar = f"{seq.len}M"
+            cigartuples.append((pysam.CMATCH, seq.len))
         rec.cigartuples = cigartuples
 
         # # tags
