@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import List
 from fgpyo.sequence import reverse_complement
 
-import pysam
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
