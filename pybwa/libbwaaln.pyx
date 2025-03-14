@@ -8,7 +8,7 @@ import pysam
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
-from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
+from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwaindex cimport BwaIndex
 
@@ -19,10 +19,10 @@ __all__ = [
 ]
 
 cdef int _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[4]
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_M] = pysam.CMATCH
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_I] = pysam.CINS
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_D] = pysam.CDEL
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = pysam.CSOFT_CLIP
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_M] = CMATCH
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_I] = CINS
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_D] = CDEL
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = CSOFT_CLIP
 
 cdef inline int _to_pysam_cigar_op(int x):
     return _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[x]

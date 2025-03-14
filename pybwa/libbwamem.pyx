@@ -2,13 +2,12 @@
 from pathlib import Path
 from typing import List
 
-import pysam
 from fgpyo.sequence import reverse_complement
 from libc.string cimport memcpy
 from libc.stdlib cimport calloc, free
 import enum
 from pybwa.libbwaindex cimport BwaIndex
-from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
+from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP, CHARD_CLIP
 from libc.string cimport strncpy
 from pybwa.libbwaindex cimport force_bytes
 
@@ -20,11 +19,11 @@ __all__ = [
 ]
 
 cdef int _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[5]
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[0] = pysam.CMATCH
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[1] = pysam.CINS
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[2] = pysam.CDEL
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[3] = pysam.CSOFT_CLIP
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[4] = pysam.CHARD_CLIP
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[0] = CMATCH
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[1] = CINS
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[2] = CDEL
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[3] = CSOFT_CLIP
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[4] = CHARD_CLIP
 
 cdef inline int _to_pysam_cigar_op(int x):
     return _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[x]
