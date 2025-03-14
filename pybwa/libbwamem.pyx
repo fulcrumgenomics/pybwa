@@ -7,7 +7,7 @@ from libc.string cimport memcpy
 from libc.stdlib cimport calloc, free
 import enum
 from pybwa.libbwaindex cimport BwaIndex
-from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
+from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP, CHARD_CLIP
 from libc.string cimport strncpy
 from pybwa.libbwaindex cimport force_bytes
 
@@ -17,6 +17,16 @@ __all__ = [
     "BwaMemOptions",
     "BwaMem",
 ]
+
+cdef int _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[5]
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[0] = CMATCH
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[1] = CINS
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[2] = CDEL
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[3] = CSOFT_CLIP
+_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[4] = CHARD_CLIP
+
+cdef inline int _to_pysam_cigar_op(int x):
+    return _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[x]
 
 
 @enum.unique
@@ -898,7 +908,7 @@ cdef class BwaMem:
                 rec.reference_id = mem_aln.rid
                 rec.reference_start = mem_aln.pos
                 rec.mapping_quality = mem_aln.mapq
-                cigar = ""
+                cigartuples = []
                 cigar_len_sum = 0
                 for k in range(mem_aln.n_cigar):
                     cigar_op = mem_aln.cigar[k] & 0xf
@@ -906,10 +916,10 @@ cdef class BwaMem:
                             cigar_op == 3 or cigar_op == 4):
                         cigar_op = 4 if j > 0 else 3  # // use hard clipping for supplementary alignments
                     cigar_len = mem_aln.cigar[k] >> 4
-                    cigar += f"{cigar_len}" + "MIDSH"[cigar_op]
+                    cigartuples.append((_to_pysam_cigar_op(cigar_op), cigar_len))
                     if cigar_op < 4:
                         cigar_len_sum += cigar_len
-                rec.cigarstring = cigar
+                rec.cigartuples = cigartuples
 
                 # remove leading and trailing soft-clipped bases for non-primary etc.
                 if mem_aln.n_cigar > 0 and j > 0 and not opt.soft_clip_supplementary and mem_aln.is_alt == 0:

@@ -7,7 +7,7 @@ from fgpyo.sequence import reverse_complement
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from libc.string cimport strncpy
-from pysam import FastxRecord, AlignedSegment, qualitystring_to_array
+from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwaindex cimport BwaIndex
 
@@ -16,6 +16,15 @@ __all__ = [
     "BwaAlnOptions",
     "BwaAln",
 ]
+
+cdef int _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[4]
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_M] = CMATCH
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_I] = CINS
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_D] = CDEL
+_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = CSOFT_CLIP
+
+cdef inline int _to_pysam_cigar_op(int x):
+    return _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[x]
 
 cdef class BwaAlnOptions:
     """The container for options for :class:`pybwa.BwaAln`.
@@ -356,15 +365,15 @@ cdef class BwaAln:
         rec.mapping_quality = seq.mapQ
 
         # cigar
-        cigar = ""
+        cigartuples = []
         if seq.cigar:
             for j in range(seq.n_cigar):
                 cigar_len = __cigar_len(seq.cigar[j])
-                cigar_op = "MIDS"[__cigar_op(seq.cigar[j])]
-                cigar = f"{cigar}{cigar_len}{cigar_op}"
+                cigar_op = __cigar_op(seq.cigar[j])
+                cigartuples.append((_to_pysam_cigar_op(cigar_op), cigar_len))
         elif seq.type != BWA_TYPE_NO_MATCH:
-            cigar = f"{seq.len}M"
-        rec.cigarstring = cigar
+            cigartuples.append((CMATCH, seq.len))
+        rec.cigartuples = cigartuples
 
         # # tags
         if seq.type != BWA_TYPE_NO_MATCH:
