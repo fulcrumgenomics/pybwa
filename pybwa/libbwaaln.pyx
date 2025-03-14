@@ -372,7 +372,7 @@ cdef class BwaAln:
                 cigar_op = __cigar_op(seq.cigar[j])
                 cigartuples.append((_to_pysam_cigar_op(cigar_op), cigar_len))
         elif seq.type != BWA_TYPE_NO_MATCH:
-            cigartuples.append((pysam.CMATCH, seq.len))
+            cigartuples.append((CMATCH, seq.len))
         rec.cigartuples = cigartuples
 
         # # tags
