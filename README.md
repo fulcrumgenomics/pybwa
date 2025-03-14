@@ -11,6 +11,7 @@
 [![PyPI version][pypi-badge]][pypi-link]
 [![PyPI download total][pypi-downloads-badge]][pypi-downloads-link]
 [![Bioconda][bioconda-badge]][bioconda-link]
+[![DOI][zenodo-badge]][zenodo-link]
 
 ---
 
@@ -32,9 +33,10 @@
 [pypi-link]:            https://pypi.python.org/pypi/pybwa
 [pypi-downloads-badge]: https://img.shields.io/pypi/dm/pybwa
 [pypi-downloads-link]:  https://pypi.python.org/pypi/pybwa
-[bioconda-badge]: https://img.shields.io/conda/dn/bioconda/pybwa.svg?label=Bioconda
-[bioconda-link]: http://bioconda.github.io/recipes/pybwa/README.html
-
+[bioconda-badge]:       https://img.shields.io/conda/dn/bioconda/pybwa.svg?label=Bioconda
+[bioconda-link]:        http://bioconda.github.io/recipes/pybwa/README.html
+[zenodo-badge]:         https://zenodo.org/badge/902029215.svg
+[zenodo-link]:          https://doi.org/10.5281/zenodo.15029038
 # pybwa
 
 Python language bindings for [bwa][bwa-link].
