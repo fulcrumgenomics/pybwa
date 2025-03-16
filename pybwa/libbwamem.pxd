@@ -4,6 +4,7 @@ from libc.stdint cimport uint8_t, int64_t, int32_t, int8_t, uint32_t
 from libc.stdio cimport FILE
 from pybwa.libbwamemopt cimport mem_opt_t
 
+
 cdef extern from "bwa.h":
     ctypedef struct bseq1_t:
         int l_seq, id

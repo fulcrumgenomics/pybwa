@@ -12,6 +12,7 @@ from libc.string cimport strncpy
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwamemopt cimport BwaMemOptions
 
+
 __all__ = [
     "BwaMem",
 ]
