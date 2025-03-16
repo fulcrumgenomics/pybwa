@@ -213,6 +213,7 @@ def build():
             libbwamemopt_module,
             libbwamem_module,
         ])
+        print("Building extensions...")
 
         # Use Setuptools to collect files
         distribution = Distribution({
@@ -236,17 +237,10 @@ def build():
             },
         })
 
-        # Grab the build_ext command and copy all files back to source dir.
-        # Done so Poetry grabs the files during the next step in its build.
         build_ext_cmd = distribution.get_command_obj("build_ext")
         build_ext_cmd.ensure_finalized()
-        # Set the value to 1 for "inplace", with the goal to build extensions
-        # in build directory, and then copy all files back to the source dir
-        # (under the hood, "copy_extensions_to_source" will be called after
-        # building the extensions). This is done so Poetry grabs the files
-        # during the next step in its build.
-        build_ext_cmd.parallel = True
-        #build_ext_cmd.inplace = 1
+        build_ext_cmd.parallel = False #True
+        build_ext_cmd.inplace = 1
         build_ext_cmd.run()
 
 

@@ -63,6 +63,11 @@ jobs:
       shell: bash
       run: |
         poetry install
+    
+    - name: Check pybwa import
+      shell: bash
+      run: |
+        python -c "import pybwa"
 
     - name: Style checking
       shell: bash
