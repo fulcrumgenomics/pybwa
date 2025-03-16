@@ -1,10 +1,10 @@
-[tool.poetry]
+[project]
 name = "pybwa"
 version = "1.4.8"
 description = "Python bindings for BWA"
-authors = ["Nils Homer"]
-license = "MIT"
 readme = "README.md"
+authors = [{name = "Nils Homer", email = "nils@fulcrumgenomics.com"}]
+license = "MIT"
 homepage = "https://github.com/fulcrumgenomics/pybwa"
 repository = "https://github.com/fulcrumgenomics/pybwa"
 keywords = ["bioinformatics"]
@@ -21,6 +21,14 @@ classifiers = [
 	"Topic :: Software Development :: Documentation",
 	"Topic :: Software Development :: Libraries :: Python Modules",
 ]
+requires-python = ">=3.9.0,<4.0"
+dependencies = [
+	"fgpyo >=0.7.0",
+	"pysam >=0.22.1",
+	"typing_extensions >=3.7.4; python_version <'3.12'",
+]
+
+[tool.poetry]
 include = [
 	"LICENSE",
 	{ path = "pybwa/**/*.so", format = "wheel" },
@@ -42,10 +50,6 @@ generate-setup-file = false
 script = "build.py"
 
 [tool.poetry.dependencies]
-fgpyo = ">=0.7.0"
-python = ">=3.9.0,<4.0"
-pysam = ">=0.22.1"
-typing_extensions = { version = ">=3.7.4", python = "<3.12" }
 
 [tool.poetry.group.dev.dependencies]
 # dependencies for linting, style checking, and unit testing
@@ -68,7 +72,7 @@ sphinx-rtd-theme = "^3.0.2"
 sphinx-autodoc-typehints = "2"
 
 [build-system]
-requires = ["poetry-core>=1.0.0", "cython>=3.0.11", "setuptools>=75.1.0"]
+requires = ["poetry-core>=2.1.1", "cython>=3.0.11", "setuptools>=75.1.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
