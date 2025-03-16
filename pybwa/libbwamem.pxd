@@ -47,17 +47,17 @@ cdef extern from "kstring.h":
         char *s
 
 cdef extern from "bwamem.h":
-    int MEM_F_PE        
-    int MEM_F_NOPAIRING 
-    int MEM_F_ALL       
-    int MEM_F_NO_MULTI  
-    int MEM_F_NO_RESCUE 
-    int MEM_F_REF_HDR   
-    int MEM_F_SOFTCLIP  
-    int MEM_F_SMARTPE   
-    int MEM_F_PRIMARY5  
-    int MEM_F_KEEP_SUPP_MAPQ 
-    int MEM_F_XB
+    const int MEM_F_PE
+    const int MEM_F_NOPAIRING
+    const int MEM_F_ALL
+    const int MEM_F_NO_MULTI
+    const int MEM_F_NO_RESCUE
+    const int MEM_F_REF_HDR
+    const int MEM_F_SOFTCLIP
+    const int MEM_F_SMARTPE
+    const int MEM_F_PRIMARY5
+    const int MEM_F_KEEP_SUPP_MAPQ
+    const int MEM_F_XB
 
     ctypedef struct mem_pestat_t:
         int low, high   # lower and upper bounds within which a read pair is considered to be properly paired
