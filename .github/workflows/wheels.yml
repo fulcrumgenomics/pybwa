@@ -24,6 +24,8 @@ jobs:
   define-pybwa-version:
     name: Get the pybwa version
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -40,9 +42,10 @@ jobs:
         pip install poetry==${{env.POETRY_VERSION}}
 
     - name: Get pybwa version
+      id: version
       shell: bash
       run: |
-        echo "pybwa-version=$(poetry version --short)" >> $GITHUB_OUTPUT;
+        echo "version=$(poetry version --short)" >> $GITHUB_OUTPUT;
 
   define-buildplat:
     name: Builds os-runner and platform tag matrix to build wheels
@@ -112,6 +115,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pybwa-${{needs.define-pybwa-version.outputs.pybwa-version}}-${{ matrix.python-version }}-${{ matrix.buildplat[1] }}.whl
+          name: pybwa-${{needs.define-pybwa-version.outputs.version}}-${{ matrix.python-version }}-${{ matrix.buildplat[1] }}.whl
           path: ./wheelhouse/*.whl
           if-no-files-found: error
