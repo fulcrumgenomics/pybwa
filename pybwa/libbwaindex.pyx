@@ -30,7 +30,9 @@ cdef bytes force_bytes(object s):
     return force_bytes_with(s, None, None)
 
 
-cdef bytes force_bytes_with(object s, encoding: str | None = None, errors: str | None = None):
+cdef bytes force_bytes_with(
+    object s, encoding: str | None = None, errors: str | None = None
+): # pragma: no cover
     """convert string or unicode object to bytes, assuming utf8 encoding."""
     if s is None:
         return None

@@ -335,3 +335,25 @@ def test_bwa_aln_map_one_multi_mapped_max_hits_one(e_coli_k12_fasta: Path) -> No
     rec = recs[0]
     assert rec.has_tag("HN"), str(rec)
     assert rec.get_tag("HN") == 3269888
+
+
+@pytest.mark.parametrize("num_amb", [0, 1, 5])
+def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPathFactory) -> None:
+    sequence = ("A" * 100) + ("N" * num_amb) + ("T" * 100)
+
+    src_dir = Path(str(tmp_path_factory.mktemp("test_bwa_aln_ambiguous_bases")))
+    fasta = src_dir / "ref.fasta"
+    with fasta.open("w") as writer:
+        writer.write(f">ref\n{sequence}\n")
+    BwaIndex.index(fasta=fasta)
+
+    bwa = BwaAln(prefix=fasta)
+    queries = [FastxRecord(name="NA", sequence=sequence)]
+    recs = bwa.align(queries=queries)
+    assert len(recs) == 1
+    rec = recs[0]
+    if num_amb == 0:
+        assert not rec.has_tag("XN"), str(rec)
+    else:
+        assert rec.has_tag("XN"), str(rec)
+        assert rec.get_tag("XN") == num_amb

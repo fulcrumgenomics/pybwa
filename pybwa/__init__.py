@@ -6,7 +6,7 @@ from pybwa.libbwaindex import *  # noqa: F403
 from pybwa.libbwamem import *  # noqa: F403
 
 
-def _get_include() -> list[str]:
+def _get_include() -> list[str]:  # pragma: no cover
     """return a list of include directories."""
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
