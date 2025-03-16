@@ -251,4 +251,5 @@ def build():
 
 
 if __name__ == "__main__":
+    print(f"Building with {multiprocessing.cpu_count() * 2} threads...")
     build()
