@@ -223,7 +223,7 @@ cdef class BwaMemOptions:
         free(self._options0)
         self._options0 = NULL
 
-    cdef mem_opt_t* mem_opt(self):
+    cdef mem_opt_t* mem_opt(self):  # pragma: no cover
         """Returns the options struct to use with the bwa C library methods"""
         if not self._finalized:
             raise Exception("Cannot call `mem_opt` until `finalize()` is called")
