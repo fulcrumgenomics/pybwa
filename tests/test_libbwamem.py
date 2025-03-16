@@ -5,9 +5,9 @@ from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
 
 from pybwa import BwaIndex
-from pybwa.libbwamem import BwaMem
-from pybwa.libbwamem import BwaMemMode
-from pybwa.libbwamem import BwaMemOptions
+from pybwa import BwaMem
+from pybwa import BwaMemMode
+from pybwa import BwaMemOptions
 
 
 def test_bwamem_options_not_finalized() -> None:

@@ -2,8 +2,10 @@ import os
 import sysconfig
 
 from pybwa.libbwaaln import *  # noqa: F403
+from pybwa.libbwaalnopt import *  # noqa: F403
 from pybwa.libbwaindex import *  # noqa: F403
 from pybwa.libbwamem import *  # noqa: F403
+from pybwa.libbwamemopt import *  # noqa: F403
 
 
 def _get_include() -> list[str]:
@@ -38,7 +40,7 @@ def _get_defines() -> list[str]:
 def _get_libraries() -> list[str]:
     """return a list of libraries to link against."""
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-    pybwa_libs = ["libbwaaln", "libbwaindex", "libbwamem"]
+    pybwa_libs = ["libbwaaln", "libbwaalnopt", "libbwaindex", "libbwamem", "libbwamemopt"]
 
     so = sysconfig.get_config_var("EXT_SUFFIX")
     return [os.path.join(dirname, x + so) for x in pybwa_libs]

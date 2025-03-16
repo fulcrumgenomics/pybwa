@@ -2,6 +2,8 @@
 
 from libc.stdint cimport uint8_t, uint64_t, uint16_t, uint32_t, int64_t, int32_t
 from libc.stdio cimport FILE
+from pybwa.libbwaalnopt cimport gap_opt_t
+
 
 cdef extern from "libbwaaln_utils.h":
     void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, int max_mm,
@@ -35,31 +37,6 @@ cdef extern from "bwtaln.h":
     int __cigar_op(uint16_t __cigar)
     int __cigar_len(uint16_t __cigar)
 
-    ctypedef struct gap_opt_t:
-        int trim_qual
-        int s_mm
-        int s_gapo
-        int s_gape
-        int mode # bit 24-31 are the barcode length
-        int indel_end_skip
-        int max_del_occ
-        int max_entries
-        float fnr
-        int max_diff
-        int max_gapo
-        int max_gape
-        int max_seed_diff
-        int seed_len
-        int n_threads
-        int max_top2
-        int trim_qual
-        int sam
-        char *rg_line
-        int n_occ
-        int interactive_mode
-        int with_md
-
-    gap_opt_t *gap_init_opt()
     void gap_print_opt(const gap_opt_t *opt)
 
     void seq_reverse(int len, unsigned char *seq, int is_comp)

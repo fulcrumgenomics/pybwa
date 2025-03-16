@@ -68,7 +68,7 @@ h_files = []
 c_files = []
 
 exclude_files = {
-    "pybwa": ["libbwaaln.c", "libbwaindex.c", "libbwamem.c"],
+    "pybwa": ["libbwaalnopt.c", "libbwaaln.c", "libbwaindex.c", "libbwamemopt.c", "libbwamem.c"],
     "bwa": ['example.c', 'main.c']
 }
 for root_dir in library_dirs:
@@ -109,9 +109,37 @@ libbwaindex_module = Extension(
     define_macros=define_macros
 )
 
+libbwaalnopt_module = Extension(
+    name='pybwa.libbwaalnopt',
+    sources=['pybwa/libbwaalnopt.pyx'] + c_files,
+    depends=h_files,
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    extra_objects=extra_objects,
+    include_dirs=include_dirs,
+    language='c',
+    libraries=libraries,
+    library_dirs=library_dirs,
+    define_macros=define_macros
+)
+
 libbwaaln_module = Extension(
     name='pybwa.libbwaaln',
     sources=['pybwa/libbwaaln.pyx'] + c_files,
+    depends=h_files,
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    extra_objects=extra_objects,
+    include_dirs=include_dirs,
+    language='c',
+    libraries=libraries,
+    library_dirs=library_dirs,
+    define_macros=define_macros
+)
+
+libbwamemopt_module = Extension(
+    name='pybwa.libbwamemopt',
+    sources=['pybwa/libbwamemopt.pyx'] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
@@ -180,9 +208,12 @@ def build():
         # Collect and cythonize all files
         extension_modules = cythonize_helper([
             libbwaindex_module,
+            libbwaalnopt_module,
             libbwaaln_module,
-            libbwamem_module
+            libbwamemopt_module,
+            libbwamem_module,
         ])
+        print("Building extensions...")
 
         # Use Setuptools to collect files
         distribution = Distribution({
@@ -206,19 +237,13 @@ def build():
             },
         })
 
-        # Grab the build_ext command and copy all files back to source dir.
-        # Done so Poetry grabs the files during the next step in its build.
         build_ext_cmd = distribution.get_command_obj("build_ext")
         build_ext_cmd.ensure_finalized()
-        # Set the value to 1 for "inplace", with the goal to build extensions
-        # in build directory, and then copy all files back to the source dir
-        # (under the hood, "copy_extensions_to_source" will be called after
-        # building the extensions). This is done so Poetry grabs the files
-        # during the next step in its build.
         build_ext_cmd.parallel = True
         build_ext_cmd.inplace = 1
         build_ext_cmd.run()
 
 
 if __name__ == "__main__":
+    print(f"Building with {multiprocessing.cpu_count() * 2} threads...")
     build()
