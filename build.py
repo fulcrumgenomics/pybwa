@@ -68,7 +68,7 @@ h_files = []
 c_files = []
 
 exclude_files = {
-    "pybwa": ["libbwaaln.c", "libbwaindex.c", "libbwamem.c"],
+    "pybwa": ["libbwaalnopt.c", "libbwaaln.c", "libbwaindex.c", "libbwamemopt.c", "libbwamem.c"],
     "bwa": ['example.c', 'main.c']
 }
 for root_dir in library_dirs:
@@ -109,9 +109,37 @@ libbwaindex_module = Extension(
     define_macros=define_macros
 )
 
+libbwaalnopt_module = Extension(
+    name='pybwa.libbwaalnopt',
+    sources=['pybwa/libbwaalnopt.pyx'] + c_files,
+    depends=h_files,
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    extra_objects=extra_objects,
+    include_dirs=include_dirs,
+    language='c',
+    libraries=libraries,
+    library_dirs=library_dirs,
+    define_macros=define_macros
+)
+
 libbwaaln_module = Extension(
     name='pybwa.libbwaaln',
     sources=['pybwa/libbwaaln.pyx'] + c_files,
+    depends=h_files,
+    extra_compile_args=compile_args,
+    extra_link_args=link_args,
+    extra_objects=extra_objects,
+    include_dirs=include_dirs,
+    language='c',
+    libraries=libraries,
+    library_dirs=library_dirs,
+    define_macros=define_macros
+)
+
+libbwamemopt_module = Extension(
+    name='pybwa.libbwamemopt',
+    sources=['pybwa/libbwamemopt.pyx'] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
@@ -180,8 +208,10 @@ def build():
         # Collect and cythonize all files
         extension_modules = cythonize_helper([
             libbwaindex_module,
+            libbwaalnopt_module,
             libbwaaln_module,
-            libbwamem_module
+            libbwamemopt_module,
+            libbwamem_module,
         ])
 
         # Use Setuptools to collect files

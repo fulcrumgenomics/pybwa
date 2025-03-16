@@ -13,9 +13,9 @@ cdef extern from "bwa.h":
 
     bwaidx_t * bwa_idx_load(const char * hint, int which)
     void bwa_idx_destroy(bwaidx_t *idx)
-    int BWA_IDX_BWT
-    int BWA_IDX_BNS
-    int BWA_IDX_PAC
+    const int BWA_IDX_BWT
+    const int BWA_IDX_BNS
+    const int BWA_IDX_PAC
     int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_size)
 
 
