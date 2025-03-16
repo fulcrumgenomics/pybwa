@@ -9,7 +9,7 @@ on:
   workflow_call:
 
 env:
-  POETRY_VERSION: 1.8
+  POETRY_VERSION: 2.1.1
   CYTHON_TRACE: 1  # for code coverage
 
 jobs:
@@ -57,7 +57,7 @@ jobs:
     - name: Check that the lock file is up to date
       shell: bash
       run: |
-        poetry lock --check
+        poetry check
 
     - name: Install deps
       shell: bash
