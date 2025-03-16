@@ -19,13 +19,13 @@ cdef extern from "bwt.h":
         int sa_intv
 
 cdef extern from "bwtaln.h":
-    int BWA_TYPE_NO_MATCH
-    int BWA_TYPE_MATESW
+    const int BWA_TYPE_NO_MATCH
+    const int BWA_TYPE_MATESW
 
-    int BWA_MODE_GAPE
-    int BWA_MODE_COMPREAD
-    int BWA_MODE_LOGGAP
-    int BWA_MODE_NONSTOP
+    const int BWA_MODE_GAPE
+    const int BWA_MODE_COMPREAD
+    const int BWA_MODE_LOGGAP
+    const int BWA_MODE_NONSTOP
 
     const int FROM_M
     const int FROM_I
