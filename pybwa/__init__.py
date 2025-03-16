@@ -1,11 +1,11 @@
 import os
 import sysconfig
 
-from pybwa.libbwaalnopt import *  # noqa: F403
 from pybwa.libbwaaln import *  # noqa: F403
+from pybwa.libbwaalnopt import *  # noqa: F403
 from pybwa.libbwaindex import *  # noqa: F403
-from pybwa.libbwamemopt import *  # noqa: F403
 from pybwa.libbwamem import *  # noqa: F403
+from pybwa.libbwamemopt import *  # noqa: F403
 
 
 def _get_include() -> list[str]:

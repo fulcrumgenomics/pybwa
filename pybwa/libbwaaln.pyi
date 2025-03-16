@@ -4,6 +4,7 @@ from typing import List
 from pysam import AlignedSegment
 from pysam import FastxRecord
 
+from pybwa.libbwaalnopt import BwaAlnOptions
 from pybwa.libbwaindex import BwaIndex
 
 class BwaAln:
