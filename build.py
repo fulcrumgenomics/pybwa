@@ -246,7 +246,7 @@ def build():
         # building the extensions). This is done so Poetry grabs the files
         # during the next step in its build.
         build_ext_cmd.parallel = multiprocessing.cpu_count() * 2
-        build_ext_cmd.inplace = 1
+        #build_ext_cmd.inplace = 1
         build_ext_cmd.run()
 
 
