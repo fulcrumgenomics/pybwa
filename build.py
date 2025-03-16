@@ -179,7 +179,7 @@ def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
         annotate=False,
 
         # Parallelize our build
-        nthreads=1, #multiprocessing.cpu_count() * 2,
+        nthreads=multiprocessing.cpu_count() * 2,
 
         # Compiler directives (e.g. language, or line tracing for coverage)
         compiler_directives=compiler_directives,
