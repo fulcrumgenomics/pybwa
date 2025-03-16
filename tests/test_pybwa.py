@@ -18,6 +18,8 @@ def test_get_libraries() -> None:
     names = [Path(p).name for p in pybwa._get_libraries()]
     assert names == [
         "libbwaaln" + so,
+        "libbwaalnopt" + so,
         "libbwaindex" + so,
         "libbwamem" + so,
+        "libbwamemopt" + so,
     ]
