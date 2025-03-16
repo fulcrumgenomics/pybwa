@@ -239,7 +239,7 @@ def build():
 
         build_ext_cmd = distribution.get_command_obj("build_ext")
         build_ext_cmd.ensure_finalized()
-        build_ext_cmd.parallel = False #True
+        build_ext_cmd.parallel = True
         build_ext_cmd.inplace = 1
         build_ext_cmd.run()
 
