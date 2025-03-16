@@ -179,7 +179,7 @@ def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
         annotate=False,
 
         # Parallelize our build
-        nthreads=multiprocessing.cpu_count() * 2,
+        nthreads=1, #multiprocessing.cpu_count() * 2,
 
         # Compiler directives (e.g. language, or line tracing for coverage)
         compiler_directives=compiler_directives,
@@ -239,7 +239,7 @@ def build():
 
         build_ext_cmd = distribution.get_command_obj("build_ext")
         build_ext_cmd.ensure_finalized()
-        build_ext_cmd.parallel = True
+        build_ext_cmd.parallel = False #True
         build_ext_cmd.inplace = 1
         build_ext_cmd.run()
 
