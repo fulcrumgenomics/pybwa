@@ -1,5 +1,8 @@
 name: build wheels
 
+env:
+  POETRY_VERSION: 2.1.1
+
 on:
   pull_request:
   workflow_call:
@@ -18,6 +21,28 @@ on:
         default: true
         
 jobs:
+  define-pybwa-version:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.12
+
+    - name: Install poetry
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install poetry==${{env.POETRY_VERSION}}
+
+    - name: Get pybwa version
+      shell: bash
+      run: |
+        echo "pybwa-version=$(poetry version --short)" >> $GITHUB_OUTPUT;
+
   define-buildplat:
     name: Builds os-runner and platform tag matrix to build wheels
     runs-on: ubuntu-latest
@@ -36,7 +61,7 @@ jobs:
   build-wheels:
     name: Build wheels for  ${{ matrix.python-version }}-${{ matrix.buildplat[1] }} input-${{ inputs.skip }}
     runs-on: ${{ matrix.buildplat[0] }}
-    needs: define-buildplat
+    needs: [define-buildplat, define-pybwa-version]
     strategy:
       matrix:
         buildplat: ${{ fromJSON(needs.define-buildplat.outputs.buildplat) }}
@@ -86,6 +111,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pybwa-${{ matrix.python-version }}-${{ matrix.buildplat[1] }}
+          name: pybwa-${{needs.define-pybwa-version.outputs.pybwa-version}}-${{ matrix.python-version }}-${{ matrix.buildplat[1] }}.whl
           path: ./wheelhouse/*.whl
           if-no-files-found: error
