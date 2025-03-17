@@ -86,9 +86,9 @@ jobs:
           command: |
             poetry install --no-interaction --without=dev
             poetry run python -c "import pybwa"
-          on_retry_command: |
-            echo "BUILD_EXTENSIONS_PARALLEL=false" >> $GITHUB_ENV
-            export "BUILD_EXTENSIONS_PARALLEL=false"
+          new_command_on_retry: |
+            BUILD_EXTENSIONS_PARALLEL=false poetry install --no-interaction --without=dev
+            poetry run python -c "import pybwa"
 
       - name: Build package
         run: poetry build --format=sdist
