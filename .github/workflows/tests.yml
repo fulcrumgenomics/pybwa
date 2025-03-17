@@ -121,4 +121,4 @@ jobs:
         INPUT_TREAT_ERROR_AS_WARNING: false
         INPUT_VALGRIND_SUPPRESSIONS: ""
         INPUT_VERBOSE: true
-        HOME: ${{ GITHUB_WORKSPACE }}
+        HOME: ${{ github.workspace }}
