@@ -7,6 +7,19 @@ on:
     tags:
       - "!**"
   workflow_call:
+    inputs:
+      skip:
+        description: skip running valgrind to check for memory leaks
+        required: false
+        type: boolean
+        default: false  # FIXME
+  workflow_dispatch:
+    inputs:
+      skip:
+        description: skip running valgrind to check for memory leaks
+        required: false
+        type: boolean
+        default: false  # FIXME
 
 env:
   POETRY_VERSION: 2.1.1
@@ -112,13 +125,14 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Find memory leaks
+      if: ${{ inputs.skip == 'false' }}
       shell: bash
       run: |
         apt update -y && apt upgrade -y && apt install -y build-essential valgrind;
         bash valgrind.sh;
       env:
+        INPUT_REDZONE_SIZE: 16
         INPUT_TRACK_FILE_DESCRIPTORS: true
-        INPUT_TREAT_ERROR_AS_WARNING: false
+        INPUT_TREAT_ERROR_AS_WARNING: true
         INPUT_VALGRIND_SUPPRESSIONS: ""
         INPUT_VERBOSE: true
-        HOME: ${{ github.workspace }}

@@ -58,7 +58,7 @@ parse_valgrind_reports() {
     while IFS= read -r line; do
         if [[ "${error}" != "" ]]; then
             if [[ $(echo "${line}" | grep '^==.*== $') && $(skip_criterion_pipe_leaks "${error}") == "1" ]]; then
-                echo "::${kind} title=Valgrind Report '${INPUT_BINARY_PATH}' (${report_id})::${error}"
+                echo "::${kind} title=Valgrind Report 'pybwa' (${report_id})::${error}"
                 report_id=$(( $report_id + 1 ))
                 error=""
                 status=1
@@ -83,7 +83,7 @@ main() {
 
     set +e
 	python_full=$(which python);
-    timeout ${INPUT_TIMEOUT} valgrind $VALGRIND_FLAGS "{python_full}" -m pytest 2>"${VALGRIND_REPORTS}"
+    valgrind $VALGRIND_FLAGS "{python_full}" -m pytest 2>"${VALGRIND_REPORTS}"
     set -e
 	cat ${VALGRIND_REPORTS}
     parse_valgrind_reports "${VALGRIND_REPORTS}"
