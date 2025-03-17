@@ -1,0 +1,97 @@
+From fcd1bd8ba3eac2b605651c7bdb3da3bed410b5ee Mon Sep 17 00:00:00 2001
+From: Nils Homer <nilshomer@gmail.com>
+Date: Wed, 22 Jan 2025 20:47:01 -0700
+Subject: [PATCH 4/5] feat: add mem_opt_print for debugging
+
+---
+ bwamem.c  | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ bwamem.h  |  1 +
+ fastmap.c |  1 +
+ 3 files changed, 46 insertions(+)
+
+diff --git a/bwamem.c b/bwamem.c
+index 5ca5a8d..9e21392 100644
+--- a/bwamem.c
++++ b/bwamem.c
+@@ -109,6 +109,48 @@ mem_opt_t *mem_opt_init()
+ 	return o;
+ }
+ 
++void mem_opt_print(mem_opt_t *opt) {
++	fprintf(stderr, "param\tvalue\n");
++	fprintf(stderr, "a\t%d\nb\t%d\n", opt->a, opt->b); // match score and mismatch penalty
++	fprintf(stderr, "o_del\t%d\ne_del\t%d\n", opt->o_del, opt->e_del);
++	fprintf(stderr, "o_ins\t%d\ne_ins\t%d\n", opt->o_ins, opt->e_ins);
++	fprintf(stderr, "pen_unpaired\t%d\n", opt->pen_unpaired);
++	fprintf(stderr, "pen_clip5\t%d\npen_clip3\t%d\n", opt->pen_clip5, opt->pen_clip3); // clipping penalty. This score is not deducted from the DP score.
++	fprintf(stderr, "w\t%d\n", opt->w); // band width
++	fprintf(stderr, "zdrop\t%d\n", opt->zdrop); // Z-dropoff
++
++	fprintf(stderr, "max_mem_intv\t%llu\n", opt->max_mem_intv);
++
++	fprintf(stderr, "T\t%d\n", opt->T); // output score threshold; only affecting output
++	fprintf(stderr, "flag\t%d\n", opt->flag); // see MEM_F_* macros
++	fprintf(stderr, "min_seed_len\t%d\n", opt->min_seed_len); // minimum seed length
++	fprintf(stderr, "min_chain_weight\t%d\n", opt->min_chain_weight); 
++	fprintf(stderr, "max_chain_extend\t%d\n", opt->max_chain_extend); 
++	fprintf(stderr, "split_factor\t%f\n", opt->split_factor); // split into a seed if MEM is longer than min_seed_len*split_factor
++	fprintf(stderr, "split_width\t%d\n", opt->split_width); // split into a seed if its occurence is smaller than this value
++	fprintf(stderr, "max_occ\t%d\n", opt->max_occ); // skip a seed if its occurence is larger than this value
++	fprintf(stderr, "max_chain_gap\t%d\n", opt->max_chain_gap); // do not chain seed if it is max_chain_gap-bp away from the closest seed
++	fprintf(stderr, "n_threads\t%d\n", opt->n_threads); // number of threads
++	fprintf(stderr, "chunk_size\t%d\n", opt->chunk_size); // process chunk_size-bp sequences in a batch
++	fprintf(stderr, "mask_level\t%f\n", opt->mask_level); // regard a hit as redundant if the overlap with another better hit is over mask_level times the min length of the two hits
++	fprintf(stderr, "drop_ratio\t%f\n", opt->drop_ratio); // drop a chain if its seed coverage is below drop_ratio times the seed coverage of a better chain overlapping with the small chain
++	fprintf(stderr, "XA_drop_ratio\t%f\n", opt->XA_drop_ratio); // when counting hits for the XA tag, ignore alignments with score < XA_drop_ratio * max_score; only effective for the XA tag
++	fprintf(stderr, "mask_level_redun\t%f\n", opt->mask_level_redun); 
++	fprintf(stderr, "mapQ_coef_len\t%f\n", opt->mapQ_coef_len); 
++	fprintf(stderr, "mapQ_coef_fac\t%d\n", opt->mapQ_coef_fac); 
++	fprintf(stderr, "max_ins\t%d\n", opt->max_ins); // when estimating insert size distribution, skip pairs with insert longer than this value
++	fprintf(stderr, "max_matesw\t%d\n", opt->max_matesw); // perform maximally max_matesw rounds of mate-SW for each end
++	fprintf(stderr, "max_XA_hits\t%d\nmax_XA_hits_alt\t%d\n", opt->max_XA_hits, opt->max_XA_hits_alt); // if there are max_hits or fewer, output them all
++	if (opt->mat[0] == 0) {
++		fprintf(stderr, "mat[25]\tunset\n");
++	} else{
++		int i;
++		for (i = 0; i < 25; i++) {
++			fprintf(stderr, "mat[%d]\t%d\n", i, opt->mat[i]);
++		}
++	}
++}
++
+ /***************************
+  * Collection SA invervals *
+  ***************************/
+@@ -1245,3 +1287,5 @@ void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bn
+ 	if (bwa_verbose >= 3)
+ 		fprintf(stderr, "[M::%s] Processed %d reads in %.3f CPU sec, %.3f real sec\n", __func__, n, cputime() - ctime, realtime() - rtime);
+ }
++
++
+diff --git a/bwamem.h b/bwamem.h
+index 52a9c53..03204db 100644
+--- a/bwamem.h
++++ b/bwamem.h
+@@ -153,6 +153,7 @@ extern "C" {
+ 	const bwtintv_v *smem_next(smem_i *itr);
+ 
+ 	mem_opt_t *mem_opt_init(void);
++	void mem_opt_print(mem_opt_t *opt);
+ 	void mem_fill_scmat(int a, int b, int8_t mat[25]);
+ 
+ 	int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
+diff --git a/fastmap.c b/fastmap.c
+index be7ba0e..fe68bb1 100644
+--- a/fastmap.c
++++ b/fastmap.c
+@@ -390,6 +390,7 @@ int main_mem(int argc, char *argv[])
+ 			opt->flag |= MEM_F_PE;
+ 		}
+ 	}
++	mem_opt_print(opt);
+ 	bwa_print_sam_hdr(aux.idx->bns, hdr_line);
+ 	aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
+ 	kt_pipeline(no_mt_io? 1 : 2, process, &aux, 3);
+-- 
+2.39.5 (Apple Git-154)
+

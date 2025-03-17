@@ -1,0 +1,57 @@
+From dc8b81ee37554d056c6ed4041da52dc61786255a Mon Sep 17 00:00:00 2001
+From: Nils Homer <nilshomer@gmail.com>
+Date: Mon, 17 Mar 2025 15:50:38 -0700
+Subject: [PATCH 5/5] feat: make bwa_verbose visible
+
+---
+ bwa.c |  2 ++
+ bwa.h | 12 +++++++++++-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/bwa.c b/bwa.c
+index 104c95c..757d29c 100644
+--- a/bwa.c
++++ b/bwa.c
+@@ -39,7 +39,9 @@
+ #  include "malloc_wrap.h"
+ #endif
+ 
++BWALIB_EXPORT
+ int bwa_verbose = 3;
++BWALIB_EXPORT
+ int bwa_dbg = 0;
+ char bwa_rg_id[256];
+ char *bwa_pg;
+diff --git a/bwa.h b/bwa.h
+index 95c324b..e2e674a 100644
+--- a/bwa.h
++++ b/bwa.h
+@@ -31,6 +31,13 @@
+ #include "bntseq.h"
+ #include "bwt.h"
+ 
++// To make global variables visible
++#if defined(_WIN32) || defined(__CYGWIN__)
++#define BWALIB_EXPORT __declspec(dllexport)
++#else
++#define BWALIB_EXPORT __attribute__((__visibility__("default")))
++#endif
++
+ #define BWA_IDX_BWT 0x1
+ #define BWA_IDX_BNS 0x2
+ #define BWA_IDX_PAC 0x4
+@@ -60,7 +67,10 @@ typedef struct {
+ 	char *name, *comment, *seq, *qual, *sam;
+ } bseq1_t;
+ 
+-extern int bwa_verbose, bwa_dbg;
++BWALIB_EXPORT
++extern int bwa_verbose;
++BWALIB_EXPORT
++extern int bwa_dbg;
+ extern char bwa_rg_id[256];
+ 
+ #ifdef __cplusplus
+-- 
+2.39.5 (Apple Git-154)
+
