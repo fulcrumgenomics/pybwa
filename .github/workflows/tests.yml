@@ -137,5 +137,6 @@ jobs:
         INPUT_REDZONE_SIZE: 16
         INPUT_TRACK_FILE_DESCRIPTORS: true
         INPUT_TREAT_ERROR_AS_WARNING: true
-        INPUT_VALGRIND_SUPPRESSIONS: ""
+        # From: https://raw.githubusercontent.com/python/cpython/refs/heads/main/Misc/valgrind-python.supp
+        INPUT_VALGRIND_SUPPRESSIONS: "valgrind-python.supp"
         INPUT_VERBOSE: true
