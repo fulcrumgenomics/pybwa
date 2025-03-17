@@ -82,8 +82,7 @@ main() {
     local VALGRIND_FLAGS=$(prepare_valgrind_flags)
 
     set +e
-	python_full=$(which python);
-    valgrind $VALGRIND_FLAGS "{python_full}" -m pytest 2>"${VALGRIND_REPORTS}"
+	valgrind $VALGRIND_FLAGS $(which python) -m pytest 2>"${VALGRIND_REPORTS}"
     set -e
 	cat ${VALGRIND_REPORTS}
     parse_valgrind_reports "${VALGRIND_REPORTS}"
