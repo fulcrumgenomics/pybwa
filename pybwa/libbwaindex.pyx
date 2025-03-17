@@ -5,7 +5,7 @@ from pathlib import Path
 from cpython cimport PyBytes_Check, PyUnicode_Check
 from pysam import AlignmentFile, FastxFile, samtools
 import enum
-
+from libc.stdlib cimport free
 
 __all__ = [
     "BwaIndex",
@@ -102,42 +102,45 @@ cdef class BwaIndex:
     cdef _load_index(self, prefix, mode):
         # infer the prefix from the hint
         prefix_char_ptr = bwa_idx_infer_prefix(force_bytes(prefix))
-        if not prefix_char_ptr:
-            raise FileNotFoundError(f"could not locate the index file [prefix]: {prefix}")
+        try:
+            if not prefix_char_ptr:
+                raise FileNotFoundError(f"could not locate the index file [prefix]: {prefix}")
 
-        # the path to the inferred prefix
-        prefix_path: Path = Path(prefix_char_ptr.decode("utf-8"))
+            # the path to the inferred prefix
+            prefix_path: Path = Path(prefix_char_ptr.decode("utf-8"))
 
-        # the path to the sequence dictionary
-        seq_dict = prefix_path.with_suffix(".dict")
+            # the path to the sequence dictionary
+            seq_dict = prefix_path.with_suffix(".dict")
 
-        def assert_path_suffix_exists(suffix: str) -> None:
-            new_path = prefix_path.with_suffix(prefix_path.suffix + suffix)
-            if not new_path.exists():
-                raise FileNotFoundError(f"could not locate the index file [{suffix}]: {new_path}")
+            def assert_path_suffix_exists(suffix: str) -> None:
+                new_path = prefix_path.with_suffix(prefix_path.suffix + suffix)
+                if not new_path.exists():
+                    raise FileNotFoundError(f"could not locate the index file [{suffix}]: {new_path}")
 
-        # Check that all index files exist
-        if mode & BWA_IDX_BWT == BWA_IDX_BWT:
-            assert_path_suffix_exists(".bwt")
-            assert_path_suffix_exists(".sa")
-        if mode & BWA_IDX_BNS == BWA_IDX_BNS:
-            assert_path_suffix_exists(".ann")
-            assert_path_suffix_exists(".amb")
-            assert_path_suffix_exists(".pac")
-        if mode & BWA_IDX_PAC == BWA_IDX_PAC:
-            assert_path_suffix_exists(".pac")
-        if not seq_dict.exists():
-            raise FileNotFoundError(
-                f"could not locate the sequence dictionary [use `samtools dict`]: {seq_dict}"
-            )
+            # Check that all index files exist
+            if mode & BWA_IDX_BWT == BWA_IDX_BWT:
+                assert_path_suffix_exists(".bwt")
+                assert_path_suffix_exists(".sa")
+            if mode & BWA_IDX_BNS == BWA_IDX_BNS:
+                assert_path_suffix_exists(".ann")
+                assert_path_suffix_exists(".amb")
+                assert_path_suffix_exists(".pac")
+            if mode & BWA_IDX_PAC == BWA_IDX_PAC:
+                assert_path_suffix_exists(".pac")
+            if not seq_dict.exists():
+                raise FileNotFoundError(
+                    f"could not locate the sequence dictionary [use `samtools dict`]: {seq_dict}"
+                )
 
-        # load the index
-        self._delegate = bwa_idx_load(prefix_char_ptr, mode)
+            # load the index
+            self._delegate = bwa_idx_load(prefix_char_ptr, mode)
 
-        # load the SAM header from the sequence dictionary
-        with seq_dict.open("r") as fh:
-            with AlignmentFile(fh) as reader:
+            # load the SAM header from the sequence dictionary
+            with AlignmentFile(seq_dict.open("r")) as reader:
                 self.header = reader.header
+        finally:
+            # free temporary memory
+            free(prefix_char_ptr)
 
     cdef bwt_t *bwt(self):
         return self._delegate.bwt
