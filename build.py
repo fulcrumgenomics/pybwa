@@ -226,6 +226,9 @@ def build():
         # (under the hood, "copy_extensions_to_source" will be called after
         # building the extensions). This is done so Poetry grabs the files
         # during the next step in its build.
+        value = os.environ.get("BUILD_EXTENSIONS_PARALLEL", "missing")
+        # DEBUG
+        print(f"BUILD_EXTENSIONS_PARALLEL='{value}'")
         build_ext_cmd.parallel = strtobool(os.environ.get("BUILD_EXTENSIONS_PARALLEL", "True"))
         if build_ext_cmd.parallel:
             print("Building cython extensions in parallel")
