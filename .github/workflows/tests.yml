@@ -129,6 +129,7 @@ jobs:
       shell: bash
       run: |
         sudo apt remove firefox
+        sudo apt purge needrestart
         sudo apt update -y 
         sudo apt upgrade -y 
         sudo apt install -y build-essential valgrind
