@@ -81,7 +81,7 @@ main() {
     local VALGRIND_REPORTS="valgrind-reports.log"
     local VALGRIND_FLAGS=$(prepare_valgrind_flags)
 
-	valgrind $VALGRIND_FLAGS $(which poetry) run python -m pytest 2>"${VALGRIND_REPORTS}"
+	PYTHONMALLOC=malloc valgrind $VALGRIND_FLAGS $(which poetry) run python -m pytest 2>"${VALGRIND_REPORTS}"
 	cat ${VALGRIND_REPORTS}
     parse_valgrind_reports "${VALGRIND_REPORTS}"
 }
