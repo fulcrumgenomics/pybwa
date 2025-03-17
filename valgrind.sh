@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -xeu
+set -eu
 
 prepare_valgrind_flags() {
     local SUPPRESSIONS_FILE="valgrind.supp"
