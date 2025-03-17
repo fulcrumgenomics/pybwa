@@ -35,6 +35,16 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: 'true'
+
+    - name: Setup valgrind
+      if: ${{ inputs.skip != 'true' }}
+      shell: bash
+      run: |
+        sudo apt remove firefox
+        sudo apt update -y
+        sudo apt upgrade -y
+        sudo apt install -y build-essential valgrind
+
     - name: Set up Python ${{matrix.PYTHON_VERSION}}
       uses: actions/setup-python@v1
       with:
@@ -128,15 +138,12 @@ jobs:
       if: ${{ inputs.skip != 'true' }}
       shell: bash
       run: |
-        sudo apt remove firefox
-        sudo apt update -y 
-        sudo apt upgrade -y 
-        sudo apt install -y build-essential valgrind
         bash valgrind.sh
       env:
         INPUT_REDZONE_SIZE: 16
         INPUT_TRACK_FILE_DESCRIPTORS: true
         INPUT_TREAT_ERROR_AS_WARNING: true
         # From: https://raw.githubusercontent.com/python/cpython/refs/heads/main/Misc/valgrind-python.supp
-        INPUT_VALGRIND_SUPPRESSIONS: "valgrind-python.supp"
+        #INPUT_VALGRIND_SUPPRESSIONS: "valgrind-python.supp"
+        INPUT_VALGRIND_SUPPRESSIONS: ""
         INPUT_VERBOSE: true
