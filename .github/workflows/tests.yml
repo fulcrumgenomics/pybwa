@@ -125,7 +125,7 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Find memory leaks
-      if: ${{ inputs.skip == 'false' }}
+      if: ${{ inputs.skip != 'true' }}
       shell: bash
       run: |
         apt update -y && apt upgrade -y && apt install -y build-essential valgrind;
