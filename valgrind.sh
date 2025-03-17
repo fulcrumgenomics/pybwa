@@ -81,9 +81,7 @@ main() {
     local VALGRIND_REPORTS="valgrind-reports.log"
     local VALGRIND_FLAGS=$(prepare_valgrind_flags)
 
-    set +e
 	valgrind $VALGRIND_FLAGS $(which python) -m pytest 2>"${VALGRIND_REPORTS}"
-    set -e
 	cat ${VALGRIND_REPORTS}
     parse_valgrind_reports "${VALGRIND_REPORTS}"
 }
