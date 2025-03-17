@@ -113,9 +113,9 @@ jobs:
 
     - name: Find memory leaks
       uses: Ximaz/valgrind-action@v1.2.0
-        with:
-          binary_path: python
-          binary_args: python -m pytest
-          ld_library_path: ./pybwa
-          treat_error_as_warning: false
-          verbose: true
+      with:
+        binary_path: python
+        binary_args: python -m pytest
+        ld_library_path: ./pybwa
+        treat_error_as_warning: false
+        verbose: true
