@@ -128,7 +128,7 @@ jobs:
       if: ${{ inputs.skip != 'true' }}
       shell: bash
       run: |
-        apt update -y && apt upgrade -y && apt install -y build-essential valgrind;
+        sudo apt update -y && apt upgrade -y && apt install -y build-essential valgrind;
         bash valgrind.sh;
       env:
         INPUT_REDZONE_SIZE: 16
