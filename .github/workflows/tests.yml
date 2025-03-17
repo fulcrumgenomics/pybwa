@@ -128,10 +128,11 @@ jobs:
       if: ${{ inputs.skip != 'true' }}
       shell: bash
       run: |
-        #sudo apt remove firefox
-        #sudo apt purge needrestart
-        #sudo apt update -y 
-        #sudo apt upgrade -y 
+        sudo hwclock -s
+        sudo apt remove firefox
+        sudo apt purge needrestart
+        sudo apt update -y 
+        sudo apt upgrade -y 
         sudo apt install -y build-essential valgrind
         bash valgrind.sh
       env:
