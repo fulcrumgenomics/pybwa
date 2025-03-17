@@ -390,6 +390,8 @@ def test_bwamem_align_hard_clip_supplementary(e_coli_k12_fasta: Path) -> None:
     cig2 = "80M80H"
     sap2 = "U00096.2,1,+,80M80S,60,0"
 
+    import pybwa
+    pybwa.set_bwa_verbosity(0)
     opt = BwaMemOptions(soft_clip_supplementary=False)
     bwa = BwaMem(prefix=e_coli_k12_fasta)
     query = FastxRecord(name="query", sequence=seq1 + seq2)
