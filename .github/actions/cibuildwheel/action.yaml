@@ -1,0 +1,34 @@
+name: Build wheels
+author: Nils Homer (@nh13)
+description: 'Builds wheels, falling back to no parellism if the first attempt fails'
+
+branding:
+  icon: "code"
+  color: "green"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build wheels
+      id: build-wheels
+      uses: pypa/cibuildwheel@v2.22.0
+      continue-on-error: true
+      with:
+        package-dir: .
+        output-dir: wheelhouse
+        config-file: "{package}/pyproject.toml"
+
+    - name: Set no parallism
+      shell: bash
+      if: ${{ steps.build-wheels.conclusion == 'failure' }}
+      run: |
+        echo "BUILD_EXTENSIONS_PARALLEL=false" >> $GITHUB_ENV
+        export "BUILD_EXTENSIONS_PARALLEL=false"
+
+    - name: Build wheels (retry without parallelism)
+      uses: pypa/cibuildwheel@v2.22.0
+      if: ${{ steps.build-wheels.conclusion == 'failure' }}
+      with:
+        package-dir: .
+        output-dir: wheelhouse
+        config-file: "{package}/pyproject.toml"

@@ -24,7 +24,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: 'true'
-      
+
       - name: debug git branch -a
         shell: bash
         run: git branch -a
@@ -72,10 +72,23 @@ jobs:
         run: poetry config virtualenvs.in-project true
 
       - name: Install dependencies
+        shell: bash
         run: poetry install --no-interaction --no-root --without=dev
 
-      - name: Install project
-        run: poetry install --no-interaction --without=dev
+      - name: Install pybwa
+        uses: nick-fields/retry@v3
+        with:
+          shell: bash
+          max_attempts: 2
+          retry_on: error
+          polling_interval_seconds: 5
+          timeout_minutes: 90
+          command: |
+            poetry install --no-interaction --without=dev
+            poetry run python -c "import pybwa"
+          on_retry_command: |
+            echo "BUILD_EXTENSIONS_PARALLEL=false" >> $GITHUB_ENV
+            export "BUILD_EXTENSIONS_PARALLEL=false"
 
       - name: Build package
         run: poetry build --format=sdist

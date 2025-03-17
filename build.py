@@ -12,6 +12,17 @@ from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
 from setuptools import Extension, Distribution
 
 
+def strtobool(value: str) -> bool:
+    value = value.lower()
+    _TRUE = {'y', 'yes', 't', 'true', 'on', '1'}
+    _FALSE = {'n', 'no', 'f', 'false', 'off', '0'}
+    if value in _TRUE:
+        return True
+    elif value in _FALSE:
+        return False
+    raise ValueError(f'"{value}" is not a valid bool value')
+
+
 @contextmanager
 def changedir(path):
     save_dir = os.getcwd()
@@ -215,7 +226,11 @@ def build():
         # (under the hood, "copy_extensions_to_source" will be called after
         # building the extensions). This is done so Poetry grabs the files
         # during the next step in its build.
-        build_ext_cmd.parallel = True
+        build_ext_cmd.parallel = strtobool(os.environ.get("BUILD_EXTENSIONS_PARALLEL", "True"))
+        if build_ext_cmd.parallel:
+            print("Building cython extensions in parallel")
+        else:
+            print("Building cython extensions serially")
         build_ext_cmd.inplace = 1
         build_ext_cmd.run()
 
