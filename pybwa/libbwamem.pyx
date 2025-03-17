@@ -950,10 +950,10 @@ cdef class BwaMem:
                     attrs["XS"] = mem_aln.sub
                 # NB: SA is added after all the records have been created
                 if mem_aln.XA != NULL:
-                    attrs["XB" if opt.with_xb_tag else "XA"] = mem_aln.XA
+                    attrs["XB" if opt.with_xb_tag else "XA"] = self.__to_str(mem_aln.XA)
                 anno = &self._index.bns().anns[rec.reference_id]
                 if opt.with_xr_tag and anno.anno != NULL and anno.anno[0] != b'\0':
-                    attrs["XR"] = str(anno.anno)
+                    attrs["XR"] = self.__to_str(anno.anno)
                 rec.set_tags(list(attrs.items()))
 
                 mapped_recs.append(rec)
