@@ -1,6 +1,6 @@
 [project]
 name = "pybwa"
-version = "1.4.8"
+version = "1.5.0"
 description = "Python bindings for BWA"
 readme = "README.md"
 authors = [{name = "Nils Homer", email = "nils@fulcrumgenomics.com"}]
