@@ -6,6 +6,7 @@ from cpython cimport PyBytes_Check, PyUnicode_Check
 from pysam import AlignmentFile, FastxFile, samtools
 import enum
 from libc.stdlib cimport free
+from pybwa.libbwa cimport bwa_verbose
 
 __all__ = [
     "BwaIndex",
@@ -43,6 +44,12 @@ cdef bytes force_bytes_with(
     else:
         raise TypeError("Argument must be string, bytes or unicode.")
 
+cdef bint set_bwa_idx_verbosity(int level):
+    """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
+    global bwa_verbose
+    retval = level != bwa_verbose
+    bwa_verbose = level
+    return retval
 
 
 cdef class BwaIndex:

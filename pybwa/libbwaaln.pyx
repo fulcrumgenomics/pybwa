@@ -10,6 +10,7 @@ from libc.string cimport strncpy
 from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwaindex cimport BwaIndex
+from pybwa.libbwa cimport bwa_verbose
 
 
 __all__ = [
@@ -25,6 +26,14 @@ _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = CSOFT_CLIP
 
 cdef inline int _to_pysam_cigar_op(int x):
     return _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[x]
+
+cdef bint set_bwa_aln_verbosity(int level):
+    """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
+    global bwa_verbose
+    retval = level != bwa_verbose
+    bwa_verbose = level
+    return retval
+
 
 cdef class BwaAlnOptions:
     """The container for options for :class:`pybwa.BwaAln`.

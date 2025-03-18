@@ -43,6 +43,7 @@ cdef extern from "bntseq.h":
 
 cdef bytes force_bytes(object s)
 cdef bytes force_bytes_with(object s, encoding: str | None = *, errors: str | None = *)
+cdef bint set_bwa_idx_verbosity(int level)
 
 cdef class BwaIndex:
     """Contains the index and nucleotide sequence for Bwa"""
