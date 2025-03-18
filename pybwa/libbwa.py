@@ -1,13 +1,14 @@
 import enum
 
-from pybwa.libbwaindex import set_bwa_idx_verbosity
 from pybwa.libbwaaln import set_bwa_aln_verbosity
+from pybwa.libbwaindex import set_bwa_idx_verbosity
 from pybwa.libbwamem import set_bwa_mem_verbosity
 
 __all__ = [
     "BwaVerbosity",
     "set_bwa_verbosity",
 ]
+
 
 # class syntax
 @enum.unique
@@ -19,6 +20,7 @@ class BwaVerbosity(enum.IntEnum):
     WARNING = 2
     INFO = 3
     DEBUG = 4
+
 
 def set_bwa_verbosity(level: BwaVerbosity) -> bool:
     changed = set_bwa_idx_verbosity(level)
