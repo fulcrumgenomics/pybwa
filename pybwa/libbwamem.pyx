@@ -30,7 +30,7 @@ cdef inline int _to_pysam_cigar_op(int x):
     return _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[x]
 
 
-cpdef bint set_bwa_mem_verbosity(int level):
+cpdef bint _set_bwa_mem_verbosity(int level):
     """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
     global bwa_verbose
     retval = level != bwa_verbose

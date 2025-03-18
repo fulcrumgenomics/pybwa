@@ -44,7 +44,7 @@ cdef bytes force_bytes_with(
     else:
         raise TypeError("Argument must be string, bytes or unicode.")
 
-cpdef bint set_bwa_idx_verbosity(int level):
+cpdef bint _set_bwa_idx_verbosity(int level):
     """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
     global bwa_verbose
     retval = level != bwa_verbose

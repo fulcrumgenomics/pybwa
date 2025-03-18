@@ -141,4 +141,4 @@ cdef extern from "bwtaln.h":
 cdef extern int64_t pos_end_multi(const bwt_multi1_t *p, int len)
 
 
-cpdef bint set_bwa_aln_verbosity(int level)
+cpdef bint _set_bwa_aln_verbosity(int level)

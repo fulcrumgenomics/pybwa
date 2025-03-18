@@ -1,4 +1,4 @@
-From fcd1bd8ba3eac2b605651c7bdb3da3bed410b5ee Mon Sep 17 00:00:00 2001
+From ad208b9c52b97dc07e7a4d6e4f8b0538995dc64d Mon Sep 17 00:00:00 2001
 From: Nils Homer <nilshomer@gmail.com>
 Date: Wed, 22 Jan 2025 20:47:01 -0700
 Subject: [PATCH 4/5] feat: add mem_opt_print for debugging
@@ -10,7 +10,7 @@ Subject: [PATCH 4/5] feat: add mem_opt_print for debugging
  3 files changed, 46 insertions(+)
 
 diff --git a/bwamem.c b/bwamem.c
-index 5ca5a8d..9e21392 100644
+index 5ca5a8d..fc33e69 100644
 --- a/bwamem.c
 +++ b/bwamem.c
 @@ -109,6 +109,48 @@ mem_opt_t *mem_opt_init()
@@ -32,8 +32,8 @@ index 5ca5a8d..9e21392 100644
 +	fprintf(stderr, "T\t%d\n", opt->T); // output score threshold; only affecting output
 +	fprintf(stderr, "flag\t%d\n", opt->flag); // see MEM_F_* macros
 +	fprintf(stderr, "min_seed_len\t%d\n", opt->min_seed_len); // minimum seed length
-+	fprintf(stderr, "min_chain_weight\t%d\n", opt->min_chain_weight); 
-+	fprintf(stderr, "max_chain_extend\t%d\n", opt->max_chain_extend); 
++	fprintf(stderr, "min_chain_weight\t%d\n", opt->min_chain_weight);
++	fprintf(stderr, "max_chain_extend\t%d\n", opt->max_chain_extend);
 +	fprintf(stderr, "split_factor\t%f\n", opt->split_factor); // split into a seed if MEM is longer than min_seed_len*split_factor
 +	fprintf(stderr, "split_width\t%d\n", opt->split_width); // split into a seed if its occurence is smaller than this value
 +	fprintf(stderr, "max_occ\t%d\n", opt->max_occ); // skip a seed if its occurence is larger than this value
@@ -43,9 +43,9 @@ index 5ca5a8d..9e21392 100644
 +	fprintf(stderr, "mask_level\t%f\n", opt->mask_level); // regard a hit as redundant if the overlap with another better hit is over mask_level times the min length of the two hits
 +	fprintf(stderr, "drop_ratio\t%f\n", opt->drop_ratio); // drop a chain if its seed coverage is below drop_ratio times the seed coverage of a better chain overlapping with the small chain
 +	fprintf(stderr, "XA_drop_ratio\t%f\n", opt->XA_drop_ratio); // when counting hits for the XA tag, ignore alignments with score < XA_drop_ratio * max_score; only effective for the XA tag
-+	fprintf(stderr, "mask_level_redun\t%f\n", opt->mask_level_redun); 
-+	fprintf(stderr, "mapQ_coef_len\t%f\n", opt->mapQ_coef_len); 
-+	fprintf(stderr, "mapQ_coef_fac\t%d\n", opt->mapQ_coef_fac); 
++	fprintf(stderr, "mask_level_redun\t%f\n", opt->mask_level_redun);
++	fprintf(stderr, "mapQ_coef_len\t%f\n", opt->mapQ_coef_len);
++	fprintf(stderr, "mapQ_coef_fac\t%d\n", opt->mapQ_coef_fac);
 +	fprintf(stderr, "max_ins\t%d\n", opt->max_ins); // when estimating insert size distribution, skip pairs with insert longer than this value
 +	fprintf(stderr, "max_matesw\t%d\n", opt->max_matesw); // perform maximally max_matesw rounds of mate-SW for each end
 +	fprintf(stderr, "max_XA_hits\t%d\nmax_XA_hits_alt\t%d\n", opt->max_XA_hits, opt->max_XA_hits_alt); // if there are max_hits or fewer, output them all
