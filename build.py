@@ -106,20 +106,6 @@ if platform.system() != 'Windows':
         "-Wno-error=declaration-after-statement"
     ])
 
-libbwa_module = Extension(
-    name='pybwa.libbwa',
-    sources=['pybwa/libbwa.pyx'] + c_files,
-    depends=h_files,
-    extra_compile_args=compile_args,
-    extra_link_args=link_args,
-    extra_objects=extra_objects,
-    include_dirs=include_dirs,
-    language='c',
-    libraries=libraries,
-    library_dirs=library_dirs,
-    define_macros=define_macros
-)
-
 libbwaindex_module = Extension(
     name='pybwa.libbwaindex',
     sources=['pybwa/libbwaindex.pyx'] + c_files,
@@ -204,7 +190,6 @@ def build():
     with with_patches():
         # Collect and cythonize all files
         extension_modules = cythonize_helper([
-            libbwa_module,
             libbwaindex_module,
             libbwaaln_module,
             libbwamem_module
