@@ -2,6 +2,7 @@
 
 from libc.stdint cimport uint8_t, int64_t, int32_t, uint64_t, int8_t, uint32_t
 from libc.stdio cimport FILE
+from pybwa.libbwa cimport bwa_verbose
 
 cdef extern from "bwa.h":
     ctypedef struct bseq1_t:
@@ -128,3 +129,6 @@ cdef extern void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str, i
 
 # from bwamem_extra.c
 cdef extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, mem_alnreg_v *a, int l_query, const char *query);
+
+cpdef bint _set_bwa_mem_verbosity(int level)
+
