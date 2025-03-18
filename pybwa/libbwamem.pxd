@@ -130,5 +130,5 @@ cdef extern void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str, i
 # from bwamem_extra.c
 cdef extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, mem_alnreg_v *a, int l_query, const char *query);
 
-cdef bint set_bwa_mem_verbosity(int level)
+cpdef bint set_bwa_mem_verbosity(int level)
 
