@@ -118,7 +118,6 @@ mem_alns_t* mem_process_seqs_alt(const mem_opt_t *opt, const bwt_t *bwt, const b
     w_alt.pes = w.pes; w_alt.aux = w.aux; w_alt.seqs = w.seqs; w_alt.regs = w.regs; w_alt.n_processed = w.n_processed;
     kt_for(opt->n_threads, worker2_alt, &w_alt, (opt->flag&MEM_F_PE)? n>>1 : n); // generate alignment
     free(w.regs);
-	fprintf(stderr, "bwa_verbose=%d\n", bwa_verbose);
     if (bwa_verbose >= 3)
         fprintf(stderr, "[M::%s] Processed %d reads in %.3f CPU sec, %.3f real sec\n", __func__, n, cputime() - ctime, realtime() - rtime);
 
