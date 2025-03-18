@@ -14,6 +14,7 @@ __all__ = [
 class BwaVerbosity(enum.IntEnum):
     """The verbosity level for the BWA C-API"""
 
+    QUIET = 0
     ERROR = 1
     WARNING = 2
     INFO = 3
