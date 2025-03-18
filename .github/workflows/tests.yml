@@ -10,7 +10,6 @@ on:
   workflow_call:
   workflow_dispatch:
 
-
 env:
   POETRY_VERSION: 2.1.1
   CYTHON_TRACE: 1  # for code coverage
