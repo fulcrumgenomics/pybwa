@@ -67,7 +67,7 @@ GitHub Actions will take care of the remainder of the deployment and release pro
 2. A source distribution will be built
 3. Multi-arch multi-Python binary distributions will be built
 4. Assets will be deployed to PyPi with the new SemVer
-5. A `Conventional Commit <https://www.conventionalcommits.org/en/v1.0.0/)>`_-aware changelog will be drafted
+5. A `Conventional Commit <https://www.conventionalcommits.org/en/v1.0.0/>`_-aware changelog will be drafted
 6. A GitHub release will be created with the new SemVer and the drafted changelog
 
 .. warning::
