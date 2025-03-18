@@ -18,7 +18,6 @@ def test_get_libraries() -> None:
     so = sysconfig.get_config_var("EXT_SUFFIX")
     names = [Path(p).name for p in pybwa._get_libraries()]
     assert names == [
-        "libbwa" + so,
         "libbwaaln" + so,
         "libbwaindex" + so,
         "libbwamem" + so,
