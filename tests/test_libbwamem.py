@@ -396,6 +396,8 @@ def test_bwamem_align_hard_clip_supplementary(e_coli_k12_fasta: Path) -> None:
     bwa = BwaMem(prefix=e_coli_k12_fasta)
     query = FastxRecord(name="query", sequence=seq1 + seq2)
     list_of_recs = bwa.align(opt=opt, queries=[query])
+    pybwa.set_bwa_verbosity(3)
+
     assert len(list_of_recs) == 1
     assert len(list_of_recs[0]) == 2
     rec1 = list_of_recs[0][0]
