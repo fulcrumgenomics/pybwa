@@ -171,18 +171,25 @@ def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
         force=True,
     )
 
-CLASSIFIERS = '''
-Development Status :: 4 - Beta
-Intended Audience :: Science/Research
-Intended Audience :: Developers
-License :: OSI Approved
-Programming Language :: Python
-Topic :: Software Development
-Topic :: Scientific/Engineering
-Operating System :: POSIX
-Operating System :: Unix
-Operating System :: MacOS
-'''
+CLASSIFIERS = [
+	"Development Status :: 5 - Production/Stable",
+	"Environment :: Console",
+	"Intended Audience :: Developers",
+	"Intended Audience :: Science/Research",
+	"License :: OSI Approved :: MIT License",
+	"Natural Language :: English",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Topic :: Scientific/Engineering :: Bio-Informatics",
+	"Topic :: Software Development :: Documentation",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+	"Typing :: Typed",
+]
 
 
 def build():
@@ -206,7 +213,7 @@ def build():
             'author_email': 'nils@fulcrumgenomics.com',
             'license': 'MIT',
             'platforms': ['POSIX', 'UNIX', 'MacOS'],
-            'classifiers': [_f for _f in CLASSIFIERS.split('\n') if _f],
+            'classifiers': CLASSIFIERS,
             'url': 'https://github.com/fulcrumgenomics/pybwa',
             'packages': ['pybwa', 'pybwa.include.bwa', 'pybwa.include.patches'],
             'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa', 'pybwa.include.patches': 'patches' },
