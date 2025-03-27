@@ -30,22 +30,37 @@ dependencies = [
 
 [tool.poetry]
 include = [
-	"LICENSE",
-	{ path = "pybwa/**/*.so", format = "wheel" },
-	{ path = "**/*.so", format = "wheel" },
-	{ path = "*.so", format = "wheel" },
+    # pybwa
+	{ path = "LICENSE", format = ["sdist", "wheel"] },
+	{ path = "README.md", format = ["sdist", "wheel"] },
+	{ path = "pybwa/libbwa*.so", format = "wheel" },
+	{ path = "patches/*patch", format = ["sdist", "wheel"] },
+	{ path = "tests", format = "sdist" },
+	# bwa
 	{ path = "bwa/*.h", format = ["sdist", "wheel"] },
 	{ path = "bwa/*.c", format = ["sdist", "wheel"] },
+	{ path = "bwa/Makefile", format = ["sdist", "wheel"] },
+	{ path = "bwa/README.md", format = ["sdist", "wheel"] },
+	# htslib
 	{ path = "htslib/**/*.h", format = ["sdist", "wheel"] },
 	{ path = "htslib/**/*.c", format = ["sdist", "wheel"] },
 	{ path = "htslib/LICENSE", format = ["sdist", "wheel"] },
-	{ path = "patches/*patch", format = ["sdist", "wheel"] },
-	{ path = "tests", format = "sdist" },
+	{ path = "htslib/README", format = ["sdist", "wheel"] },
+	{ path = "htslib/configure.ac", format = ["sdist", "wheel"] },
+	{ path = "htslib/m4/*.m4", format = ["sdist", "wheel"] },
+	{ path = "htslib/*.in", format = ["sdist", "wheel"] },
+	{ path = "htslin/configure", format = ["sdist", "wheel"] },
+	{ path = "htslib/config.guess", format = ["sdist", "wheel"] },
+	{ path = "htslib/config.sub", format = ["sdist", "wheel"] },
+	{ path = "htslib/version.sh", format = ["sdist", "wheel"] },
+	{ path = "htslib/Makefile", format = ["sdist", "wheel"] },
+	{ path = "htslib/*mk", format = ["sdist", "wheel"] },
 ]
 exclude = [
 	"pybwa/**/*.so",
 	"**/*.so",
 	"*.so",
+	"htslib/*config*.h",
 ]
 
 [tool.poetry.build]
