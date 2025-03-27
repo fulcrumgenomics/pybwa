@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: 'true'
+          submodules: 'recursive'
 
       - name: debug git branch -a
         shell: bash
@@ -56,11 +56,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: true
+          submodules: 'recursive'
 
       - uses: actions/setup-python@v5
         with:
           python-version: 3.12
+
+      - name: Install Linux build prerequisites
+        if:   runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -q --no-install-recommends --no-install-suggests libbz2-dev libcurl4-openssl-dev liblzma-dev libssl-dev libdeflate-dev
+
+      - name: Update macOS build prerequisites
+        if:   runner.os == 'macOS'
+        run: |
+          brew unlink xz || true  # Remove brewed liblzma as it is not multiarch
 
       - name: Install poetry
         run: |
@@ -131,7 +142,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
-          submodules: true
+          submodules: 'recursive'
 
       - name: Generate a Changelog
         uses: orhun/git-cliff-action@v3

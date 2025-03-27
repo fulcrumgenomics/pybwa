@@ -5,6 +5,13 @@ from libc.stdio cimport FILE
 from pybwa.libbwa cimport bwa_verbose
 
 cdef extern from "bwa.h":
+    ctypedef struct bam_hdr_t:
+        pass
+
+    ctypedef struct bams_t:
+        int l, m
+        bam1_t **bams
+
     ctypedef struct bseq1_t:
         int l_seq, id
         char *name
@@ -12,14 +19,16 @@ cdef extern from "bwa.h":
         char *seq
         char *qual
         char *sam
+        bams_t *bams
 
-cdef extern from "libbwamem_utils.h":
-    ctypedef  struct mem_alns_t:
-        size_t n, m
-        mem_aln_t*a
-    mem_alns_t * mem_process_seqs_alt(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns,
-                                  const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs,
-                                  const mem_pestat_t *pes0)
+    void bams_destroy(bams_t *bams)
+
+    void bwa_format_sam_hdr(const bntseq_t *bns, const char *rg_line, kstring_t *str)
+
+cdef extern from "bwamem.h":
+    void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns,
+                          const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs,
+                          const mem_pestat_t *pes0, sam_hdr_t *h)
 
 cdef extern from "limits.h":
     cdef int INT_MAX
@@ -132,3 +141,12 @@ cdef extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const 
 
 cpdef bint _set_bwa_mem_verbosity(int level)
 
+cdef extern from "htslib/sam.h":
+    ctypedef struct bam1_t:
+        pass
+
+    ctypedef struct sam_hdr_t:
+        size_t l_text
+        char *text
+
+    sam_hdr_t *sam_hdr_parse(size_t l_text, const char *text)

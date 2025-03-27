@@ -8,8 +8,15 @@ build:
       - pip install poetry==2.1.1
       - poetry config virtualenvs.create false
       - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install
+  apt_packages:
+    - libbz2-dev
+    - libcurl4-openssl-dev
+    - liblzma-dev
+    - libssl-dev
+    - libdeflate-dev
 submodules:
   include: all
+  recursive: true
 sphinx:
   configuration: docs/conf.py
 python:

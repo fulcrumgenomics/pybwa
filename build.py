@@ -7,20 +7,22 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import List
 
+import pysam
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as cython_build_ext
-from setuptools import Extension, Distribution
+from setuptools import Distribution
+from setuptools import Extension
 
 
 def strtobool(value: str) -> bool:
     value = value.lower()
-    _TRUE = {'y', 'yes', 't', 'true', 'on', '1'}
-    _FALSE = {'n', 'no', 'f', 'false', 'off', '0'}
+    _TRUE = {"y", "yes", "t", "true", "on", "1"}
+    _FALSE = {"n", "no", "f", "false", "off", "0"}
     if value in _TRUE:
         return True
     elif value in _FALSE:
         return False
-    raise ValueError(f'"{value}" is not a valid bool value')
+    raise ValueError(f"'{value}' is not a valid bool value")
 
 
 @contextmanager
@@ -32,20 +34,47 @@ def changedir(path):
     finally:
         os.chdir(save_dir)
 
+
+USE_GIT: bool = shutil.which("git") is not None and Path(".git").exists() and Path(".git").is_dir()
+IS_DARWIN = platform.system() == "Darwin"
+
+
+def compile_htslib():
+    print("Building htslib...")
+    with changedir("htslib"):
+        CFLAGS = "CFLAGS='-fpic -fvisibility=hidden -g -Wall -O2"
+        if IS_DARWIN:
+            CFLAGS += " -mmacosx-version-min=11.0"
+        CFLAGS += "'"
+        commands = [
+            "autoreconf -i",
+            f"./configure --with-libdeflate --enable-lzma --enable-bz2 {CFLAGS}",
+            "make -j",
+        ]
+        for command in commands:
+            retcode = subprocess.call(
+                f"{command}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True
+            )
+            if retcode != 0:  # run again for debugging
+                retcode = subprocess.call(f"{command}", shell=True)
+            if retcode != 0:
+                raise RuntimeError(f"Failed to run command {command}")
+
+
 @contextmanager
 def with_patches():
-    patches = sorted([
-        os.path.abspath(patch)
-        for patch in Path("patches").iterdir()
-        if patch.is_file() and patch.suffix == ".patch"
-    ])
-    has_git = shutil.which("git") is not None
-    has_git_dir = Path(".git").exists() and Path(".git").is_dir()
-    use_git = has_git and has_git_dir
+    patches = sorted(
+        [
+            os.path.abspath(patch)
+            for patch in Path("patches").iterdir()
+            if patch.is_file() and patch.suffix == ".patch"
+        ]
+    )
     with changedir("bwa"):
+        print("Patching bwa...")
         for patch in patches:
-            if use_git:
-                retcode = subprocess.call(f"git apply {patch}", shell=True)
+            if USE_GIT:
+                retcode = subprocess.call(f"git apply --whitespace=nowarn {patch}", shell=True)
             else:
                 retcode = subprocess.call(f"patch -p1 < {patch}", shell=True)
             if retcode != 0:
@@ -53,99 +82,119 @@ def with_patches():
     try:
         yield
     finally:
-        if use_git:
-            commands = ["git submodule deinit -f .", "git submodule update --init"]
+        if USE_GIT:
+            commands = ["git submodule deinit -f bwa", "git submodule update --init --recursive"]
             for command in commands:
                 retcode = subprocess.call(command, shell=True)
                 if retcode != 0:
-                    raise RuntimeError(f"Failed to reset submodules: {command}")
+                    raise RuntimeError(f"Failed to reset bwa submodule: {command}")
+
 
 compiler_directives = {
     "language_level": "3",
-    'embedsignature': True,
+    "embedsignature": True,
 }
 SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
 compile_args = []
 link_args = []
-include_dirs = ["bwa", "pybwa"]
-libraries = ['m', 'z', 'pthread']
-if platform.system() == 'Linux':
+include_dirs = ["bwa", "pybwa", "htslib", os.path.dirname(pysam.__file__)]
+libraries = ["m", "z", "pthread", "lzma", "bz2", "curl", "deflate"]
+if platform.system() == "Linux":
     libraries.append("rt")
-library_dirs=['pybwa', 'bwa']
-extra_objects = []
-define_macros = [("HAVE_PTHREAD", None), ("USE_MALLOC_WRAPPERS", None)]
+library_dirs = ["pybwa", "bwa", "htslib"]
+extra_objects = ["htslib/libhts.a"]
+define_macros = [
+    ("HAVE_PTHREAD", None),
+    ("USE_MALLOC_WRAPPERS", None),
+    ("USE_HTSLIB", 1),
+]
 h_files = []
 c_files = []
 
 exclude_files = {
     "pybwa": ["libbwaaln.c", "libbwaindex.c", "libbwamem.c"],
-    "bwa": ['example.c', 'main.c']
+    "bwa": ["example.c", "main.c", "kstring.c", "kstring.h"],
 }
 for root_dir in library_dirs:
-    h_files.extend(str(x) for x in Path(root_dir).rglob("*.h"))
-    c_files.extend(str(x) for x in Path(root_dir).rglob("*.c") if x.name not in exclude_files[root_dir])
+    if root_dir == "htslib":  # these are added via extra_objects above
+        continue
+    exc = exclude_files.get(root_dir, {})
+    h_files.extend(str(x) for x in Path(root_dir).rglob("*.h") if "tests/" not in f"{x}")
+    c_files.extend(
+        str(x) for x in Path(root_dir).rglob("*.c") if "tests/" not in f"{x}" and x.name not in exc
+    )
 
 # Check if we should build with linetracing for coverage
-build_with_coverage = os.environ.get("CYTHON_TRACE", "false").lower() in ("1", "true", '"true"')
+build_with_coverage = os.environ.get("CYTHON_TRACE", "false").lower() in ("1", "true", "'true'")
 if build_with_coverage:
     compiler_directives["linetrace"] = True
-    compiler_directives['emit_code_comments'] = True
-    define_macros.extend([('CYTHON_TRACE', 1), ('CYTHON_TRACE_NOGIL', 1), ('DCYTHON_USE_SYS_MONITORING', 0)])
+    compiler_directives["emit_code_comments"] = True
+    define_macros.extend(
+        [
+            ("CYTHON_TRACE", 1),
+            ("CYTHON_TRACE_NOGIL", 1),
+            ("DCYTHON_USE_SYS_MONITORING", 0),
+        ]
+    )
     BUILD_DIR = Path(".")  # the compiled .c files need to be next to the .pyx files for coverage
 
-if platform.system() != 'Windows':
-    compile_args.extend([
-        "-Wno-unused-result",
-        "-Wno-unreachable-code",
-        "-Wno-single-bit-bitfield-constant-conversion",
-        "-Wno-deprecated-declarations",
-        "-Wno-unused",
-        "-Wno-strict-prototypes",
-        "-Wno-sign-compare",
-        "-Wno-error=declaration-after-statement"
-    ])
+if platform.system() != "Windows":
+    compile_args.extend(
+        [
+            "-Wno-unused-result",
+            "-Wno-unreachable-code",
+            "-Wno-single-bit-bitfield-constant-conversion",
+            "-Wno-deprecated-declarations",
+            "-Wno-unused",
+            "-Wno-strict-prototypes",
+            "-Wno-sign-compare",
+            "-Wno-error=declaration-after-statement",
+            "-Wno-implicit-function-declaration",
+            "-Wno-macro-redefined",
+        ]
+    )
 
 libbwaindex_module = Extension(
-    name='pybwa.libbwaindex',
-    sources=['pybwa/libbwaindex.pyx'] + c_files,
+    name="pybwa.libbwaindex",
+    sources=["pybwa/libbwaindex.pyx"] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
     extra_objects=extra_objects,
     include_dirs=include_dirs,
-    language='c',
+    language="c",
     libraries=libraries,
     library_dirs=library_dirs,
-    define_macros=define_macros
+    define_macros=define_macros,
 )
 
 libbwaaln_module = Extension(
-    name='pybwa.libbwaaln',
-    sources=['pybwa/libbwaaln.pyx'] + c_files,
+    name="pybwa.libbwaaln",
+    sources=["pybwa/libbwaaln.pyx"] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
     extra_objects=extra_objects,
     include_dirs=include_dirs,
-    language='c',
+    language="c",
     libraries=libraries,
     library_dirs=library_dirs,
-    define_macros=define_macros
+    define_macros=define_macros,
 )
 
 libbwamem_module = Extension(
-    name='pybwa.libbwamem',
-    sources=['pybwa/libbwamem.pyx'] + c_files,
+    name="pybwa.libbwamem",
+    sources=["pybwa/libbwamem.pyx"] + c_files,
     depends=h_files,
     extra_compile_args=compile_args,
     extra_link_args=link_args,
     extra_objects=extra_objects,
     include_dirs=include_dirs,
-    language='c',
+    language="c",
     libraries=libraries,
     library_dirs=library_dirs,
-    define_macros=define_macros
+    define_macros=define_macros,
 )
 
 
@@ -154,75 +203,86 @@ def cythonize_helper(extension_modules: List[Extension]) -> List[Extension]:
 
     return cythonize(
         module_list=extension_modules,
-
-        # Don't build in source tree (this leaves behind .c files)
+        # Don"t build in source tree (this leaves behind .c files)
         build_dir=BUILD_DIR,
-
-        # Don't generate an .html output file. Would contain source.
+        # Don"t generate an .html output file. Would contain source.
         annotate=False,
-
         # Parallelize our build
         nthreads=multiprocessing.cpu_count() * 2,
-
         # Compiler directives (e.g. language, or line tracing for coverage)
         compiler_directives=compiler_directives,
-
         # (Optional) Always rebuild, even if files untouched
         force=True,
     )
 
+
 CLASSIFIERS = [
-	"Development Status :: 5 - Production/Stable",
-	"Environment :: Console",
-	"Intended Audience :: Developers",
-	"Intended Audience :: Science/Research",
-	"License :: OSI Approved :: MIT License",
-	"Natural Language :: English",
-	"Operating System :: OS Independent",
-	"Programming Language :: Python :: 3",
-	"Programming Language :: Python :: 3.9",
-	"Programming Language :: Python :: 3.10",
-	"Programming Language :: Python :: 3.11",
-	"Programming Language :: Python :: 3.12",
-	"Programming Language :: Python :: 3.13",
-	"Topic :: Scientific/Engineering :: Bio-Informatics",
-	"Topic :: Software Development :: Documentation",
-	"Topic :: Software Development :: Libraries :: Python Modules",
-	"Typing :: Typed",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 
 def build():
+    # compile htslib
+    compile_htslib()
+
     # apply patches to bwa, then revert them after
     with with_patches():
+        print("Building extensions...")
         # Collect and cythonize all files
-        extension_modules = cythonize_helper([
-            libbwaindex_module,
-            libbwaaln_module,
-            libbwamem_module
-        ])
+        extension_modules = cythonize_helper(
+            [libbwaindex_module, libbwaaln_module, libbwamem_module]
+        )
+
+        packages = ["pybwa", "pybwa.include.bwa", "pybwa.include.patches", "pybwa.include.htslib"]
+        package_dir = {
+            "pybwa": "pybwa",
+            "pybwa.include.bwa": "bwa",
+            "pybwa.include.patches": "patches",
+            "pybwa.include.htslib": "htslib",
+        }
 
         # Use Setuptools to collect files
-        distribution = Distribution({
-            "name": "pybwa",
-            'version': '0.0.1',
-            'description': 'Python bindings for BWA',
-            'long_description': __doc__,
-            'long_description_content_type': 'text/x-rst',
-            'author': 'Nils Homer',
-            'author_email': 'nils@fulcrumgenomics.com',
-            'license': 'MIT',
-            'platforms': ['POSIX', 'UNIX', 'MacOS'],
-            'classifiers': CLASSIFIERS,
-            'url': 'https://github.com/fulcrumgenomics/pybwa',
-            'packages': ['pybwa', 'pybwa.include.bwa', 'pybwa.include.patches'],
-            'package_dir': {'pybwa': 'pybwa', 'pybwa.include.bwa': 'bwa', 'pybwa.include.patches': 'patches' },
-            'package_data': {'': ['*.pxd', '*.h', '*.c', 'py.typed', '*.pyi', '*.patch'], },
-            "ext_modules": extension_modules,
-            "cmdclass": {
-                "build_ext": cython_build_ext,
-            },
-        })
+        distribution = Distribution(
+            {
+                "name": "pybwa",
+                "version": "0.0.1",
+                "description": "Python bindings for BWA",
+                "long_description": __doc__,
+                "long_description_content_type": "text/x-rst",
+                "author": "Nils Homer",
+                "author_email": "nils@fulcrumgenomics.com",
+                "license": "MIT",
+                "platforms": ["POSIX", "UNIX", "MacOS"],
+                "classifiers": CLASSIFIERS,
+                "url": "https://github.com/fulcrumgenomics/pybwa",
+                "packages": packages,
+                "package_dir": package_dir,
+                "package_data": {
+                    "": ["*.pxd", "*.h", "*.c", "py.typed", "*.pyi", "*.patch", "**/*.h", "**/*.c"],
+                },
+                "ext_modules": extension_modules,
+                "cmdclass": {
+                    "build_ext": cython_build_ext,
+                },
+                "zip_safe": False,
+            }
+        )
 
         # Grab the build_ext command and copy all files back to source dir.
         # Done so Poetry grabs the files during the next step in its build.

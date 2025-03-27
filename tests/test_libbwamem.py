@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
+from pysam import array_to_qualitystring
 
 from pybwa import BwaIndex
 from pybwa.libbwamem import BwaMem
@@ -166,12 +167,14 @@ def test_bwamem(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) ->
     opt = BwaMemOptions(with_xr_tag=True)
     bwa = BwaMem(prefix=e_coli_k12_fasta)
 
-    revcomp_seq = (
-        None
-        if not e_coli_k12_fastx_record.sequence
-        else reverse_complement(e_coli_k12_fastx_record.sequence)
+    forward_seq = (
+        None if e_coli_k12_fastx_record.sequence is None else e_coli_k12_fastx_record.sequence
     )
-    revcomp_record = FastxRecord(name="revcomp", sequence=revcomp_seq)
+
+    revcomp_seq = None if forward_seq is None else reverse_complement(forward_seq)
+    revcomp_quals = None if revcomp_seq is None else "I" * len(revcomp_seq)
+
+    revcomp_record = FastxRecord(name="revcomp", sequence=revcomp_seq, quality=revcomp_quals)
 
     recs_of_recs = bwa.align(opt=opt, queries=[e_coli_k12_fastx_record, revcomp_record])
     assert len(recs_of_recs) == 2
@@ -185,6 +188,8 @@ def test_bwamem(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) ->
     assert rec.reference_start == 80
     assert rec.is_forward
     assert rec.cigarstring == "80M"
+    assert rec.query_sequence == forward_seq
+    assert rec.query_qualities is None
 
     assert len(recs_of_recs[1]) == 1
     rec = recs_of_recs[1][0]
@@ -195,6 +200,10 @@ def test_bwamem(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) ->
     assert rec.reference_start == 80
     assert rec.is_reverse
     assert rec.cigarstring == "80M"
+    assert rec.query_sequence == forward_seq
+    assert rec.query_qualities is not None
+    assert array_to_qualitystring(rec.query_qualities) == revcomp_quals
+
     # TODO: test multi-mapping, reverse strand, etc
 
     # NB: XA amd XB not generated for these records

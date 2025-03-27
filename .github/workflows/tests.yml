@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: 'true'
+        submodules: 'recursive'
 
     - name: Set up Python ${{matrix.PYTHON_VERSION}}
       uses: actions/setup-python@v1
@@ -35,6 +35,18 @@ jobs:
       shell: bash
       run: |
         echo "version="$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))") >> $GITHUB_OUTPUT;
+
+    - name: Install Linux build prerequisites
+      if:   runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -q --no-install-recommends --no-install-suggests libbz2-dev libcurl4-openssl-dev liblzma-dev libssl-dev libdeflate-dev
+
+
+    - name: Update macOS build prerequisites
+      if:   runner.os == 'macOS'
+      run: |
+        brew unlink xz || true  # Remove brewed liblzma as it is not multiarch
 
     - name: Install poetry
       shell: bash
@@ -85,12 +97,12 @@ jobs:
     - name: Style checking
       shell: bash
       run: |
-        poetry run ruff format --check pybwa tests
+        poetry run ruff format --check pybwa tests build.py
 
     - name: Run lint
       shell: bash
       run: |
-        poetry run ruff check pybwa tests
+        poetry run ruff check pybwa tests build.py
 
     - name: Run mypy
       shell: bash
