@@ -25,4 +25,4 @@ def e_coli_k12_fasta() -> Path:
 def e_coli_k12_fastx_record() -> FastxRecord:
     """Sequence-only FastxRecord that maps to the forward strand at positino 80 for 80bp"""
     sequence = "gttacctgccgtgagtaaattaaaattttattgacttaggtcactaaatactttaaccaatataggcatagcgcacagac"
-    return FastxRecord(name="test", sequence=sequence)
+    return FastxRecord(name="test", sequence=sequence.upper())

@@ -81,8 +81,9 @@ cdef extern from "bntseq.h":
     bntseq_t * bns_restore(const char * prefix)
     void bns_destroy(bntseq_t *bns)
 
-cdef extern from "kseq.h":
+cdef extern from "kstring.h":
     ctypedef struct kstring_t:
+        size_t l, m
         char *s
 
 cdef extern void bwa_aln2seq_core(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s, int set_main, int n_multi)
@@ -139,6 +140,23 @@ cdef extern from "bwtaln.h":
 
 # from bwase.c
 cdef extern int64_t pos_end_multi(const bwt_multi1_t *p, int len)
-
+cdef extern bam1_t* bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2, kstring_t *str, sam_hdr_t *h)
 
 cpdef bint _set_bwa_aln_verbosity(int level)
+
+
+cdef extern from "bwa.h":
+    void bwa_format_sam_hdr(const bntseq_t *bns, const char *rg_line, kstring_t *str)
+
+
+cdef extern from "htslib/sam.h":
+    ctypedef struct bam1_t:
+        pass
+
+    void bam_destroy1(bam1_t *b)
+
+    ctypedef struct sam_hdr_t:
+        size_t l_text
+        char *text
+
+    sam_hdr_t *sam_hdr_parse(size_t l_text, const char *text)

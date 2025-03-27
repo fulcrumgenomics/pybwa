@@ -25,7 +25,7 @@ requires-python = ">=3.9.0,<4.0"
 dependencies = [
 	"fgpyo >=0.7.0",
 	"pysam >=0.22.1",
-	"typing_extensions >=3.7.4; python_version <'3.12'",
+	"typing_extensions >=3.7.4; python_version <'3.13'",
 ]
 
 [tool.poetry]
@@ -36,6 +36,9 @@ include = [
 	{ path = "*.so", format = "wheel" },
 	{ path = "bwa/*.h", format = ["sdist", "wheel"] },
 	{ path = "bwa/*.c", format = ["sdist", "wheel"] },
+	{ path = "htslib/**/*.h", format = ["sdist", "wheel"] },
+	{ path = "htslib/**/*.c", format = ["sdist", "wheel"] },
+	{ path = "htslib/LICENSE", format = ["sdist", "wheel"] },
 	{ path = "patches/*patch", format = ["sdist", "wheel"] },
 	{ path = "tests", format = "sdist" },
 ]
@@ -72,7 +75,7 @@ sphinx-rtd-theme = "^3.0.2"
 sphinx-autodoc-typehints = "2"
 
 [build-system]
-requires = ["poetry-core>=2.1.1", "cython>=3.0.11", "setuptools>=75.1.0"]
+requires = ["poetry-core>=2.1.1", "cython>=3.0.11", "setuptools>=75.1.0", "pysam >=0.22.1"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]

@@ -29,7 +29,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: 'true'
+        submodules: 'recursive'
 
     - name: Set up Python 3.12
       uses: actions/setup-python@v1
@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: 'recursive'
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
@@ -105,6 +105,8 @@ jobs:
           CIBW_ARCHS_MACOS: auto64
           CIBW_BEFORE_BUILD_MACOS: "{project}/ci/osx-deps"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
+          
+          CIBW_ENVIRONMENT: "CYTHONIZE=1 LIBDEFLATE=1"
 
           CIBW_TEST_COMMAND: >
             if (cd ~/ && python -c "import pybwa")

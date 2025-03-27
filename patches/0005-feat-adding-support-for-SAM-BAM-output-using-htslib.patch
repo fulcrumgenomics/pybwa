@@ -1,0 +1,1012 @@
+From 09b2145aaead4a411c0623385385f26e5c0203c7 Mon Sep 17 00:00:00 2001
+From: Nils Homer <nilshomer@gmail.com>
+Date: Tue, 25 Mar 2025 23:06:59 -0700
+Subject: [PATCH 5/5] feat: adding support for SAM/BAM output using htslib
+
+---
+ Makefile      |  23 ++++++--
+ bamlite.c     |   2 +
+ bamlite.h     |   2 +
+ bwa.c         |  42 +++++++++++++-
+ bwa.h         |  27 +++++++++
+ bwamem.c      |  40 +++++++++++---
+ bwamem.h      |   7 ++-
+ bwamem_pair.c |  25 ++++++---
+ bwase.c       | 148 +++++++++++++++++++++++++++++++-------------------
+ bwaseqio.c    |  46 +++++++++++++++-
+ fastmap.c     |  71 ++++++++++++++++++++++--
+ kstring.h     |  14 +++--
+ main.c        |   7 +++
+ 13 files changed, 364 insertions(+), 90 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 5480536..8d812ca 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,9 @@
+ CC=			gcc
+ #CC=			clang --analyze
+-CFLAGS=		-g -Wall -Wno-unused-function -O2
++CFLAGS=		-g -Wall -Wno-unused-function -O2 -Wno-implicit-function-declaration
+ WRAP_MALLOC=-DUSE_MALLOC_WRAPPERS
++# set to 1 if you wish to have bam support, type 'make clean; make all'
++USE_HTSLIB=1
+ AR=			ar
+ DFLAGS=		-DHAVE_PTHREAD $(WRAP_MALLOC)
+ LOBJS=		utils.o kthread.o kstring.o ksw.o bwt.o bntseq.o bwa.o bwamem.o bwamem_pair.o bwamem_extra.o malloc_wrap.o \
+@@ -12,7 +14,7 @@ AOBJS=		bwashm.o bwase.o bwaseqio.o bwtgap.o bwtaln.o bamlite.o \
+ 			bwtsw2_chain.o fastmap.o bwtsw2_pair.o
+ PROG=		bwa
+ INCLUDES=	
+-LIBS=		-lm -lz -lpthread
++LIBS=		-lm -lz -lbz2 -llzma -lcurl -lpthread -ldeflate
+ SUBDIRS=	.
+ 
+ ifeq ($(shell uname -s),Linux)
+@@ -23,14 +25,27 @@ endif
+ 
+ .c.o:
+ 		$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $(CPPFLAGS) $< -o $@
++ifeq ($(USE_HTSLIB),1)
++	$(CC) -c $(CFLAGS) $(DFLAGS) -DUSE_HTSLIB $(INCLUDES) -I ../htslib $< -o $@
++else
++	$(CC) -c $(CFLAGS) $(DFLAGS) $(INCLUDES) $< -o $@
++endif
+ 
+ all:$(PROG)
+ 
+ bwa:libbwa.a $(AOBJS) main.o
+-		$(CC) $(CFLAGS) $(LDFLAGS) $(AOBJS) main.o -o $@ -L. -lbwa $(LIBS)
++ifeq ($(USE_HTSLIB),1)
++	$(CC) $(CFLAGS) $(DFLAGS) $(AOBJS) main.o -o $@ ../htslib/libhts.a -L. -L../htslib -lbwa $(LIBS)
++else
++	$(CC) $(CFLAGS) $(DFLAGS) $(AOBJS) main.o -o $@ -L. -lbwa $(LIBS)
++endif
+ 
+ bwamem-lite:libbwa.a example.o
+-		$(CC) $(CFLAGS) $(LDFLAGS) example.o -o $@ -L. -lbwa $(LIBS)
++ifeq ($(USE_HTSLIB),1)
++	$(CC) $(CFLAGS) $(DFLAGS) example.o -o $@ ../htslib/libhts.a -L. -L../htslib -lbwa $(LIBS)
++else
++	$(CC) $(CFLAGS) $(DFLAGS) example.o -o $@ -L. -lbwa $(LIBS)
++endif
+ 
+ libbwa.a:$(LOBJS)
+ 		$(AR) -csru $@ $(LOBJS)
+diff --git a/bamlite.c b/bamlite.c
+index 3704beb..f1c2e62 100644
+--- a/bamlite.c
++++ b/bamlite.c
+@@ -1,3 +1,4 @@
++#ifndef USE_HTSLIB
+ #include <stdlib.h>
+ #include <ctype.h>
+ #include <string.h>
+@@ -208,3 +209,4 @@ int bamlite_gzclose(gzFile file) {
+ 	return ret;
+ }
+ #endif /* USE_VERBOSE_ZLIB_WRAPPERS */
++#endif
+diff --git a/bamlite.h b/bamlite.h
+index efab7ac..443926d 100644
+--- a/bamlite.h
++++ b/bamlite.h
+@@ -1,5 +1,6 @@
+ #ifndef BAMLITE_H_
+ #define BAMLITE_H_
++#ifndef USE_HTSLIB
+ 
+ #include <stdint.h>
+ #include <zlib.h>
+@@ -112,3 +113,4 @@ extern "C" {
+ #endif
+ 
+ #endif
++#endif
+diff --git a/bwa.c b/bwa.c
+index 104c95c..289a151 100644
+--- a/bwa.c
++++ b/bwa.c
+@@ -34,6 +34,9 @@
+ #include "utils.h"
+ #include "kstring.h"
+ #include "kvec.h"
++#ifdef USE_HTSLIB
++#include <htslib/sam.h>
++#endif
+ 
+ #ifdef USE_MALLOC_WRAPPERS
+ #  include "malloc_wrap.h"
+@@ -42,7 +45,7 @@
+ int bwa_verbose = 3;
+ int bwa_dbg = 0;
+ char bwa_rg_id[256];
+-char *bwa_pg;
++char *bwa_pg = NULL;
+ 
+ /************************
+  * Batch FASTA/Q reader *
+@@ -437,6 +440,19 @@ void bwa_print_sam_hdr(const bntseq_t *bns, const char *hdr_line)
+ 	if (bwa_pg) err_printf("%s\n", bwa_pg);
+ }
+ 
++#ifdef USE_HTSLIB
++void bwa_format_sam_hdr(const bntseq_t *bns, const char *rg_line, kstring_t *str)
++{
++	int i;
++	extern char *bwa_pg;
++	str->l = 0; str->s = 0;
++	for (i = 0; i < bns->n_seqs; ++i)
++		ksprintf(str, "@SQ\tSN:%s\tLN:%d\n", bns->anns[i].name, bns->anns[i].len);
++	if (rg_line) ksprintf(str, "%s\n", rg_line);
++	if (bwa_pg) ksprintf(str, "%s\n", bwa_pg);
++}
++#endif
++
+ static char *bwa_escape(char *s)
+ {
+ 	char *p, *q;
+@@ -499,3 +515,27 @@ char *bwa_insert_header(const char *s, char *hdr)
+ 	bwa_escape(hdr + len);
+ 	return hdr;
+ }
++
++#ifdef USE_HTSLIB
++bams_t *bams_init() {
++	return calloc(1, sizeof(bams_t));
++}
++
++void bams_add(bams_t *bams, bam1_t *b) {
++	if (bams->l >= bams->m) {
++		bams->m = bams->m == 0 ? 1 : (bams->m << 2);
++		bams->bams = realloc(bams->bams, sizeof(bam1_t) * bams->m);
++	}
++	bams->bams[bams->l] = b;
++	bams->l++;
++}
++
++void bams_destroy(bams_t *bams) {
++	int i;
++	for (i = 0; i < bams->l; i++) {
++		bam_destroy1(bams->bams[i]);
++	}
++	free(bams->bams);
++	free(bams);
++}
++#endif
+diff --git a/bwa.h b/bwa.h
+index 95c324b..2d7abbe 100644
+--- a/bwa.h
++++ b/bwa.h
+@@ -30,6 +30,9 @@
+ #include <stdint.h>
+ #include "bntseq.h"
+ #include "bwt.h"
++#ifdef USE_HTSLIB
++#include <htslib/sam.h>
++#endif
+ 
+ #define BWA_IDX_BWT 0x1
+ #define BWA_IDX_BNS 0x2
+@@ -55,11 +58,29 @@ typedef struct {
+ 	uint8_t  *mem;
+ } bwaidx_t;
+ 
++#ifdef USE_HTSLIB
++typedef struct {
++	int l, m;
++	bam1_t **bams;
++} bams_t;
++#endif
++
+ typedef struct {
+ 	int l_seq, id;
++#ifdef USE_HTSLIB
++	char *name, *comment, *seq, *qual;
++	bams_t *bams;
++#else
+ 	char *name, *comment, *seq, *qual, *sam;
++#endif
+ } bseq1_t;
+ 
++#ifndef USE_HTSLIB
++typedef struct {
++	void *ptr;
++} sam_hdr_t; // DO NOT USE
++#endif
++
+ extern int bwa_verbose, bwa_dbg;
+ extern char bwa_rg_id[256];
+ 
+@@ -90,6 +111,12 @@ extern "C" {
+ 	char *bwa_set_rg(const char *s);
+ 	char *bwa_insert_header(const char *s, char *hdr);
+ 
++#ifdef USE_HTSLIB
++	bams_t *bams_init();
++	void bams_add(bams_t *bams, bam1_t *b);
++	void bams_destroy(bams_t *bams);
++#endif
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/bwamem.c b/bwamem.c
+index 9bf9938..f03db59 100644
+--- a/bwamem.c
++++ b/bwamem.c
+@@ -43,6 +43,10 @@
+ #include "ksort.h"
+ #include "utils.h"
+ 
++#ifdef USE_HTSLIB
++#include <htslib/sam.h>
++#endif
++
+ #ifdef USE_MALLOC_WRAPPERS
+ #  include "malloc_wrap.h"
+ #endif
+@@ -886,7 +890,7 @@ static inline void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str,
+ 	} else kputc('*', str); // having a coordinate but unaligned (e.g. when copy_mate is true)
+ }
+ 
+-void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_)
++void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h)
+ {
+ 	int i, l_name;
+ 	mem_aln_t ptmp = list[which], *p = &ptmp, mtmp, *m = 0; // make a copy of the alignment to convert
+@@ -1010,7 +1014,17 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq
+ 		for (i = tmp; i < str->l; ++i) // replace TAB in the comment to SPACE
+ 			if (str->s[i] == '\t') str->s[i] = ' ';
+ 	}
++
++#ifndef USE_HTSLIB
+ 	kputc('\n', str);
++#else
++	bam1_t *b = bam_init1();
++	if (sam_parse1(str, h, b) < 0) {
++		// TODO: error!
++	}
++	bams_add(s->bams, b);
++	str->l = 0;
++#endif
+ }
+ 
+ /************************
+@@ -1068,7 +1082,7 @@ void mem_reorder_primary5(int T, mem_alnreg_v *a)
+ }
+ 
+ // TODO (future plan): group hits into a uint64_t[] array. This will be cleaner and more flexible
+-void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m)
++void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m, sam_hdr_t *h)
+ {
+ 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, mem_alnreg_v *a, int l_query, const char *query);
+ 	kstring_t str;
+@@ -1102,14 +1116,16 @@ void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+ 		mem_aln_t t;
+ 		t = mem_reg2aln(opt, bns, pac, s->l_seq, s->seq, 0);
+ 		t.flag |= extra_flag;
+-		mem_aln2sam(opt, bns, &str, s, 1, &t, 0, m);
++		mem_aln2sam(opt, bns, &str, s, 1, &t, 0, m, h);
+ 	} else {
+ 		for (k = 0; k < aa.n; ++k)
+-			mem_aln2sam(opt, bns, &str, s, aa.n, aa.a, k, m);
++			mem_aln2sam(opt, bns, &str, s, aa.n, aa.a, k, m, h);
+ 		for (k = 0; k < aa.n; ++k) free(aa.a[k].cigar);
+ 		free(aa.a);
+ 	}
++#ifndef USE_HTSLIB
+ 	s->sam = str.s;
++#endif
+ 	if (XA) {
+ 		for (k = 0; k < a->n; ++k) free(XA[k]);
+ 		free(XA);
+@@ -1242,23 +1258,30 @@ void worker1(void *data, int i, int tid)
+ 
+ static void worker2(void *data, int i, int tid)
+ {
+-	extern int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2], mem_alnreg_v a[2]);
++	extern int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2], mem_alnreg_v a[2], sam_hdr_t *h);
+ 	extern void mem_reg2ovlp(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a);
+ 	worker_t *w = (worker_t*)data;
+ 	if (!(w->opt->flag&MEM_F_PE)) {
++#ifdef USE_HTSLIB
++		w->seqs[i].bams = bams_init();
++#endif
+ 		if (bwa_verbose >= 4) printf("=====> Finalizing read '%s' <=====\n", w->seqs[i].name);
+ 		mem_mark_primary_se(w->opt, w->regs[i].n, w->regs[i].a, w->n_processed + i);
+ 		if (w->opt->flag & MEM_F_PRIMARY5) mem_reorder_primary5(w->opt->T, &w->regs[i]);
+-		mem_reg2sam(w->opt, w->bns, w->pac, &w->seqs[i], &w->regs[i], 0, 0);
++		mem_reg2sam(w->opt, w->bns, w->pac, &w->seqs[i], &w->regs[i], 0, 0, w->h);
+ 		free(w->regs[i].a);
+ 	} else {
+ 		if (bwa_verbose >= 4) printf("=====> Finalizing read pair '%s' <=====\n", w->seqs[i<<1|0].name);
+-		mem_sam_pe(w->opt, w->bns, w->pac, w->pes, (w->n_processed>>1) + i, &w->seqs[i<<1], &w->regs[i<<1]);
++#ifdef USE_HTSLIB
++		w->seqs[i<<1].bams = bams_init();
++		w->seqs[1+(i<<1)].bams = bams_init();
++#endif
++		mem_sam_pe(w->opt, w->bns, w->pac, w->pes, (w->n_processed>>1) + i, &w->seqs[i<<1], &w->regs[i<<1], w->h);
+ 		free(w->regs[i<<1|0].a); free(w->regs[i<<1|1].a);
+ 	}
+ }
+ 
+-void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs, const mem_pestat_t *pes0)
++void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs, const mem_pestat_t *pes0, sam_hdr_t *h)
+ {
+ 	extern void kt_for(int n_threads, void (*func)(void*,int,int), void *data, int n);
+ 	worker_t w;
+@@ -1275,6 +1298,7 @@ void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bn
+ 	w.aux = malloc(opt->n_threads * sizeof(smem_aux_t));
+ 	for (i = 0; i < opt->n_threads; ++i)
+ 		w.aux[i] = smem_aux_init();
++	w.h = h;
+ 	kt_for(opt->n_threads, worker1, &w, (opt->flag&MEM_F_PE)? n>>1 : n); // find mapping positions
+ 	for (i = 0; i < opt->n_threads; ++i)
+ 		smem_aux_destroy(w.aux[i]);
+diff --git a/bwamem.h b/bwamem.h
+index 03204db..3c94d12 100644
+--- a/bwamem.h
++++ b/bwamem.h
+@@ -82,6 +82,9 @@ typedef struct {
+ 	int max_matesw;         // perform maximally max_matesw rounds of mate-SW for each end
+ 	int max_XA_hits, max_XA_hits_alt; // if there are max_hits or fewer, output them all
+ 	int8_t mat[25];         // scoring matrix; mat[0] == 0 if unset
++#ifdef USE_HTSLIB
++	int bam_output;
++#endif
+ } mem_opt_t;
+ 
+ typedef struct {
+@@ -138,6 +141,7 @@ typedef struct {
+     bseq1_t *seqs;
+     mem_alnreg_v *regs;
+     int64_t n_processed;
++    sam_hdr_t *h;
+ } worker_t;
+ 
+ typedef kvec_t(int) int_v;
+@@ -185,8 +189,9 @@ extern "C" {
+ 	 * @param seqs   query sequences; $seqs[i].seq/sam to be modified after the call
+ 	 * @param pes0   insert-size info; if NULL, infer from data; if not NULL, it should be an array with 4 elements,
+ 	 *               corresponding to each FF, FR, RF and RR orientation. See mem_pestat() for more info.
++	 * @param h      the BAM header, NULL if not using HTSLIB
+ 	 */
+-	void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs, const mem_pestat_t *pes0);
++	void mem_process_seqs(const mem_opt_t *opt, const bwt_t *bwt, const bntseq_t *bns, const uint8_t *pac, int64_t n_processed, int n, bseq1_t *seqs, const mem_pestat_t *pes0, sam_hdr_t *h);
+ 
+ 	/**
+ 	 * Find the aligned regions for one query sequence
+diff --git a/bwamem_pair.c b/bwamem_pair.c
+index ef79521..623a5db 100644
+--- a/bwamem_pair.c
++++ b/bwamem_pair.c
+@@ -268,18 +268,21 @@ int mem_pair(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, cons
+ 	return ret;
+ }
+ 
+-void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m);
++void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m, sam_hdr_t *h);
+ void mem_reorder_primary5(int T, mem_alnreg_v *a);
+ 
+ #define raw_mapq(diff, a) ((int)(6.02 * (diff) / (a) + .499))
+ 
+-int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2], mem_alnreg_v a[2])
++int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_pestat_t pes[4], uint64_t id, bseq1_t s[2], mem_alnreg_v a[2], sam_hdr_t *header)
+ {
+ 	extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
+ 	extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
+-	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m);
++	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m, sam_hdr_t *h);
++	extern void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h);
+ 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
+ 
++
++
+ 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
+ 	kstring_t str;
+ 	mem_aln_t h[2], g[2], aa[2][2];
+@@ -378,11 +381,15 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, co
+ 			}
+ 		}
+ 		for (i = 0; i < n_aa[0]; ++i)
+-			mem_aln2sam(opt, bns, &str, &s[0], n_aa[0], aa[0], i, &h[1]); // write read1 hits
+-		s[0].sam = strdup(str.s); str.l = 0;
++			mem_aln2sam(opt, bns, &str, &s[0], n_aa[0], aa[0], i, &h[1], header); // write read1 hits
++#ifndef USE_HTSLIB
++		s[0].sam = strdup(str.s); str.l = 0; /// not using HTSLIB
++#endif
+ 		for (i = 0; i < n_aa[1]; ++i)
+-			mem_aln2sam(opt, bns, &str, &s[1], n_aa[1], aa[1], i, &h[0]); // write read2 hits
+-		s[1].sam = str.s;
++			mem_aln2sam(opt, bns, &str, &s[1], n_aa[1], aa[1], i, &h[0], header); // write read2 hits
++#ifndef USE_HTSLIB
++		s[1].sam = str.s; // not using HTSLIB
++#endif
+ 		if (strcmp(s[0].name, s[1].name) != 0) err_fatal(__func__, "paired reads have different names: \"%s\", \"%s\"\n", s[0].name, s[1].name);
+ 		// free
+ 		for (i = 0; i < 2; ++i) {
+@@ -411,8 +418,8 @@ no_pairing:
+ 		d = mem_infer_dir(bns->l_pac, a[0].a[0].rb, a[1].a[0].rb, &dist);
+ 		if (!pes[d].failed && dist >= pes[d].low && dist <= pes[d].high) extra_flag |= 2;
+ 	}
+-	mem_reg2sam(opt, bns, pac, &s[0], &a[0], 0x41|extra_flag, &h[1]);
+-	mem_reg2sam(opt, bns, pac, &s[1], &a[1], 0x81|extra_flag, &h[0]);
++	mem_reg2sam(opt, bns, pac, &s[0], &a[0], 0x41|extra_flag, &h[1], header);
++	mem_reg2sam(opt, bns, pac, &s[1], &a[1], 0x81|extra_flag, &h[0], header);
+ 	if (strcmp(s[0].name, s[1].name) != 0) err_fatal(__func__, "paired reads have different names: \"%s\", \"%s\"\n", s[0].name, s[1].name);
+ 	free(h[0].cigar); free(h[1].cigar);
+ 	return n;
+diff --git a/bwase.c b/bwase.c
+index 12fe47e..ca463d8 100644
+--- a/bwase.c
++++ b/bwase.c
+@@ -13,6 +13,10 @@
+ #include "bwa.h"
+ #include "ksw.h"
+ 
++#ifdef USE_HTSLIB
++#include <htslib/sam.h>
++#endif
++
+ #ifdef USE_MALLOC_WRAPPERS
+ #  include "malloc_wrap.h"
+ #endif
+@@ -373,29 +377,24 @@ static int64_t pos_5(const bwa_seq_t *p)
+ 	return -1;
+ }
+ 
+-void bwa_print_seq(FILE *stream, bwa_seq_t *seq) {
+-	char buffer[4096];
+-	const int bsz = sizeof(buffer);
+-	int i, j, l;
+-	
++void bwa_print_seq(kstring_t *str, bwa_seq_t *seq) {
++	int i;
+ 	if (seq->strand == 0) {
+-		for (i = 0; i < seq->full_len; i += bsz) {
+-			l = seq->full_len - i > bsz ? bsz : seq->full_len - i;
+-			for (j = 0; j < l; j++) buffer[j] = "ACGTN"[seq->seq[i + j]];
+-			err_fwrite(buffer, 1, l, stream);
+-		}
++		for (i = 0; i < seq->full_len; i++) kputc("ACGTN"[seq->seq[i]], str);
+ 	} else {
+-		for (i = seq->full_len - 1; i >= 0; i -= bsz) {
+-			l = i + 1 > bsz ? bsz : i + 1;
+-			for (j = 0; j < l; j++) buffer[j] = "TGCAN"[seq->seq[i - j]];
+-			err_fwrite(buffer, 1, l, stream);
+-		}
++		for (i = seq->full_len - 1; i >= 0; i -= 1) kputc("TGCAN"[seq->seq[i]], str);
+ 	}
+ }
+ 
+-void bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2)
++#ifndef USE_HTSLIB
++void
++#else
++bam1_t*
++#endif
++bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2, kstring_t *str, sam_hdr_t *h)
+ {
+ 	int j;
++
+ 	if (p->type != BWA_TYPE_NO_MATCH || (mate && mate->type != BWA_TYPE_NO_MATCH)) {
+ 		int seqid, nn, am = 0, flag = p->extra_flag;
+ 		char XT;
+@@ -419,94 +418,117 @@ void bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, in
+ 				if (mate->strand) flag |= SAM_FMR;
+ 			} else flag |= SAM_FMU;
+ 		}
+-		err_printf("%s\t%d\t%s\t", p->name, flag, bns->anns[seqid].name);
+-		err_printf("%d\t%d\t", (int)(p->pos - bns->anns[seqid].offset + 1), p->mapQ);
++		kputsn(p->name, strlen(p->name), str); kputc('\t', str);
++		kputw(flag, str); kputc('\t', str);
++		kputsn(bns->anns[seqid].name, strlen(bns->anns[seqid].name), str); kputc('\t', str);
++		kputl((int)(p->pos - bns->anns[seqid].offset + 1), str); kputc('\t', str);
++		kputw(p->mapQ, str); kputc('\t', str);
+ 
+ 		// print CIGAR
+ 		if (p->cigar) {
+-			for (j = 0; j != p->n_cigar; ++j)
+-				err_printf("%d%c", __cigar_len(p->cigar[j]), "MIDS"[__cigar_op(p->cigar[j])]);
+-		} else if (p->type == BWA_TYPE_NO_MATCH) err_printf("*");
+-		else err_printf("%dM", p->len);
++			for (j = 0; j != p->n_cigar; ++j) {
++				kputw(__cigar_len(p->cigar[j]), str); kputc("MIDS"[__cigar_op(p->cigar[j])], str);
++			}
++		} else if (p->type == BWA_TYPE_NO_MATCH) kputc('*', str);
++		else {
++			kputw(p->len, str); kputc('M', str);
++		}
+ 
+ 		// print mate coordinate
+ 		if (mate && mate->type != BWA_TYPE_NO_MATCH) {
+ 			int m_seqid;
+ 			long long isize;
++			kputc('\t', str);
+ 			am = mate->seQ < p->seQ? mate->seQ : p->seQ; // smaller single-end mapping quality
+ 			// redundant calculation here, but should not matter too much
+ 			bns_cnt_ambi(bns, mate->pos, mate->len, &m_seqid);
+-			err_printf("\t%s\t", (seqid == m_seqid)? "=" : bns->anns[m_seqid].name);
++			kputs((seqid == m_seqid)? "=" : bns->anns[m_seqid].name, str); kputc('\t', str);
+ 			isize = (seqid == m_seqid)? pos_5(mate) - pos_5(p) : 0;
+ 			if (p->type == BWA_TYPE_NO_MATCH) isize = 0;
+-			err_printf("%d\t%lld\t", (int)(mate->pos - bns->anns[m_seqid].offset + 1), isize);
+-		} else if (mate) err_printf("\t=\t%d\t0\t", (int)(p->pos - bns->anns[seqid].offset + 1));
+-		else err_printf("\t*\t0\t0\t");
++			kputl((int)(mate->pos - bns->anns[m_seqid].offset + 1), str); kputc('\t', str);
++			kputw(isize, str); kputc('\t', str);
++		} else if (mate) {
++			kputs("\t=\t", str);
++			kputl((int)(p->pos - bns->anns[seqid].offset + 1), str);
++			kputs("\t0\t", str);
++		}
++		else {
++			kputs("\t*\t0\t0\t", str);
++		}
+ 
+ 		// print sequence and quality
+-		bwa_print_seq(stdout, p);
+-		err_putchar('\t');
++		bwa_print_seq(str, p);
++		kputc('\t', str);
+ 		if (p->qual) {
+ 			if (p->strand) seq_reverse(p->len, p->qual, 0); // reverse quality
+-			err_printf("%s", p->qual);
+-		} else err_printf("*");
++			kputs((char*)p->qual, str);
++		} else kputc('*', str);
+ 
+-		if (bwa_rg_id[0]) err_printf("\tRG:Z:%s", bwa_rg_id);
+-		if (p->bc[0]) err_printf("\tBC:Z:%s", p->bc);
+-		if (p->clip_len < p->full_len) err_printf("\tXC:i:%d", p->clip_len);
++		if (bwa_rg_id[0]) ksprintf(str, "\tRG:Z:%s", bwa_rg_id);
++		if (p->bc[0]) ksprintf(str, "\tBC:Z:%s", p->bc);
++		if (p->clip_len < p->full_len) ksprintf(str, "\tXC:i:%d", p->clip_len);
+ 		if (p->type != BWA_TYPE_NO_MATCH) {
+ 			int i;
+ 			// calculate XT tag
+ 			XT = "NURM"[p->type];
+ 			if (nn > 10) XT = 'N';
+ 			// print tags
+-			err_printf("\tXT:A:%c\t%s:i:%d", XT, (mode & BWA_MODE_COMPREAD)? "NM" : "CM", p->nm);
+-			if (nn) err_printf("\tXN:i:%d", nn);
+-			if (mate) err_printf("\tSM:i:%d\tAM:i:%d", p->seQ, am);
++			ksprintf(str, "\tXT:A:%c\t%s:i:%d", XT, (mode & BWA_MODE_COMPREAD)? "NM" : "CM", p->nm);
++			if (nn) ksprintf(str, "\tXN:i:%d", nn);
++			if (mate) ksprintf(str, "\tSM:i:%d\tAM:i:%d", p->seQ, am);
+ 			if (p->type != BWA_TYPE_MATESW) { // X0 and X1 are not available for this type of alignment
+-				err_printf("\tX0:i:%d", p->c1);
+-				if (p->c1 <= max_top2) err_printf("\tX1:i:%d", p->c2);
++				ksprintf(str, "\tX0:i:%d", p->c1);
++				if (p->c1 <= max_top2) ksprintf(str, "\tX1:i:%d", p->c2);
+ 			}
+-			err_printf("\tXM:i:%d\tXO:i:%d\tXG:i:%d", p->n_mm, p->n_gapo, p->n_gapo+p->n_gape);
+-			if (p->md) err_printf("\tMD:Z:%s", p->md);
++			ksprintf(str, "\tXM:i:%d\tXO:i:%d\tXG:i:%d", p->n_mm, p->n_gapo, p->n_gapo+p->n_gape);
++			if (p->md) ksprintf(str, "\tMD:Z:%s", p->md);
+ 			// print multiple hits
+ 			if (p->n_multi) {
+-				err_printf("\tXA:Z:");
++				ksprintf(str, "\tXA:Z:");
+ 				for (i = 0; i < p->n_multi; ++i) {
+ 					bwt_multi1_t *q = p->multi + i;
+ 					int k;
+ 					j = pos_end_multi(q, p->len) - q->pos;
+ 					nn = bns_cnt_ambi(bns, q->pos, j, &seqid);
+-					err_printf("%s,%c%d,", bns->anns[seqid].name, q->strand? '-' : '+',
++					ksprintf(str, "%s,%c%d,", bns->anns[seqid].name, q->strand? '-' : '+',
+ 						   (int)(q->pos - bns->anns[seqid].offset + 1));
+ 					if (q->cigar) {
+ 						for (k = 0; k < q->n_cigar; ++k)
+-							err_printf("%d%c", __cigar_len(q->cigar[k]), "MIDS"[__cigar_op(q->cigar[k])]);
+-					} else err_printf("%dM", p->len);
+-					err_printf(",%d;", q->gap + q->mm);
++							ksprintf(str, "%d%c", __cigar_len(q->cigar[k]), "MIDS"[__cigar_op(q->cigar[k])]);
++					} else ksprintf(str, "%dM", p->len);
++					ksprintf(str, ",%d;", q->gap + q->mm);
+ 				}
+ 			}
+ 		}
+-		err_printf("\tHN:i:%d", p->n_occ);
+-		err_putchar('\n');
++		ksprintf(str, "\tHN:i:%d", p->n_occ);
+ 	} else { // this read has no match
+ 		//ubyte_t *s = p->strand? p->rseq : p->seq;
+ 		int flag = p->extra_flag | SAM_FSU;
+ 		if (mate && mate->type == BWA_TYPE_NO_MATCH) flag |= SAM_FMU;
+-		err_printf("%s\t%d\t*\t0\t0\t*\t*\t0\t0\t", p->name, flag);
++		ksprintf(str, "%s\t%d\t*\t0\t0\t*\t*\t0\t0\t", p->name, flag);
+ 		//Why did this work differently to the version above??
+ 		//for (j = 0; j != p->len; ++j) putchar("ACGTN"[(int)s[j]]);
+-		bwa_print_seq(stdout, p);
+-		err_putchar('\t');
++		bwa_print_seq(str, p);
++		kputc('\t', str);
+ 		if (p->qual) {
+ 			if (p->strand) seq_reverse(p->len, p->qual, 0); // reverse quality
+-			err_printf("%s", p->qual);
+-		} else err_printf("*");
+-		if (bwa_rg_id[0]) err_printf("\tRG:Z:%s", bwa_rg_id);
+-		if (p->bc[0]) err_printf("\tBC:Z:%s", p->bc);
+-		if (p->clip_len < p->full_len) err_printf("\tXC:i:%d", p->clip_len);
+-		err_putchar('\n');
++			ksprintf(str, "%s", p->qual);
++		} else ksprintf(str, "*");
++		if (bwa_rg_id[0]) ksprintf(str, "\tRG:Z:%s", bwa_rg_id);
++		if (p->bc[0]) ksprintf(str, "\tBC:Z:%s", p->bc);
++		if (p->clip_len < p->full_len) ksprintf(str, "\tXC:i:%d", p->clip_len);
+ 	}
++#ifndef USE_HTSLIB
++	err_putchar('\n');
++#else
++	// FIXME: need h
++    bam1_t *b = bam_init1();
++    if (sam_parse1(str, h, b) < 0) {
++        // TODO: error!
++    }
++    str->l = 0;
++	return b;
++#endif
+ }
+ 
+ void bwase_initialize() 
+@@ -528,12 +550,22 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 	FILE *fp_sa;
+ 	gap_opt_t opt;
+ 	char magic[4];
++	kstring_t *kstr = (kstring_t*)calloc(1, sizeof(kstring_t));
+ 
+ 	// initialization
+ 	bwase_initialize();
+ 	bns = bns_restore(prefix);
+ 	srand48(bns->seed);
+ 	fp_sa = xopen(fn_sa, "r");
++    
++	sam_hdr_t *h = NULL;
++#ifdef USE_HTSLIB
++    kstring_t str;
++    str.l = str.m = 0; str.s = 0;
++    bwa_format_sam_hdr(bns, rg_line, &str);
++    h = sam_hdr_parse(str.l, str.s);
++    h->l_text = str.l; h->text = str.s;
++#endif
+ 
+ 	m_aln = 0;
+ 	err_fread_noeof(magic, 1, 4, fp_sa);
+@@ -573,7 +605,7 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 
+ 		fprintf(stderr, "[bwa_aln_core] print alignments... ");
+ 		for (i = 0; i < n_seqs; ++i)
+-			bwa_print_sam1(bns, seqs + i, 0, opt.mode, opt.max_top2);
++			bwa_print_sam1(bns, seqs + i, 0, opt.mode, opt.max_top2, kstr, h);
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
+ 
+ 		bwa_free_read_seq(n_seqs, seqs);
+@@ -585,6 +617,8 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 	bns_destroy(bns);
+ 	err_fclose(fp_sa);
+ 	free(aln);
++	free(kstr->s);
++	free(kstr);
+ }
+ 
+ int bwa_sai2sam_se(int argc, char *argv[])
+diff --git a/bwaseqio.c b/bwaseqio.c
+index d850307..0e6a0e9 100644
+--- a/bwaseqio.c
++++ b/bwaseqio.c
+@@ -2,7 +2,11 @@
+ #include <ctype.h>
+ #include "bwtaln.h"
+ #include "utils.h"
++#ifdef USE_HTSLIB
++#include <htslib/sam.h>
++#else
+ #include "bamlite.h"
++#endif
+ 
+ #include "kseq.h"
+ KSEQ_DECLARE(gzFile)
+@@ -17,7 +21,12 @@ static char bam_nt16_nt4_table[] = { 4, 0, 1, 4, 2, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4
+ struct __bwa_seqio_t {
+ 	// for BAM input
+ 	int is_bam, which; // 1st bit: read1, 2nd bit: read2, 3rd: SE
++#ifdef USE_HTSLIB
++	samFile *fp;
++	sam_hdr_t *h;
++#else
+ 	bamFile fp;
++#endif
+ 	// for fastq input
+ 	kseq_t *ks;
+ };
+@@ -25,14 +34,24 @@ struct __bwa_seqio_t {
+ bwa_seqio_t *bwa_bam_open(const char *fn, int which)
+ {
+ 	bwa_seqio_t *bs;
++#ifndef USE_HTSLIB
+ 	bam_header_t *h;
++#endif
+ 	bs = (bwa_seqio_t*)calloc(1, sizeof(bwa_seqio_t));
+ 	bs->is_bam = 1;
+ 	bs->which = which;
++#ifdef USE_HTSLIB
++	bs->fp = sam_open(fn, "rb");
++#else
+ 	bs->fp = bam_open(fn, "r");
++#endif
+ 	if (0 == bs->fp) err_fatal_simple("Couldn't open bam file");
++#ifdef USE_HTSLIB
++	bs->h = sam_hdr_read(bs->fp);
++#else
+ 	h = bam_header_read(bs->fp);
+ 	bam_header_destroy(h);
++#endif
+ 	return bs;
+ }
+ 
+@@ -50,7 +69,12 @@ void bwa_seq_close(bwa_seqio_t *bs)
+ {
+ 	if (bs == 0) return;
+ 	if (bs->is_bam) {
++#ifdef USE_HTSLIB
++		if (0 != sam_close(bs->fp)) err_fatal_simple("Error closing sam/bam file");
++		bam_hdr_destroy(bs->h);
++#else
+ 		if (0 != bam_close(bs->fp)) err_fatal_simple("Error closing bam file");
++#endif
+ 	} else {
+ 		err_gzclose(bs->ks->f->f);
+ 		kseq_destroy(bs->ks);
+@@ -101,7 +125,11 @@ static bwa_seq_t *bwa_read_bam(bwa_seqio_t *bs, int n_needed, int *n, int is_com
+ 	b = bam_init1();
+ 	n_seqs = 0;
+ 	seqs = (bwa_seq_t*)calloc(n_needed, sizeof(bwa_seq_t));
++#ifdef USE_HTSLIB
++	while ((res = sam_read1(bs->fp, bs->h, b)) >= 0) {
++#else
+ 	while ((res = bam_read1(bs->fp, b)) >= 0) {
++#endif
+ 		uint8_t *s, *q;
+ 		int go = 0;
+ 		if ((bs->which & 1) && (b->core.flag & BAM_FREAD1)) go = 1;
+@@ -114,14 +142,26 @@ static bwa_seq_t *bwa_read_bam(bwa_seqio_t *bs, int n_needed, int *n, int is_com
+ 		p->qual = 0;
+ 		p->full_len = p->clip_len = p->len = l;
+ 		n_tot += p->full_len;
++#ifdef USE_HTSLIB
++		s = bam_get_seq(b); q = bam_get_qual(b);
++#else
+ 		s = bam1_seq(b); q = bam1_qual(b);
++#endif
+ 		p->seq = (ubyte_t*)calloc(p->len + 1, 1);
+ 		p->qual = (ubyte_t*)calloc(p->len + 1, 1);
+ 		for (i = 0; i != p->full_len; ++i) {
++#ifdef USE_HTSLIB
++			p->seq[i] = bam_nt16_nt4_table[(int)bam_seqi(s, i)];
++#else
+ 			p->seq[i] = bam_nt16_nt4_table[(int)bam1_seqi(s, i)];
++#endif
+ 			p->qual[i] = q[i] + 33 < 126? q[i] + 33 : 126;
+ 		}
+-		if (bam1_strand(b)) { // then reverse 
++#ifdef USE_HTSLIB
++		if (bam_is_rev(b)) { // then reverse
++#else
++		if (bam1_strand(b)) { // then reverse
++#endif
+ 			seq_reverse(p->len, p->seq, 1);
+ 			seq_reverse(p->len, p->qual, 0);
+ 		}
+@@ -130,7 +170,11 @@ static bwa_seq_t *bwa_read_bam(bwa_seqio_t *bs, int n_needed, int *n, int is_com
+ 		memcpy(p->rseq, p->seq, p->len);
+ 		seq_reverse(p->len, p->seq, 0); // *IMPORTANT*: will be reversed back in bwa_refine_gapped()
+ 		seq_reverse(p->len, p->rseq, is_comp);
++#ifdef USE_HTSLIB
++		p->name = strdup((const char*)bam_get_qname(b));
++#else
+ 		p->name = strdup((const char*)bam1_qname(b));
++#endif
+ 		if (n_seqs == n_needed) break;
+ 	}
+ 	if (res < 0 && res != -1) err_fatal_simple("Error reading bam file");
+diff --git a/fastmap.c b/fastmap.c
+index fe68bb1..d6abfc4 100644
+--- a/fastmap.c
++++ b/fastmap.c
+@@ -53,6 +53,10 @@ typedef struct {
+ 	int64_t n_processed;
+ 	int copy_comment, actual_chunk_size;
+ 	bwaidx_t *idx;
++	sam_hdr_t *h;
++#ifdef USE_HTSLIB
++	samFile *out;
++#endif
+ } ktp_aux_t;
+ 
+ typedef struct {
+@@ -96,25 +100,41 @@ static void *process(void *shared, int step, void *_data)
+ 				fprintf(stderr, "[M::%s] %d single-end sequences; %d paired-end sequences\n", __func__, n_sep[0], n_sep[1]);
+ 			if (n_sep[0]) {
+ 				tmp_opt.flag &= ~MEM_F_PE;
+-				mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac, aux->n_processed, n_sep[0], sep[0], 0);
++				mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac, aux->n_processed, n_sep[0], sep[0], 0, aux->h);
++#ifndef USE_HTSLIB
+ 				for (i = 0; i < n_sep[0]; ++i)
+ 					data->seqs[sep[0][i].id].sam = sep[0][i].sam;
++#endif
++
+ 			}
+ 			if (n_sep[1]) {
+ 				tmp_opt.flag |= MEM_F_PE;
+-				mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac, aux->n_processed + n_sep[0], n_sep[1], sep[1], aux->pes0);
++				mem_process_seqs(&tmp_opt, idx->bwt, idx->bns, idx->pac, aux->n_processed + n_sep[0], n_sep[1], sep[1], aux->pes0, aux->h);
++#ifndef USE_HTSLIB
+ 				for (i = 0; i < n_sep[1]; ++i)
+ 					data->seqs[sep[1][i].id].sam = sep[1][i].sam;
++#endif
+ 			}
+ 			free(sep[0]); free(sep[1]);
+-		} else mem_process_seqs(opt, idx->bwt, idx->bns, idx->pac, aux->n_processed, data->n_seqs, data->seqs, aux->pes0);
++		} else mem_process_seqs(opt, idx->bwt, idx->bns, idx->pac, aux->n_processed, data->n_seqs, data->seqs, aux->pes0, aux->h);
+ 		aux->n_processed += data->n_seqs;
+ 		return data;
+ 	} else if (step == 2) {
+ 		for (i = 0; i < data->n_seqs; ++i) {
++#ifdef USE_HTSLIB
++			if (data->seqs[i].bams) {
++				int j;
++				for (j = 0; j < data->seqs[i].bams->l; j++) {
++					sam_write1(aux->out, aux->h, data->seqs[i].bams->bams[j]);
++				}
++			}
++			bams_destroy(data->seqs[i].bams); data->seqs[i].bams = NULL;
++#else
+ 			if (data->seqs[i].sam) err_fputs(data->seqs[i].sam, stdout);
++			free(data->seqs[i].sam);
++#endif
+ 			free(data->seqs[i].name); free(data->seqs[i].comment);
+-			free(data->seqs[i].seq); free(data->seqs[i].qual); free(data->seqs[i].sam);
++			free(data->seqs[i].seq); free(data->seqs[i].qual);
+ 		}
+ 		free(data->seqs); free(data);
+ 		return 0;
+@@ -156,7 +176,11 @@ int main_mem(int argc, char *argv[])
+ 
+ 	aux.opt = opt = mem_opt_init();
+ 	memset(&opt0, 0, sizeof(mem_opt_t));
++#ifdef USE_HTSLIB
++	while ((c = getopt(argc, argv, "51qpaMCSPVYjuk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:o:f:W:x:G:h:y:K:X:H:F:z:Z:")) >= 0) {
++#else
+ 	while ((c = getopt(argc, argv, "51qpaMCSPVYjuk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:o:f:W:x:G:h:y:K:X:H:F:z:")) >= 0) {
++#endif
+ 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
+ 		else if (c == '1') no_mt_io = 1;
+ 		else if (c == 'x') mode = optarg;
+@@ -254,7 +278,13 @@ int main_mem(int argc, char *argv[])
+ 			if (bwa_verbose >= 3)
+ 				fprintf(stderr, "[M::%s] mean insert size: %.3f, stddev: %.3f, max: %d, min: %d\n",
+ 						__func__, pes[1].avg, pes[1].std, pes[1].high, pes[1].low);
++#ifdef USE_HTSLIB
++		} else if (c == 'Z') {
++			opt->bam_output = atoi(optarg);
++		}
++#else
+ 		}
++#endif
+ 		else return 1;
+ 	}
+ 
+@@ -320,6 +350,9 @@ int main_mem(int argc, char *argv[])
+ 		fprintf(stderr, "                     (4 sigma from the mean if absent) and min of the insert size distribution.\n");
+ 		fprintf(stderr, "                     FR orientation only. [inferred]\n");
+ 		fprintf(stderr, "       -u            output XB instead of XA; XB is XA with the alignment score and mapping quality added.\n");
++#ifdef USE_HTSLIB
++		fprintf(stderr, "       -Z INT        0 - BAM (compressed), 1 - BAM (uncompressed), 2 - SAM [%d]\n", opt->bam_output);
++#endif
+ 		fprintf(stderr, "\n");
+ 		fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
+ 		fprintf(stderr, "\n");
+@@ -390,7 +423,31 @@ int main_mem(int argc, char *argv[])
+ 			opt->flag |= MEM_F_PE;
+ 		}
+ 	}
+-	mem_opt_print(opt);
++
++	sam_hdr_t *h = NULL;
++#ifdef USE_HTSLIB
++	samFile *out = NULL;
++	char *modes[] = {"wb", "wbu", "w"};
++	switch (opt->bam_output) {
++		case 0: // BAM compressed
++		case 1: // BAM uncompressed
++		case 2: // SAM
++			out = sam_open("-", modes[opt->bam_output]);
++			break;
++		default:
++			fprintf(stderr, "Error: output format was out of range [%d]\n", opt->bam_output);
++			return 1;
++	}
++	kstring_t str;
++	str.l = str.m = 0; str.s = 0;
++	bwa_format_sam_hdr(aux.idx->bns, rg_line, &str);
++	h = sam_hdr_parse(str.l, str.s);
++	h->l_text = str.l; h->text = str.s;
++	sam_hdr_write(out, h);
++	aux.out = out;
++#endif
++	aux.h = h;
++
+ 	bwa_print_sam_hdr(aux.idx->bns, hdr_line);
+ 	aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
+ 	kt_pipeline(no_mt_io? 1 : 2, process, &aux, 3);
+@@ -403,6 +460,10 @@ int main_mem(int argc, char *argv[])
+ 		kseq_destroy(aux.ks2);
+ 		err_gzclose(fp2); kclose(ko2);
+ 	}
++#ifdef USE_HTSLIB
++	sam_close(out);
++	bam_hdr_destroy(h);
++#endif
+ 	return 0;
+ }
+ 
+diff --git a/kstring.h b/kstring.h
+index fe7fa95..3d73e3f 100644
+--- a/kstring.h
++++ b/kstring.h
+@@ -3,6 +3,7 @@
+ 
+ #include <stdlib.h>
+ #include <string.h>
++#include <stdint.h>
+ 
+ #ifdef USE_MALLOC_WRAPPERS
+ #  include "malloc_wrap.h"
+@@ -20,13 +21,18 @@ typedef struct __kstring_t {
+ } kstring_t;
+ #endif
+ 
+-static inline void ks_resize(kstring_t *s, size_t size)
++static inline int ks_resize(kstring_t *s, size_t size)
+ {
+ 	if (s->m < size) {
+-		s->m = size;
+-		kroundup32(s->m);
+-		s->s = (char*)realloc(s->s, s->m);
++	    char *tmp;
++	    size = (size > (SIZE_MAX>>2)) ? size : size + (size >> 1);
++	    tmp = (char*)realloc(s->s, size);
++	    if (!tmp)
++	        return -1;
++	    s->s = tmp;
++	    s->m = size;
+ 	}
++	return 0;
+ }
+ 
+ static inline int kputsn(const char *p, int l, kstring_t *s)
+diff --git a/main.c b/main.c
+index e7c586b..6626fd8 100644
+--- a/main.c
++++ b/main.c
+@@ -116,8 +116,15 @@ int main(int argc, char *argv[])
+ 		fprintf(stderr, "[main] unrecognized command '%s'\n", argv[1]);
+ 		return 1;
+ 	}
++#ifdef USE_HTSLIB
++	if (strcmp(argv[1], "mem") != 0) {
++		err_fflush(stdout);
++		err_fclose(stdout);
++	}
++#else
+ 	err_fflush(stdout);
+ 	err_fclose(stdout);
++#endif
+ 	if (ret == 0) {
+ 		fprintf(stderr, "[%s] Version: %s\n", __func__, PACKAGE_VERSION);
+ 		fprintf(stderr, "[%s] CMD:", __func__);
+-- 
+2.39.5 (Apple Git-154)
+

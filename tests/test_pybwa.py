@@ -78,7 +78,7 @@ def test_bwa_verbosity_bwa_aln(
 
 
 _BWA_MEM_LOG: str = """[M::bwa_idx_load_from_disk] read 0 ALT contigs
-[M::mem_process_seqs_alt] Processed 1 reads in 0.000 CPU sec, 0.000 real sec\n"""
+[M::mem_process_seqs] Processed 1 reads in 0.000 CPU sec, 0.000 real sec\n"""
 # The expected standard error for the `test_bwa_verbosity_bwa_mem` test
 
 
