@@ -6,6 +6,7 @@ from fgpyo.sequence import reverse_complement
 
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
+from posix.stdlib cimport srand48
 from libc.string cimport strncpy
 from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP
 from pybwa.libbwaindex cimport force_bytes
@@ -308,10 +309,11 @@ cdef class BwaAln:
         s.seq = <uint8_t *> calloc(sizeof(uint8_t), seq_len + 1)
         s.rseq = <uint8_t *> calloc(sizeof(uint8_t), seq_len + 1)
 
-        # use seq_reverse from bwaseqio.c
+        # convert char into int
         for i, base in enumerate(q.sequence):
             s.seq[i] = nst_nt4_table[ord(base)]
             s.rseq[i] = nst_nt4_table[ord(base)]
+        s.seq[seq_len] = b'\0'
 
         # qualities
         if q.quality is None:
@@ -323,7 +325,7 @@ cdef class BwaAln:
                 s.qual[i] = qual_str[i]
             s.qual[seq_len] = b'\0'
 
-        s.seq[seq_len] = b'\0'
+        # use seq_reverse from bwaseqio.c
         seq_reverse(seq_len, s.seq,
                     0)  #  // *IMPORTANT*: will be reversed back in bwa_refine_gapped()
         seq_reverse(seq_len, s.rseq, 1 if is_comp else 0)
@@ -336,11 +338,10 @@ cdef class BwaAln:
         cdef bwa_seq_t* seqs
         cdef bwa_seq_t* s
         cdef char* s_char
-        cdef kstring_t* kstr
         cdef gap_opt_t* gap_opt
-        cdef bam1_t* bam
         cdef sam_hdr_t *h
         cdef kstring_t hdr_str
+        cdef bam1_t **bams
 
         hdr_str.l = hdr_str.m = 0
         hdr_str.s = NULL
@@ -351,8 +352,6 @@ cdef class BwaAln:
 
         gap_opt = opt.gap_opt()
 
-        kstr = <kstring_t*>calloc(sizeof(kstring_t), 1)
-
         # copy FastqProxy into bwa_seq_t
         num_seqs = len(queries)
         seqs = <bwa_seq_t*>calloc(sizeof(bwa_seq_t), num_seqs)
@@ -360,34 +359,22 @@ cdef class BwaAln:
             self._copy_seq(queries[i], &seqs[i], (opt._delegate.mode & BWA_MODE_COMPREAD) != 0)
             seqs[i].tid = -1
 
-        # this is `bwa aln`, and the rest is `bwa samse`
-        bwa_cal_sa_reg_gap_threaded(0, self._index.bwt(), num_seqs, seqs, gap_opt)
-
-        # create the full alignment
-        for i in range(num_seqs):
-            s = &seqs[i]
-            # bwa_cal_sa_reg_gap frees name, seq, rseq, and qual, so add them back in again
-            self._copy_seq(queries[i], s, (opt._delegate.mode & BWA_MODE_COMPREAD) != 0)
-            bwa_aln2seq_core(s.n_aln, s.aln, s, 1, opt.max_hits)
-
-        # # calculate the genomic position given the suffix array offsite
-        bwa_cal_pac_pos_with_bwt(self._index.bns(), num_seqs, seqs, gap_opt.max_diff, gap_opt.fnr, self._index.bwt())
-
-        # refine gapped alignment
-        bwa_refine_gapped(self._index.bns(), num_seqs, seqs, self._index.pac(), opt.with_md)
+        # this is `bwa aln` and `bwa se` combined to be multi-threaded.
+        bams = bwa_aln_and_samse(self._index.bns(), self._index.bwt(),  self._index.pac(), h, num_seqs, seqs, gap_opt, opt.max_hits, opt.with_md)
 
         # create the AlignedSegment
         recs = []
         for i in range(num_seqs):
-            s = &seqs[i]
-            bam = bwa_print_sam1(self._index.bns(), s, NULL, opt._delegate.mode, opt.stop_at_max_best_hits, kstr, h)
-            rec = makeAlignedSegment(bam, self._index.header)
-            bam_destroy1(bam)
+            rec = makeAlignedSegment(bams[i], self._index.header)
+            bam_destroy1(bams[i])
             recs.append(rec)
+        free(bams)
 
         bwa_free_read_seq(num_seqs, seqs)
-        free(kstr.s)
-        free(kstr)
         free(hdr_str.s)
 
         return recs
+
+    cpdef reinitialize_seed(self):
+        """Re-initializes the random seed."""
+        srand48(self._index.bns().seed)

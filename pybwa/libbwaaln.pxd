@@ -4,11 +4,8 @@ from libc.stdint cimport uint8_t, uint64_t, uint16_t, uint32_t, int64_t, int32_t
 from libc.stdio cimport FILE
 
 cdef extern from "libbwaaln_utils.h":
-    void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, int max_mm,
-                                  float fnr, bwt_t *bwt)
-    void bwa_cal_sa_reg_gap_threaded(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs,
-                                     const gap_opt_t *opt)
-
+    bam1_t **bwa_aln_and_samse(const bntseq_t *bns, bwt_t *const bwt, uint8_t *pac, sam_hdr_t *h, int n_seqs, bwa_seq_t *seqs,
+                     const gap_opt_t *opt, int max_hits, int with_md)
 
 cdef extern from "bntseq.h":
     unsigned char nst_nt4_table[256]
@@ -135,7 +132,7 @@ cdef extern from "bwtaln.h":
 
     void bwa_free_read_seq(int n_seqs, bwa_seq_t *seqs)
 
-    void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt)
+    void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt, int free_seqs)
 
 
 # from bwase.c

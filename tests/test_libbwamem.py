@@ -163,7 +163,7 @@ def test_bwamem_options_mode() -> None:
     assert opt.min_seeded_bases_in_chain == 40
 
 
-def test_bwamem(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:
+def test_bwamem2(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:
     opt = BwaMemOptions(with_xr_tag=True)
     bwa = BwaMem(prefix=e_coli_k12_fasta)
 

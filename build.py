@@ -46,11 +46,13 @@ def compile_htslib():
         if IS_DARWIN:
             CFLAGS += " -mmacosx-version-min=11.0"
         CFLAGS += "'"
-        commands = [
-            "autoreconf -i",
-            f"./configure --with-libdeflate --enable-lzma --enable-bz2 {CFLAGS}",
-            "make -j",
-        ]
+        commands = []
+        if not Path("config.h").exists():
+            commands = [
+                "autoreconf -i",
+                f"./configure --with-libdeflate --enable-lzma --enable-bz2 {CFLAGS}",
+            ]
+        commands.append("make -j")
         for command in commands:
             retcode = subprocess.call(
                 f"{command}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True

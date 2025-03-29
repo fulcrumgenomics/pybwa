@@ -1,0 +1,1184 @@
+From 247c3ca8f6c8e2a81a00b720a51d16564a2ddcea Mon Sep 17 00:00:00 2001
+From: Nils Homer <nilshomer@gmail.com>
+Date: Sat, 29 Mar 2025 00:07:36 -0700
+Subject: [PATCH 6/6] feat: try to speed up bam record creation
+
+---
+ bwa.c         |   1 +
+ bwamem.c      | 218 +++++++++++++++++++++++++++--
+ bwamem_pair.c |  25 +++-
+ bwape.c       |  74 +++++++++-
+ bwase.c       | 377 ++++++++++++++++++++++++++++++++++++++++----------
+ bwase.h       |  12 ++
+ bwtaln.c      |  26 ++--
+ bwtaln.h      |   2 +-
+ fastmap.c     |  12 +-
+ 9 files changed, 639 insertions(+), 108 deletions(-)
+
+diff --git a/bwa.c b/bwa.c
+index 289a151..2b8254c 100644
+--- a/bwa.c
++++ b/bwa.c
+@@ -446,6 +446,7 @@ void bwa_format_sam_hdr(const bntseq_t *bns, const char *rg_line, kstring_t *str
+ 	int i;
+ 	extern char *bwa_pg;
+ 	str->l = 0; str->s = 0;
++	kputs("@HD\tVN:1.5\tSO:unsorted\tGO:query\n", str);
+ 	for (i = 0; i < bns->n_seqs; ++i)
+ 		ksprintf(str, "@SQ\tSN:%s\tLN:%d\n", bns->anns[i].name, bns->anns[i].len);
+ 	if (rg_line) ksprintf(str, "%s\n", rg_line);
+diff --git a/bwamem.c b/bwamem.c
+index f03db59..97f486f 100644
+--- a/bwamem.c
++++ b/bwamem.c
+@@ -111,6 +111,9 @@ mem_opt_t *mem_opt_init()
+ 	o->max_chain_extend = 1<<30;
+ 	o->mapQ_coef_len = 50; o->mapQ_coef_fac = log(o->mapQ_coef_len);
+ 	bwa_fill_scmat(o->a, o->b, o->mat);
++#ifdef USE_HTSLIB
++	o->bam_output = 0;
++#endif
+ 	return o;
+ }
+ 
+@@ -890,7 +893,9 @@ static inline void add_cigar(const mem_opt_t *opt, mem_aln_t *p, kstring_t *str,
+ 	} else kputc('*', str); // having a coordinate but unaligned (e.g. when copy_mate is true)
+ }
+ 
+-void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h)
++
++#ifndef USE_HTSLIB
++void* mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h)
+ {
+ 	int i, l_name;
+ 	mem_aln_t ptmp = list[which], *p = &ptmp, mtmp, *m = 0; // make a copy of the alignment to convert
+@@ -1015,17 +1020,200 @@ void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq
+ 			if (str->s[i] == '\t') str->s[i] = ' ';
+ 	}
+ 
+-#ifndef USE_HTSLIB
+ 	kputc('\n', str);
++	return NULL;
++}
+ #else
++// from sam_internal.h
++static inline int possibly_expand_bam_data(bam1_t *b, size_t bytes) {
++	// sam.h
++	extern int sam_realloc_bam_data(bam1_t *b, size_t desired);
++	size_t new_len = (size_t) b->l_data + bytes;
++
++	if (new_len > INT32_MAX || new_len < bytes) { // Too big or overflow
++		errno = ENOMEM;
++		return -1;
++	}
++	if (new_len <= b->m_data) return 0;
++	return sam_realloc_bam_data(b, new_len);
++}
++
++void* mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h)
++{
++	int i, l_qname;
++	mem_aln_t ptmp = list[which], *p = &ptmp, mtmp, *m = 0; // make a copy of the alignment to convert
+ 	bam1_t *b = bam_init1();
+-	if (sam_parse1(str, h, b) < 0) {
+-		// TODO: error!
++	uint32_t *cigar = NULL;
++	hts_pos_t isize = 0;
++
++	if (m_) mtmp = *m_, m = &mtmp;
++
++	// query name length
++	l_qname = strlen(s->name);
++
++	// flag
++	int flag = 0;
++	flag |= m ? BAM_FPAIRED : 0; // is paired in sequencing
++	flag |= p->rid < 0 ? BAM_FUNMAP : 0; // is mapped
++	if (!(flag & BAM_FUNMAP)) { // mapped
++		flag |= p->is_rev ? BAM_FREVERSE: 0; // is on the reverse strand
++	}
++	flag |= ((p->flag & 0x10000)) ? BAM_FSECONDARY : 0; // secondary
++	flag |= ((p->flag & 0x800)) ? BAM_FSUPPLEMENTARY : 0 ; // supplementary
++
++	// mate flags
++	if ((flag & BAM_FPAIRED)) { // paired
++		flag |= m->rid < 0 ? BAM_FMUNMAP : 0; // is mate mapped
++		if ((flag & BAM_FUNMAP) && !(flag & BAM_FMUNMAP)) { // copy mate to alignment
++			p->rid = m->rid;
++			p->pos = m->pos;
++			p->is_rev = m->is_rev;
++			p->n_cigar = 0;
++			flag |= p->is_rev ? BAM_FREVERSE: 0; // is on the reverse strand
++		}
++		else if (!(flag & BAM_FUNMAP) && (flag & BAM_FMUNMAP)) { // copy alignment to mate
++			m->rid = p->rid, m->pos = p->pos, m->is_rev = p->is_rev, m->n_cigar = 0;
++		}
++		flag |= (!(flag & BAM_FMUNMAP) && m->is_rev) ? BAM_FMREVERSE : 0; // is mate on the reverse strand
++	}
++	
++	// CIGAR
++	cigar = malloc(sizeof(uint32_t) * p->n_cigar);
++	for (i = 0; i < p->n_cigar; ++i) {
++		int c = p->cigar[i] & 0xf;
++		if (!(opt->flag&MEM_F_SOFTCLIP) && !p->is_alt && (c == 3 || c == 4))
++			c = which? 4 : 3; // use hard clipping for supplementary alignments
++		cigar[i] = bam_cigar_gen(p->cigar[i]>>4, bam_cigar_table[(int)"MIDSH"[c]]);
++	}
++
++	// isize
++	if ((flag & BAM_FPAIRED) && p->rid == m->rid) { // paired
++		int64_t p0 = p->pos + (p->is_rev? get_rlen(p->n_cigar, p->cigar) - 1 : 0);
++		int64_t p1 = m->pos + (m->is_rev? get_rlen(m->n_cigar, m->cigar) - 1 : 0);
++		isize = (m->n_cigar == 0 || p->n_cigar == 0) ? 0 : (-(p0 - p1 + (p0 > p1? 1 : p0 < p1? -1 : 0)));
++	}
++
++
++	// SEQ len
++	int qb = 0, qe = s->l_seq;
++	if (p->n_cigar && which && !(opt->flag & MEM_F_SOFTCLIP) && !p->is_alt) { // have cigar && not the primary alignment && not softclip all
++		if ((p->cigar[0]&0xf) == 4 || (p->cigar[0]&0xf) == 3) qb += p->cigar[0]>>4;
++		if ((p->cigar[p->n_cigar-1]&0xf) == 4 || (p->cigar[p->n_cigar-1]&0xf) == 3) qe -= p->cigar[p->n_cigar-1]>>4;
+ 	}
+-	bams_add(s->bams, b);
+ 	str->l = 0;
+-#endif
++	if (!(flag & BAM_FREVERSE)) {
++		for (i = qb; i < qe; i++) kputc("ACGTN"[(int)s->seq[i]], str);
++	} else {
++		for (i = qe - 1; i >= qb; i--) kputc("TGCAN"[(int)s->seq[i]], str);
++	}
++
++	// QUAL
++	if (s->qual) {
++		if ((flag & BAM_FREVERSE)) { // reverse
++			seq_reverse(s->l_seq, s->qual, 0);
++		}
++		for (i = 0; i < s->l_seq; i++) {
++			s->qual[i] = s->qual[i] - 33;
++		}
++	}
++
++	// set it!
++	bam_set1(
++		b, // bam
++		l_qname, // l_qname
++		s->name, // qname
++		flag, // flag
++		p->rid < 0 ? -1 : p->rid, // tid
++		p->rid < 0 ? -1 : p->pos, // pos 
++		p->rid < 0 ? 0 : p->mapq, // mapq
++		p->n_cigar, // n_cigar
++		cigar, // cigar
++		(flag & BAM_FPAIRED) ? m->rid : -1, // mtid
++		(flag & BAM_FPAIRED) ? m->pos : -1, // mpos
++		isize, // tlen
++		(qe - qb), // l_seq
++		str->s, // seq
++		(s->qual == NULL) ? NULL : s->qual + qb, // qual
++		0 // l_aux
++	);
++	
++	// Undo: reverse the QUAL
++	if (s->qual) {
++		if ((flag & BAM_FREVERSE) ) { // reverse
++			seq_reverse(s->l_seq, s->qual, 0);
++		}
++		for (i = 0; i < s->l_seq; i++) {
++			s->qual[i] = s->qual[i] + 33;
++		}
++	}
++
++	// optional tags
++	if (p->n_cigar) {
++		char* md = (char*)(p->cigar + p->n_cigar);
++		int md_len = strlen(md);
++		bam_aux_update_int(b, "NM", p->NM);
++		bam_aux_update_str(b, "MD", md_len, md);
++	}
++	if (m && m->n_cigar) {
++		str->l = 0;
++		add_cigar(opt, m, str, which);
++		bam_aux_update_str(b, "MC", str->l, str->s);
++	}
++	if (m) bam_aux_update_int(b, "MQ", m->mapq);
++
++	if (p->score >= 0) bam_aux_update_int(b, "AS", p->score);
++	if (p->sub >= 0) bam_aux_update_int(b, "XS", p->sub);
++	if (bwa_rg_id[0]) bam_aux_update_str(b, "RG", strlen(bwa_rg_id), bwa_rg_id);
++	if (!(p->flag & 0x100)) { // not multi-hit
++		for (i = 0; i < n; ++i)
++			if (i != which && !(list[i].flag&0x100)) break;
++		if (i < n) { // there are other primary hits; output them
++			str->l = 0;
++			for (i = 0; i < n; ++i) {
++				const mem_aln_t *r = &list[i];
++				int k;
++				if (i == which || (r->flag&0x100)) continue; // proceed if: 1) different from the current; 2) not shadowed multi hit
++				kputs(bns->anns[r->rid].name, str); kputc(',', str);
++				kputl(r->pos+1, str); kputc(',', str);
++				kputc("+-"[r->is_rev], str); kputc(',', str);
++				for (k = 0; k < r->n_cigar; ++k) {
++					kputw(r->cigar[k]>>4, str); kputc("MIDSH"[r->cigar[k]&0xf], str);
++				}
++				kputc(',', str); kputw(r->mapq, str);
++				kputc(',', str); kputw(r->NM, str);
++				kputc(';', str);
++			}
++			bam_aux_update_str(b, "SA", str->l, str->s);
++		}
++		if (p->alt_sc > 0) bam_aux_update_float(b, "pa", (double)p->score / p->alt_sc);
++	}
++	if (p->XA) bam_aux_update_str(b,  (opt->flag&MEM_F_XB) ? "XB" : "XA", strlen(p->XA), p->XA);
++	if (s->comment) {
++		char tag[2], *ptr;
++		tag[0] = s->comment[0];
++		tag[1] = s->comment[1];
++		ptr = s->comment + 5;
++		bam_aux_update_str(b, tag, strlen(ptr), ptr);
++	}
++	if ((opt->flag&MEM_F_REF_HDR) && p->rid >= 0 && bns->anns[p->rid].anno != 0 && bns->anns[p->rid].anno[0] != 0) {
++		str->l = 0;
++		kputs(bns->anns[p->rid].anno, str);
++		for (i = 0; i < str->l; ++i) // replace TAB in the comment to SPACE
++			if (str->s[i] == '\t') str->s[i] = ' ';
++		bam_aux_update_str(b, "XR", str->l, str->s);
++	}
++
++	free(cigar);
++
++	return b;
++
++#undef _get_mem
++err_ret:
++	fprintf(stderr, "Error: could not build a bam1_t*\n");
++	exit(13);
++	return NULL;
+ }
++#endif
+ 
+ /************************
+  * Integrated interface *
+@@ -1089,6 +1277,11 @@ void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+ 	kvec_t(mem_aln_t) aa;
+ 	int k, l;
+ 	char **XA = 0;
++#ifdef USE_HTSLIB
++	bam1_t *b = NULL;
++#else
++	void *b = NULL;
++#endif
+ 
+ 	if (!(opt->flag & MEM_F_ALL))
+ 		XA = mem_gen_alt(opt, bns, pac, a, s->l_seq, s->seq);
+@@ -1116,10 +1309,17 @@ void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac,
+ 		mem_aln_t t;
+ 		t = mem_reg2aln(opt, bns, pac, s->l_seq, s->seq, 0);
+ 		t.flag |= extra_flag;
+-		mem_aln2sam(opt, bns, &str, s, 1, &t, 0, m, h);
++		b = mem_aln2sam(opt, bns, &str, s, 1, &t, 0, m, h);
++#ifdef USE_HTSLIB
++		bams_add(s->bams, b);
++#endif 
+ 	} else {
+-		for (k = 0; k < aa.n; ++k)
+-			mem_aln2sam(opt, bns, &str, s, aa.n, aa.a, k, m, h);
++		for (k = 0; k < aa.n; ++k) {
++			b = mem_aln2sam(opt, bns, &str, s, aa.n, aa.a, k, m, h);
++#ifdef USE_HTSLIB
++			bams_add(s->bams, b);
++#endif 
++		}
+ 		for (k = 0; k < aa.n; ++k) free(aa.a[k].cigar);
+ 		free(aa.a);
+ 	}
+diff --git a/bwamem_pair.c b/bwamem_pair.c
+index 623a5db..f861969 100644
+--- a/bwamem_pair.c
++++ b/bwamem_pair.c
+@@ -268,7 +268,7 @@ int mem_pair(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, cons
+ 	return ret;
+ }
+ 
+-void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m, sam_hdr_t *h);
++void* mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m, sam_hdr_t *h);
+ void mem_reorder_primary5(int T, mem_alnreg_v *a);
+ 
+ #define raw_mapq(diff, a) ((int)(6.02 * (diff) / (a) + .499))
+@@ -278,7 +278,7 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, co
+ 	extern int mem_mark_primary_se(const mem_opt_t *opt, int n, mem_alnreg_t *a, int64_t id);
+ 	extern int mem_approx_mapq_se(const mem_opt_t *opt, const mem_alnreg_t *a);
+ 	extern void mem_reg2sam(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, bseq1_t *s, mem_alnreg_v *a, int extra_flag, const mem_aln_t *m, sam_hdr_t *h);
+-	extern void mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h);
++	extern void* mem_aln2sam(const mem_opt_t *opt, const bntseq_t *bns, kstring_t *str, bseq1_t *s, int n, const mem_aln_t *list, int which, const mem_aln_t *m_, sam_hdr_t *h);
+ 	extern char **mem_gen_alt(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, const mem_alnreg_v *a, int l_query, const char *query);
+ 
+ 
+@@ -286,6 +286,11 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, co
+ 	int n = 0, i, j, z[2], o, subo, n_sub, extra_flag = 1, n_pri[2], n_aa[2];
+ 	kstring_t str;
+ 	mem_aln_t h[2], g[2], aa[2][2];
++#ifdef USE_HTSLIB
++	bam1_t *b = NULL;
++#else
++	void *b = NULL;
++#endif
+ 
+ 	str.l = str.m = 0; str.s = 0;
+ 	memset(h, 0, sizeof(mem_aln_t) * 2);
+@@ -380,13 +385,21 @@ int mem_sam_pe(const mem_opt_t *opt, const bntseq_t *bns, const uint8_t *pac, co
+ 				aa[i][n_aa[i]++] = g[i];
+ 			}
+ 		}
+-		for (i = 0; i < n_aa[0]; ++i)
+-			mem_aln2sam(opt, bns, &str, &s[0], n_aa[0], aa[0], i, &h[1], header); // write read1 hits
++		for (i = 0; i < n_aa[0]; ++i) {
++			b = mem_aln2sam(opt, bns, &str, &s[0], n_aa[0], aa[0], i, &h[1], header); // write read1 hits
++#ifdef USE_HTSLIB
++			bams_add(s[0].bams, b);
++#endif
++		}
+ #ifndef USE_HTSLIB
+ 		s[0].sam = strdup(str.s); str.l = 0; /// not using HTSLIB
+ #endif
+-		for (i = 0; i < n_aa[1]; ++i)
+-			mem_aln2sam(opt, bns, &str, &s[1], n_aa[1], aa[1], i, &h[0], header); // write read2 hits
++		for (i = 0; i < n_aa[1]; ++i) {
++			b = mem_aln2sam(opt, bns, &str, &s[1], n_aa[1], aa[1], i, &h[0], header); // write read2 hits
++#ifdef USE_HTSLIB
++			bams_add(s[1].bams, b);
++#endif
++		}
+ #ifndef USE_HTSLIB
+ 		s[1].sam = str.s; // not using HTSLIB
+ #endif
+diff --git a/bwape.c b/bwape.c
+index 986cab8..308cd60 100644
+--- a/bwape.c
++++ b/bwape.c
+@@ -46,7 +46,12 @@ static kh_b128_t *g_hash;
+ void bwa_aln2seq_core(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s, int set_main, int n_multi);
+ void bwa_aln2seq(int n_aln, const bwt_aln1_t *aln, bwa_seq_t *s);
+ int bwa_approx_mapQ(const bwa_seq_t *p, int mm);
+-void bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2);
++#ifndef USE_HTSLIB
++void* 
++#else
++bam1_t*
++#endif
++bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2, kstring_t *str, sam_hdr_t *h);
+ bntseq_t *bwa_open_nt(const char *prefix);
+ void bwa_print_sam_SQ(const bntseq_t *bns);
+ 
+@@ -621,7 +626,7 @@ ubyte_t *bwa_paired_sw(const bntseq_t *bns, const ubyte_t *_pacseq, int n_seqs,
+ 	return pacseq;
+ }
+ 
+-void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const fn_fa[2], pe_opt_t *popt, const char *rg_line, int with_md)
++void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const fn_fa[2], pe_opt_t *popt, const char *rg_line, int with_md, int bam_output)
+ {
+ 	extern bwa_seqio_t *bwa_open_reads(int mode, const char *fn_fa);
+ 	int i, j, n_seqs;
+@@ -669,9 +674,39 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
+ 			err_fread_noeof(pac, 1, bns->l_pac/4+1, bns->fp_pac);
+ 		}
+ 	}
++    kstring_t *kstr = (kstring_t*)calloc(1, sizeof(kstring_t));
++	
++	sam_hdr_t *h = NULL;
++#ifndef USE_HTSLIB
++	void *out = NULL;
++	void *b = NULL;
++#else
++	bam1_t *b = NULL;
++    samFile *out = NULL;
++    char *modes[] = {"wb", "wbu", "w"};
++    switch (bam_output) {
++        case 0: // BAM compressed
++        case 1: // BAM uncompressed
++        case 2: // SAM
++            out = sam_open("-", modes[bam_output]);
++            break;
++        default:
++            fprintf(stderr, "Error: output format was out of range [%d]\n", bam_output);
++			exit(1);
++    }
++    bwa_format_sam_hdr(bns, rg_line, kstr);
++    h = sam_hdr_parse(kstr->l, kstr->s);
++    h->l_text = kstr->l; h->text = kstr->s;
++	if (sam_hdr_write(out, h) < 0) {
++		fprintf(stderr, "Error: could not write the SAM header:\n%s\n", kstr->s);
++		exit(1);
++	}
++#endif
+ 
+ 	// core loop
++#ifndef USE_HTSLIB
+ 	bwa_print_sam_hdr(bns, rg_line);
++#endif
+ 	while ((seqs[0] = bwa_read_seq(ks[0], 0x40000, &n_seqs, opt0.mode, opt0.trim_qual)) != 0) {
+ 		int cnt_chg;
+ 		isize_info_t ii;
+@@ -699,13 +734,27 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
+ 		fprintf(stderr, "[bwa_sai2sam_pe_core] print alignments... ");
+ 		for (i = 0; i < n_seqs; ++i) {
+ 			bwa_seq_t *p[2];
++#ifdef USE_HTSLIB
++			bam1_t *b[2];
++#else
++			void *b[2];
++#endif
+ 			p[0] = seqs[0] + i; p[1] = seqs[1] + i;
+ 			if (p[0]->bc[0] || p[1]->bc[0]) {
+ 				strcat(p[0]->bc, p[1]->bc);
+ 				strcpy(p[1]->bc, p[0]->bc);
+ 			}
+-			bwa_print_sam1(bns, p[0], p[1], opt.mode, opt.max_top2);
+-			bwa_print_sam1(bns, p[1], p[0], opt.mode, opt.max_top2);
++			b[0] = bwa_print_sam1(bns, p[0], p[1], opt.mode, opt.max_top2, kstr, h);
++			b[1] = bwa_print_sam1(bns, p[1], p[0], opt.mode, opt.max_top2, kstr, h);
++#ifdef USE_HTSLIB
++			for (j = 0; j < 2; j++) {
++				if (sam_write1(out, h, b[j]) < 0) {
++					fprintf(stderr, "Error: writing BAM output\n");
++					exit(1);
++				}
++				bam_destroy1(b[j]);
++			}
++#endif
+ 			if (strcmp(p[0]->name, p[1]->name) != 0) err_fatal(__func__, "paired reads have different names: \"%s\", \"%s\"\n", p[0]->name, p[1]->name);
+ 		}
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC); t = clock();
+@@ -728,6 +777,12 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
+ 	if (pac) {
+ 		free(pac); bwt_destroy(bwt);
+ 	}
++	free(kstr->s);
++	free(kstr);
++#ifdef USE_HTSLIB
++	sam_close(out);
++	bam_hdr_destroy(h);
++#endif
+ }
+ 
+ int bwa_sai2sam_pe(int argc, char *argv[])
+@@ -735,6 +790,7 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 	int c, with_md = 0;
+ 	pe_opt_t *popt;
+ 	char *prefix, *rg_line = 0;
++	int bam_output = 0;
+ 
+ 	popt = bwa_init_pe_opt();
+ 	while ((c = getopt(argc, argv, "a:o:sPn:N:c:f:Ar:d")) >= 0) {
+@@ -752,6 +808,9 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 		case 'f': xreopen(optarg, "w", stdout); break;
+ 		case 'A': popt->force_isize = 1; break;
+ 		case 'd': with_md = 1; break;
++#ifdef USE_HTSLIB
++		case 'Z': bam_output = atoi(optarg); break;
++#endif
+ 		default: return 1;
+ 		}
+ 	}
+@@ -768,8 +827,9 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 		fprintf(stderr, "         -r STR   read group header line such as `@RG\\tID:foo\\tSM:bar' [null]\n");
+ 		fprintf(stderr, "         -P       preload index into memory (for base-space reads only)\n");
+ 		fprintf(stderr, "         -s       disable Smith-Waterman for the unmapped mate\n");
+-		fprintf(stderr, "         -A       disable insert size estimate (force -s)\n\n");
+-		fprintf(stderr, "         -d       output the MD to each alignment in the XA tag, otherwise use \".\"\n\n");
++		fprintf(stderr, "         -A       disable insert size estimate (force -s)\n");
++		fprintf(stderr, "         -d       output the MD to each alignment in the XA tag, otherwise use \".\"\n");
++		fprintf(stderr, "         -Z       0-BAM 1-uBAM 2-SAM\n\n");
+ 		fprintf(stderr, "Notes: 1. For SOLiD reads, <in1.fq> corresponds R3 reads and <in2.fq> to F3.\n");
+ 		fprintf(stderr, "       2. For reads shorter than 30bp, applying a smaller -o is recommended to\n");
+ 		fprintf(stderr, "          to get a sensible speed at the cost of pairing accuracy.\n");
+@@ -780,7 +840,7 @@ int bwa_sai2sam_pe(int argc, char *argv[])
+ 		fprintf(stderr, "[%s] fail to locate the index\n", __func__);
+ 		return 1;
+ 	}
+-	bwa_sai2sam_pe_core(prefix, argv + optind + 1, argv + optind+3, popt, rg_line, with_md);
++	bwa_sai2sam_pe_core(prefix, argv + optind + 1, argv + optind+3, popt, rg_line, with_md, bam_output);
+ 	free(prefix); free(popt);
+ 	return 0;
+ }
+diff --git a/bwase.c b/bwase.c
+index ca463d8..f18a82e 100644
+--- a/bwase.c
++++ b/bwase.c
+@@ -377,24 +377,40 @@ static int64_t pos_5(const bwa_seq_t *p)
+ 	return -1;
+ }
+ 
+-void bwa_print_seq(kstring_t *str, bwa_seq_t *seq) {
++void bwa_printf_seq(kstring_t *str, bwa_seq_t *seq) {
+ 	int i;
+ 	if (seq->strand == 0) {
+-		for (i = 0; i < seq->full_len; i++) kputc("ACGTN"[seq->seq[i]], str);
++		for (i = 0; i < seq->full_len; i++) kputc("ACGTN"[(int)seq->seq[i]], str);
+ 	} else {
+-		for (i = seq->full_len - 1; i >= 0; i -= 1) kputc("TGCAN"[seq->seq[i]], str);
++		for (i = seq->full_len - 1; i >= 0; i -= 1) kputc("TGCAN"[(int)seq->seq[i]], str);
+ 	}
+ }
+ 
++void bwa_print_seq(FILE *stream, bwa_seq_t *seq) {
++    char buffer[4096];
++    const int bsz = sizeof(buffer);
++    int i, j, l;
++
++    if (seq->strand == 0) {
++        for (i = 0; i < seq->full_len; i += bsz) {
++            l = seq->full_len - i > bsz ? bsz : seq->full_len - i;
++            for (j = 0; j < l; j++) buffer[j] = "ACGTN"[(int)seq->seq[i + j]];
++            err_fwrite(buffer, 1, l, stream);
++        }
++    } else {
++        for (i = seq->full_len - 1; i >= 0; i -= bsz) {
++            l = i + 1 > bsz ? bsz : i + 1;
++            for (j = 0; j < l; j++) buffer[j] = "TGCAN"[(int)seq->seq[i - j]];
++            err_fwrite(buffer, 1, l, stream);
++        }
++    }
++}
++
+ #ifndef USE_HTSLIB
+-void
+-#else
+-bam1_t*
+-#endif
++void*
+ bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2, kstring_t *str, sam_hdr_t *h)
+ {
+ 	int j;
+-
+ 	if (p->type != BWA_TYPE_NO_MATCH || (mate && mate->type != BWA_TYPE_NO_MATCH)) {
+ 		int seqid, nn, am = 0, flag = p->extra_flag;
+ 		char XT;
+@@ -418,118 +434,285 @@ bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mod
+ 				if (mate->strand) flag |= SAM_FMR;
+ 			} else flag |= SAM_FMU;
+ 		}
+-		kputsn(p->name, strlen(p->name), str); kputc('\t', str);
+-		kputw(flag, str); kputc('\t', str);
+-		kputsn(bns->anns[seqid].name, strlen(bns->anns[seqid].name), str); kputc('\t', str);
+-		kputl((int)(p->pos - bns->anns[seqid].offset + 1), str); kputc('\t', str);
+-		kputw(p->mapQ, str); kputc('\t', str);
++		err_printf("%s\t%d\t%s\t", p->name, flag, bns->anns[seqid].name);
++		err_printf("%d\t%d\t", (int)(p->pos - bns->anns[seqid].offset + 1), p->mapQ);
+ 
+ 		// print CIGAR
+ 		if (p->cigar) {
+-			for (j = 0; j != p->n_cigar; ++j) {
+-				kputw(__cigar_len(p->cigar[j]), str); kputc("MIDS"[__cigar_op(p->cigar[j])], str);
+-			}
+-		} else if (p->type == BWA_TYPE_NO_MATCH) kputc('*', str);
+-		else {
+-			kputw(p->len, str); kputc('M', str);
+-		}
++			for (j = 0; j != p->n_cigar; ++j)
++				err_printf("%d%c", __cigar_len(p->cigar[j]), "MIDS"[__cigar_op(p->cigar[j])]);
++		} else if (p->type == BWA_TYPE_NO_MATCH) err_printf("*");
++		else err_printf("%dM", p->len);
+ 
+ 		// print mate coordinate
+ 		if (mate && mate->type != BWA_TYPE_NO_MATCH) {
+ 			int m_seqid;
+ 			long long isize;
+-			kputc('\t', str);
+ 			am = mate->seQ < p->seQ? mate->seQ : p->seQ; // smaller single-end mapping quality
+ 			// redundant calculation here, but should not matter too much
+ 			bns_cnt_ambi(bns, mate->pos, mate->len, &m_seqid);
+-			kputs((seqid == m_seqid)? "=" : bns->anns[m_seqid].name, str); kputc('\t', str);
++			err_printf("\t%s\t", (seqid == m_seqid)? "=" : bns->anns[m_seqid].name);
+ 			isize = (seqid == m_seqid)? pos_5(mate) - pos_5(p) : 0;
+ 			if (p->type == BWA_TYPE_NO_MATCH) isize = 0;
+-			kputl((int)(mate->pos - bns->anns[m_seqid].offset + 1), str); kputc('\t', str);
+-			kputw(isize, str); kputc('\t', str);
+-		} else if (mate) {
+-			kputs("\t=\t", str);
+-			kputl((int)(p->pos - bns->anns[seqid].offset + 1), str);
+-			kputs("\t0\t", str);
+-		}
+-		else {
+-			kputs("\t*\t0\t0\t", str);
+-		}
++			err_printf("%d\t%lld\t", (int)(mate->pos - bns->anns[m_seqid].offset + 1), isize);
++		} else if (mate) err_printf("\t=\t%d\t0\t", (int)(p->pos - bns->anns[seqid].offset + 1));
++		else err_printf("\t*\t0\t0\t");
+ 
+ 		// print sequence and quality
+-		bwa_print_seq(str, p);
+-		kputc('\t', str);
++		bwa_print_seq(stdout, p);
++		err_putchar('\t');
+ 		if (p->qual) {
+ 			if (p->strand) seq_reverse(p->len, p->qual, 0); // reverse quality
+-			kputs((char*)p->qual, str);
+-		} else kputc('*', str);
++			err_printf("%s", p->qual);
++		} else err_printf("*");
+ 
+-		if (bwa_rg_id[0]) ksprintf(str, "\tRG:Z:%s", bwa_rg_id);
+-		if (p->bc[0]) ksprintf(str, "\tBC:Z:%s", p->bc);
+-		if (p->clip_len < p->full_len) ksprintf(str, "\tXC:i:%d", p->clip_len);
++		if (bwa_rg_id[0]) err_printf("\tRG:Z:%s", bwa_rg_id);
++		if (p->bc[0]) err_printf("\tBC:Z:%s", p->bc);
++		if (p->clip_len < p->full_len) err_printf("\tXC:i:%d", p->clip_len);
+ 		if (p->type != BWA_TYPE_NO_MATCH) {
+ 			int i;
+ 			// calculate XT tag
+ 			XT = "NURM"[p->type];
+ 			if (nn > 10) XT = 'N';
+ 			// print tags
+-			ksprintf(str, "\tXT:A:%c\t%s:i:%d", XT, (mode & BWA_MODE_COMPREAD)? "NM" : "CM", p->nm);
+-			if (nn) ksprintf(str, "\tXN:i:%d", nn);
+-			if (mate) ksprintf(str, "\tSM:i:%d\tAM:i:%d", p->seQ, am);
++			err_printf("\tXT:A:%c\t%s:i:%d", XT, (mode & BWA_MODE_COMPREAD)? "NM" : "CM", p->nm);
++			if (nn) err_printf("\tXN:i:%d", nn);
++			if (mate) err_printf("\tSM:i:%d\tAM:i:%d", p->seQ, am);
+ 			if (p->type != BWA_TYPE_MATESW) { // X0 and X1 are not available for this type of alignment
+-				ksprintf(str, "\tX0:i:%d", p->c1);
+-				if (p->c1 <= max_top2) ksprintf(str, "\tX1:i:%d", p->c2);
++				err_printf("\tX0:i:%d", p->c1);
++				if (p->c1 <= max_top2) err_printf("\tX1:i:%d", p->c2);
+ 			}
+-			ksprintf(str, "\tXM:i:%d\tXO:i:%d\tXG:i:%d", p->n_mm, p->n_gapo, p->n_gapo+p->n_gape);
+-			if (p->md) ksprintf(str, "\tMD:Z:%s", p->md);
++			err_printf("\tXM:i:%d\tXO:i:%d\tXG:i:%d", p->n_mm, p->n_gapo, p->n_gapo+p->n_gape);
++			if (p->md) err_printf("\tMD:Z:%s", p->md);
+ 			// print multiple hits
+ 			if (p->n_multi) {
+-				ksprintf(str, "\tXA:Z:");
++				err_printf("\tXA:Z:");
+ 				for (i = 0; i < p->n_multi; ++i) {
+ 					bwt_multi1_t *q = p->multi + i;
+ 					int k;
+ 					j = pos_end_multi(q, p->len) - q->pos;
+ 					nn = bns_cnt_ambi(bns, q->pos, j, &seqid);
+-					ksprintf(str, "%s,%c%d,", bns->anns[seqid].name, q->strand? '-' : '+',
++					err_printf("%s,%c%d,", bns->anns[seqid].name, q->strand? '-' : '+',
+ 						   (int)(q->pos - bns->anns[seqid].offset + 1));
+ 					if (q->cigar) {
+ 						for (k = 0; k < q->n_cigar; ++k)
+-							ksprintf(str, "%d%c", __cigar_len(q->cigar[k]), "MIDS"[__cigar_op(q->cigar[k])]);
+-					} else ksprintf(str, "%dM", p->len);
+-					ksprintf(str, ",%d;", q->gap + q->mm);
++							err_printf("%d%c", __cigar_len(q->cigar[k]), "MIDS"[__cigar_op(q->cigar[k])]);
++					} else err_printf("%dM", p->len);
++					err_printf(",%d;", q->gap + q->mm);
+ 				}
+ 			}
+ 		}
+-		ksprintf(str, "\tHN:i:%d", p->n_occ);
++		err_printf("\tHN:i:%d", p->n_occ);
++		err_putchar('\n');
+ 	} else { // this read has no match
+ 		//ubyte_t *s = p->strand? p->rseq : p->seq;
+ 		int flag = p->extra_flag | SAM_FSU;
+ 		if (mate && mate->type == BWA_TYPE_NO_MATCH) flag |= SAM_FMU;
+-		ksprintf(str, "%s\t%d\t*\t0\t0\t*\t*\t0\t0\t", p->name, flag);
++		err_printf("%s\t%d\t*\t0\t0\t*\t*\t0\t0\t", p->name, flag);
+ 		//Why did this work differently to the version above??
+ 		//for (j = 0; j != p->len; ++j) putchar("ACGTN"[(int)s[j]]);
+-		bwa_print_seq(str, p);
+-		kputc('\t', str);
++		bwa_print_seq(stdout, p);
++		err_putchar('\t');
+ 		if (p->qual) {
+ 			if (p->strand) seq_reverse(p->len, p->qual, 0); // reverse quality
+-			ksprintf(str, "%s", p->qual);
+-		} else ksprintf(str, "*");
+-		if (bwa_rg_id[0]) ksprintf(str, "\tRG:Z:%s", bwa_rg_id);
+-		if (p->bc[0]) ksprintf(str, "\tBC:Z:%s", p->bc);
+-		if (p->clip_len < p->full_len) ksprintf(str, "\tXC:i:%d", p->clip_len);
++			err_printf("%s", p->qual);
++		} else err_printf("*");
++		if (bwa_rg_id[0]) err_printf("\tRG:Z:%s", bwa_rg_id);
++		if (p->bc[0]) err_printf("\tBC:Z:%s", p->bc);
++		if (p->clip_len < p->full_len) err_printf("\tXC:i:%d", p->clip_len);
++		err_putchar('\n');
+ 	}
+-#ifndef USE_HTSLIB
+-	err_putchar('\n');
++	return NULL;
++}
+ #else
+-	// FIXME: need h
++static void bam_cigar2rqlens(int n_cigar, const uint32_t *cigar,
++                             hts_pos_t *rlen, hts_pos_t *qlen)
++{
++    int k;
++    *rlen = *qlen = 0;
++    for (k = 0; k < n_cigar; ++k) {
++        int type = bam_cigar_type(bam_cigar_op(cigar[k]));
++        int len = bam_cigar_oplen(cigar[k]);
++        if (type & 1) *qlen += len;
++        if (type & 2) *rlen += len;
++    }
++}
++bam1_t*
++bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2, kstring_t *str, sam_hdr_t *h)
++{
++	int i, j = 1;
++	char XT;
+     bam1_t *b = bam_init1();
+-    if (sam_parse1(str, h, b) < 0) {
+-        // TODO: error!
++	uint32_t *cigar = NULL;
++	int n_cigar = 0;
++	
++	// flag
++	int flag = 0;
++    flag |= mate ? BAM_FPAIRED : 0; // is paired in sequencing
++    flag |= (p->type == BWA_TYPE_NO_MATCH) ? BAM_FUNMAP : 0; // is mapped
++    if (!(flag & BAM_FUNMAP)) { // mapped
++        flag |= p->strand ? BAM_FREVERSE: 0; // is on the reverse strand
+     }
+-    str->l = 0;
++
++    // mate flags
++    if ((flag & BAM_FPAIRED)) { // paired
++        flag |= (mate->type == BWA_TYPE_NO_MATCH) ? BAM_FMUNMAP : 0; // is mate mapped
++        if ((flag & BAM_FUNMAP) && !(flag & BAM_FMUNMAP)) { // copy mate to alignment
++            p->pos = mate->pos;
++			p->strand = mate->strand;
++            p->n_cigar = 0;
++            flag |= p->strand ? BAM_FREVERSE: 0; // is on the reverse strand
++			j = 1;
++        }
++        flag |= (!(flag & BAM_FMUNMAP) && mate->strand) ? BAM_FMREVERSE : 0; // is mate on the reverse strand
++    } 
++	
++	// seqid, pos, and nn
++	int seqid = -1, pos = -1, nn = -1, am = 0;
++	if (!(flag & BAM_FUNMAP)) { 
++		j = pos_end(p) - p->pos;
++		nn = bns_cnt_ambi(bns, p->pos, j, &seqid);
++		if (p->pos + j - bns->anns[seqid].offset > bns->anns[seqid].len)
++			flag |= BAM_FMUNMAP; // flag UNMAP as this alignment bridges two adjacent reference sequences
++		pos = (int)(p->pos - bns->anns[seqid].offset + 1);
++	}
++
++	// CIGAR
++	if (p->cigar) {
++		n_cigar = p->n_cigar;
++		cigar = malloc(sizeof(uint32_t) * n_cigar);
++		for (j = 0; j != n_cigar; ++j) { 
++			int c = __cigar_op(p->cigar[j]) & 0xf;
++			cigar[j] = bam_cigar_gen(__cigar_len(p->cigar[j]), bam_cigar_table[(int)"MIDS"[c]]);
++		}
++	} else if (flag & BAM_FUNMAP) {
++		n_cigar = 0;
++	} else {
++		n_cigar = 1;
++		cigar = malloc(sizeof(uint32_t) * n_cigar);
++		cigar[0] = bam_cigar_gen(p->len, bam_cigar_table[(int)'M']); 
++	}
++
++	// mate seqid and pos, isize, and am 
++	int m_seqid = -1, m_pos = -1, isize = 0;
++	if (flag & BAM_FPAIRED) { // paired
++		if (flag & BAM_FMUNMAP) { // mate unmapped
++			m_seqid = seqid;
++			m_pos = pos;
++		} else {
++			am = mate->seQ < p->seQ? mate->seQ : p->seQ; // smaller single-end mapping quality
++			// redundant calculation here, but should not matter too much
++			bns_cnt_ambi(bns, mate->pos, mate->len, &m_seqid);
++			if (!(flag & BAM_FUNMAP) && (seqid == m_seqid)) isize = pos_5(mate) - pos_5(p);
++			m_pos = (int)(mate->pos - bns->anns[m_seqid].offset + 1);
++		}
++	}
++
++	// seq
++	str->l = 0;
++	bwa_printf_seq(str, p);
++
++	// qual
++    if (p->qual) {
++		if (p->strand == 0) {
++			for (i = 0; i < p->len; i++) p->qual[i] -= 33;
++		} else {
++			for (i = 0; i < p->len>>1; ++i) {
++				char tmp = p->qual[p->len-1-i];
++				p->qual[p->len-1-i] = p->qual[i] - 33; p->qual[i] = tmp - 33;
++			}
++			if (p->len & 1) {
++				p->qual[p->len >> 1] -= 33;
++			}
++		}
++    }
++	
++	// set it!
++	bam_set1(
++		b, // bam
++		strlen(p->name), // l_qname
++		p->name, // qname
++		flag, // flag
++		!(flag & BAM_FUNMAP) ? seqid: -1, // seqid
++		!(flag & BAM_FUNMAP) ? pos - 1: -1, // pos
++		p->mapQ, // mapq
++		n_cigar, // n_cigar
++		cigar, // cigar
++		((flag & BAM_FPAIRED) && !(flag & BAM_FMUNMAP)) ? m_seqid: -1, // mtid
++		((flag & BAM_FPAIRED) && !(flag & BAM_FMUNMAP)) ? m_pos - 1: -1, // mpos
++		isize, // tlen
++		str->l, // l_seq
++		str->s, // seq
++		(p->qual == NULL) ? NULL : (char*)p->qual, // qual
++		0 // l_aux
++	);
++
++    if (p->qual) {
++		// Undo: reverse the QUAL
++		if (p->strand == 0) {
++			for (i = 0; i < p->len; i++) p->qual[i] += 33;
++		} else {
++			for (i = 0; i < p->len>>1; ++i) {
++				char tmp = p->qual[p->len-1-i];
++				p->qual[p->len-1-i] = p->qual[i] + 33; p->qual[i] = tmp + 33;
++			}
++			if (p->len & 1) {
++				p->qual[p->len >> 1] += 33;
++			}
++		}
++    }
++
++	// Optional tags
++	if (bwa_rg_id[0]) bam_aux_update_str(b, "RG", strlen(bwa_rg_id), bwa_rg_id);
++	if (p->bc[0]) bam_aux_update_str(b, "BC", strlen(p->bc), p->bc);
++	if (p->clip_len < p->full_len) bam_aux_update_int(b, "XC", p->clip_len);
++	if (!(flag & BAM_FUNMAP)) {
++		// calculate XT tag
++		XT = "NURM"[p->type];
++		if (nn > 10) XT = 'N';
++		// print tags
++		bam_aux_append(b, "XT", 'A', 1, (uint8_t*)&XT); 
++		bam_aux_update_int(b, (mode & BWA_MODE_COMPREAD)? "NM" : "CM", p->nm);
++		if (nn) bam_aux_update_int(b, "XN", nn);
++		if (mate) {
++			bam_aux_update_int(b, "SM", p->seQ);
++			bam_aux_update_int(b, "AM", am);
++		}
++		if (p->type != BWA_TYPE_MATESW) { // X0 and X1 are not available for this type of alignment
++			bam_aux_update_int(b, "X0", p->c1);
++			if (p->c1 <= max_top2) bam_aux_update_int(b, "X1", p->c2);
++		}
++		bam_aux_update_int(b, "XM", p->n_mm);
++		bam_aux_update_int(b, "XO", p->n_gapo);
++		bam_aux_update_int(b, "XG", p->n_gapo+p->n_gape);
++		if (p->md) bam_aux_update_str(b, "MD", strlen(p->md), p->md);
++		// print multiple hits
++		if (p->n_multi) {
++			str->l = 0;
++			for (i = 0; i < p->n_multi; ++i) {
++				bwt_multi1_t *q = p->multi + i;
++				int k;
++				j = pos_end_multi(q, p->len) - q->pos;
++				nn = bns_cnt_ambi(bns, q->pos, j, &seqid);
++				ksprintf(str, "%s,%c%d,", bns->anns[seqid].name, q->strand? '-' : '+',
++					   (int)(q->pos - bns->anns[seqid].offset + 1));
++				if (q->cigar) {
++					for (k = 0; k < q->n_cigar; ++k)
++						ksprintf(str, "%d%c", __cigar_len(q->cigar[k]), "MIDS"[__cigar_op(q->cigar[k])]);
++				} else ksprintf(str, "%dM", p->len);
++				ksprintf(str, ",%d;", q->gap + q->mm);
++			}
++			bam_aux_update_str(b, "XA", str->l, str->s);
++		}
++	}
++	if (!(flag & BAM_FUNMAP) || !(flag & BAM_FMUNMAP)) { 
++		bam_aux_update_int(b, "HN", p->n_occ);
++	} 
++	str->l = 0;
++	free(cigar);
+ 	return b;
+-#endif
+ }
++#endif
+ 
+ void bwase_initialize() 
+ {
+@@ -537,7 +720,7 @@ void bwase_initialize()
+ 	for (i = 1; i != 256; ++i) g_log_n[i] = (int)(4.343 * log(i) + 0.5);
+ }
+ 
+-void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_fa, int n_occ, const char *rg_line, int with_md)
++void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_fa, int n_occ, const char *rg_line, int with_md, int bam_output)
+ {
+ 	extern bwa_seqio_t *bwa_open_reads(int mode, const char *fn_fa);
+ 	int i, n_seqs, m_aln;
+@@ -557,14 +740,33 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 	bns = bns_restore(prefix);
+ 	srand48(bns->seed);
+ 	fp_sa = xopen(fn_sa, "r");
+-    
++
+ 	sam_hdr_t *h = NULL;
+-#ifdef USE_HTSLIB
++#ifndef USE_HTSLIB
++	void *b = NULL;
++#else
++	bam1_t *b = NULL;
++    samFile *out = NULL;
++    char *modes[] = {"wb", "wbu", "w"};
++    switch (bam_output) {
++        case 0: // BAM compressed
++        case 1: // BAM uncompressed
++        case 2: // SAM
++            out = sam_open("-", modes[bam_output]);
++            break;
++        default:
++            fprintf(stderr, "Error: output format was out of range [%d]\n", bam_output);
++			exit(1);
++    }
+     kstring_t str;
+     str.l = str.m = 0; str.s = 0;
+     bwa_format_sam_hdr(bns, rg_line, &str);
+     h = sam_hdr_parse(str.l, str.s);
+     h->l_text = str.l; h->text = str.s;
++	if (sam_hdr_write(out, h) < 0) {
++		fprintf(stderr, "Error: could not write the SAM header:\n%s\n", str.s);
++		exit(1);
++	}
+ #endif
+ 
+ 	m_aln = 0;
+@@ -574,7 +776,9 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 		exit(1);
+ 	}
+ 	err_fread_noeof(&opt, sizeof(gap_opt_t), 1, fp_sa);
++#ifndef USE_HTSLIB
+ 	bwa_print_sam_hdr(bns, rg_line);
++#endif
+ 	// set ks
+ 	ks = bwa_open_reads(opt.mode, fn_fa);
+ 	// core loop
+@@ -604,8 +808,18 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC); t = clock();
+ 
+ 		fprintf(stderr, "[bwa_aln_core] print alignments... ");
+-		for (i = 0; i < n_seqs; ++i)
+-			bwa_print_sam1(bns, seqs + i, 0, opt.mode, opt.max_top2, kstr, h);
++		for (i = 0; i < n_seqs; ++i) {
++			b = bwa_print_sam1(bns, seqs + i, 0, opt.mode, opt.max_top2, kstr, h);
++#ifndef USE_HTSLIB
++			assert(b == NULL); // only here so the compiler doesn't emit a warning
++#else
++			if (sam_write1(out, h, b) < 0) {
++				fprintf(stderr, "Error: writing BAM output\n");
++				exit(1);
++			}
++			bam_destroy1(b);
++#endif
++		}
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
+ 
+ 		bwa_free_read_seq(n_seqs, seqs);
+@@ -619,13 +833,22 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
+ 	free(aln);
+ 	free(kstr->s);
+ 	free(kstr);
++#ifdef USE_HTSLIB
++	sam_close(out);
++	bam_hdr_destroy(h);
++#endif
+ }
+ 
+ int bwa_sai2sam_se(int argc, char *argv[])
+ {
+ 	int c, n_occ = 3, with_md = 0;
+ 	char *prefix, *rg_line = 0;
++	int bam_output = 0;
++#ifndef USE_HTSLIB
+ 	while ((c = getopt(argc, argv, "hdn:f:r:")) >= 0) {
++#else
++	while ((c = getopt(argc, argv, "hdn:f:r:Z:")) >= 0) {
++#endif
+ 		switch (c) {
+ 		case 'h': break;
+ 		case 'd': with_md = 1; break;
+@@ -634,11 +857,19 @@ int bwa_sai2sam_se(int argc, char *argv[])
+ 			break;
+ 		case 'n': n_occ = atoi(optarg); break;
+ 		case 'f': xreopen(optarg, "w", stdout); break;
++#ifdef USE_HTSLIB
++		case 'Z': bam_output = atoi(optarg); break;
++#endif
+ 		default: return 1;
+ 		}
+ 	}
+ 
+ 	if (optind + 3 > argc) {
++#ifndef USE_HTSLIB
++		fprintf(stderr, "Usage: bwa samse [-n max_occ] [-d] [-f out.sam] [-r RG_line] <prefix> <in.sai> <in.fq>\n");
++#else
++		fprintf(stderr, "Usage: bwa samse [-n max_occ] [-d] [-f out.sam] [-r RG_line] [-Z 0-BAM 1-uBAM 2-SAM] <prefix> <in.sai> <in.fq>\n");
++#endif
+ 		fprintf(stderr, "Usage: bwa samse [-n max_occ] [-d] [-f out.sam] [-r RG_line] <prefix> <in.sai> <in.fq>\n");
+ 		return 1;
+ 	}
+@@ -646,7 +877,7 @@ int bwa_sai2sam_se(int argc, char *argv[])
+ 		fprintf(stderr, "[%s] fail to locate the index\n", __func__);
+ 		return 1;
+ 	}
+-	bwa_sai2sam_se_core(prefix, argv[optind+1], argv[optind+2], n_occ, rg_line, with_md);
++	bwa_sai2sam_se_core(prefix, argv[optind+1], argv[optind+2], n_occ, rg_line, with_md, bam_output);
+ 	free(prefix);
+ 	return 0;
+ }
+diff --git a/bwase.h b/bwase.h
+index c6f72f4..fb92a4e 100644
+--- a/bwase.h
++++ b/bwase.h
+@@ -4,6 +4,12 @@
+ #include "bntseq.h"
+ #include "bwt.h"
+ #include "bwtaln.h"
++#include "kstring.h"
++#include "bwa.h"
++
++#ifdef USE_HTSLIB
++#include <htslib/sam.h>
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -21,6 +27,12 @@ extern "C" {
+ 	int64_t pos_end(const bwa_seq_t *p);
+ 	//
+ 	bwtint_t bwa_sa2pos(const bntseq_t *bns, const bwt_t *bwt, bwtint_t sapos, int len, int *strand);
++#ifndef USE_HTSLIB
++	void*
++#else
++	bam1_t*
++#endif
++	bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mode, int max_top2, kstring_t *str, sam_hdr_t *h);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/bwtaln.c b/bwtaln.c
+index a348fdf..66ede29 100644
+--- a/bwtaln.c
++++ b/bwtaln.c
+@@ -80,9 +80,9 @@ int bwt_cal_width(const bwt_t *bwt, int len, const ubyte_t *str, bwt_width_t *wi
+ 	return bid;
+ }
+ 
+-void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt)
++void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt, int free_seqs)
+ {
+-	int i, j, max_l = 0, max_len;
++	int i, j, max_l = 0, max_len, i_increment = 1;
+ 	gap_stack_t *stack;
+ 	bwt_width_t *w, *seed_w;
+ 	gap_opt_t local_opt = *opt;
+@@ -96,11 +96,15 @@ void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs,
+ 
+ 	seed_w = (bwt_width_t*)calloc(opt->seed_len+1, sizeof(bwt_width_t));
+ 	w = 0;
+-	for (i = 0; i != n_seqs; ++i) {
+-		bwa_seq_t *p = seqs + i;
++	i = 0;
+ #ifdef HAVE_PTHREAD
+-		if (i % opt->n_threads != tid) continue;
++		if (tid != -1 ) {
++			i = tid;
++			i_increment = opt->n_threads;
++		}
+ #endif
++	for (; i < n_seqs; i += i_increment) {
++		bwa_seq_t *p = seqs + i;
+ 		p->sa = 0; p->type = BWA_TYPE_NO_MATCH; p->c1 = p->c2 = 0; p->n_aln = 0; p->aln = 0;
+ 		if (max_l < p->len) {
+ 			max_l = p->len;
+@@ -118,8 +122,10 @@ void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs,
+ 		p->aln = bwt_match_gap(bwt, p->len, p->seq, w, p->len <= opt->seed_len? 0 : seed_w, &local_opt, &p->n_aln, stack);
+ 		//fprintf(stderr, "mm=%lld,ins=%lld,del=%lld,gapo=%lld\n", p->aln->n_mm, p->aln->n_ins, p->aln->n_del, p->aln->n_gapo);
+ 		// clean up the unused data in the record
+-		free(p->name); free(p->seq); free(p->rseq); free(p->qual);
+-		p->name = 0; p->seq = p->rseq = p->qual = 0;
++		if (free_seqs) {
++			free(p->name); free(p->seq); free(p->rseq); free(p->qual);
++			p->name = 0; p->seq = p->rseq = p->qual = 0;
++		}
+ 	}
+ 	free(seed_w); free(w);
+ 	gap_destroy_stack(stack);
+@@ -137,7 +143,7 @@ typedef struct {
+ static void *worker(void *data)
+ {
+ 	thread_aux_t *d = (thread_aux_t*)data;
+-	bwa_cal_sa_reg_gap(d->tid, d->bwt, d->n_seqs, d->seqs, d->opt);
++	bwa_cal_sa_reg_gap(d->tid, d->bwt, d->n_seqs, d->seqs, d->opt, 1);
+ 	return 0;
+ }
+ #endif
+@@ -185,7 +191,7 @@ void bwa_aln_core(const char *prefix, const char *fn_fa, const gap_opt_t *opt)
+ 
+ #ifdef HAVE_PTHREAD
+ 		if (opt->n_threads <= 1) { // no multi-threading at all
+-			bwa_cal_sa_reg_gap(0, bwt, n_seqs, seqs, opt);
++			bwa_cal_sa_reg_gap(0, bwt, n_seqs, seqs, opt, 1);
+ 		} else {
+ 			pthread_t *tid;
+ 			pthread_attr_t attr;
+@@ -204,7 +210,7 @@ void bwa_aln_core(const char *prefix, const char *fn_fa, const gap_opt_t *opt)
+ 			free(data); free(tid);
+ 		}
+ #else
+-		bwa_cal_sa_reg_gap(0, bwt, n_seqs, seqs, opt);
++		bwa_cal_sa_reg_gap(0, bwt, n_seqs, seqs, opt, 1);
+ #endif
+ 
+ 		fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
+diff --git a/bwtaln.h b/bwtaln.h
+index ec8103a..b66959d 100644
+--- a/bwtaln.h
++++ b/bwtaln.h
+@@ -144,7 +144,7 @@ extern "C" {
+ 	void bwa_free_read_seq(int n_seqs, bwa_seq_t *seqs);
+ 
+ 	int bwa_cal_maxdiff(int l, double err, double thres);
+-	void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt);
++	void bwa_cal_sa_reg_gap(int tid, bwt_t *const bwt, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt, int free_seqs);
+ 
+ 	void bwa_cs2nt_core(bwa_seq_t *p, bwtint_t l_pac, ubyte_t *pac);
+ 
+diff --git a/fastmap.c b/fastmap.c
+index d6abfc4..d8420f9 100644
+--- a/fastmap.c
++++ b/fastmap.c
+@@ -125,7 +125,10 @@ static void *process(void *shared, int step, void *_data)
+ 			if (data->seqs[i].bams) {
+ 				int j;
+ 				for (j = 0; j < data->seqs[i].bams->l; j++) {
+-					sam_write1(aux->out, aux->h, data->seqs[i].bams->bams[j]);
++					if (sam_write1(aux->out, aux->h, data->seqs[i].bams->bams[j]) < 0) {
++						fprintf(stderr, "Error: writing BAM output\n");
++						exit(1);
++					}
+ 				}
+ 			}
+ 			bams_destroy(data->seqs[i].bams); data->seqs[i].bams = NULL;
+@@ -443,12 +446,17 @@ int main_mem(int argc, char *argv[])
+ 	bwa_format_sam_hdr(aux.idx->bns, rg_line, &str);
+ 	h = sam_hdr_parse(str.l, str.s);
+ 	h->l_text = str.l; h->text = str.s;
+-	sam_hdr_write(out, h);
++	if (sam_hdr_write(out, h) < 0) {
++		fprintf(stderr, "Error: could not write the SAM header:\n%s\n", str.s);
++		return 1;
++	}
+ 	aux.out = out;
+ #endif
+ 	aux.h = h;
+ 
++#ifndef USE_HTSLIB
+ 	bwa_print_sam_hdr(aux.idx->bns, hdr_line);
++#endif
+ 	aux.actual_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
+ 	kt_pipeline(no_mt_io? 1 : 2, process, &aux, 3);
+ 	free(hdr_line);
+-- 
+2.39.5 (Apple Git-154)
+
