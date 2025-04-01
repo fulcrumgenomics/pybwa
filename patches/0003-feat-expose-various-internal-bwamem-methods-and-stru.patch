@@ -1,7 +1,7 @@
 From d1aec9f3dc7e8a28f1154eb14d94f857215a299e Mon Sep 17 00:00:00 2001
 From: Nils Homer <nilshomer@gmail.com>
 Date: Fri, 17 Jan 2025 21:33:12 -0700
-Subject: [PATCH 3/5] feat: expose various internal bwamem methods and structs
+Subject: [PATCH 3/6] feat: expose various internal bwamem methods and structs
 
 ---
  bwamem.c       | 23 +++--------------------

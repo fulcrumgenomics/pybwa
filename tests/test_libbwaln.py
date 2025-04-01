@@ -158,6 +158,7 @@ def test_bwaaln_basic(
 def test_bwaaln_multi_hit(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:
     opt = BwaAlnOptions(threads=1, seed_length=10, max_hits=1000)
     bwa = BwaAln(prefix=e_coli_k12_fasta)
+    bwa.reinitialize_seed()
     assert e_coli_k12_fastx_record.sequence is not None
 
     queries = [
@@ -169,7 +170,7 @@ def test_bwaaln_multi_hit(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: Fastx
     recs = bwa.align(opt=opt, queries=queries)
     assert len(recs) == 1
     rec = recs[0]
-    assert rec.reference_start == 4074272
+    assert rec.reference_start == 733390
     assert rec.query_name == "test"
     assert queries[0].sequence is not None
     assert rec.query_sequence == reverse_complement(queries[0].sequence)
@@ -196,6 +197,7 @@ def test_bwaaln_multi_hit_split_cigar(
         gap_open_penalty=1,
     )
     bwa = BwaAln(prefix=e_coli_k12_fasta)
+    bwa.reinitialize_seed()
     assert e_coli_k12_fastx_record.sequence is not None
 
     queries = [
@@ -331,6 +333,7 @@ def test_bwa_aln_map_one_multi_mapped_max_hits_one(e_coli_k12_fasta: Path) -> No
     bwa = BwaAln(prefix=e_coli_k12_fasta)
     queries = [FastxRecord(name="NA", sequence="TTTTT")]
     recs = bwa.align(opt=opt, queries=queries)
+    bwa.reinitialize_seed()
     assert len(recs) == 1
     rec = recs[0]
     assert rec.has_tag("HN"), str(rec)

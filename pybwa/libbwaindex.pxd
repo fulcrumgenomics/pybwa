@@ -1,7 +1,7 @@
 # cython: language_level=3
 from pathlib import Path
 
-from libc.stdint cimport int64_t, int32_t, uint8_t
+from libc.stdint cimport int64_t, int32_t, uint8_t, uint32_t
 from libc.stdio cimport FILE
 
 cdef extern from "bwa.h":
@@ -37,6 +37,7 @@ cdef extern from "bntseq.h":
         int64_t l_pac
         bntann1_t *anns
         FILE * fp_pac
+        uint32_t seed
 
     bntseq_t * bns_restore(const char * prefix)
     void bns_destroy(bntseq_t *bns)
