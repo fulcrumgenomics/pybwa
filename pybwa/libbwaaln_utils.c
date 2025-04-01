@@ -1,7 +1,7 @@
 #include "bntseq.h"
 #include "bwt.h"
 #include "bwtaln.h"
-#include "kstring.h"
+#include "htslib/kstring.h"
 #include "bwase.h"
 #include "htslib/sam.h"
 #include "libbwaaln_utils.h"

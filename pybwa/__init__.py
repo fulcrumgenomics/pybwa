@@ -15,14 +15,20 @@ def _get_include() -> list[str]:  # pragma: no cover
     # depending on installation mode (e.g., `python setup.py install`,
     # `python setup.py develop`). The first entry in each list is
     # where develop-mode headers can be found.
-    #
-    pybwa_possibilities = [
-        os.path.join(dirname, "..", "bwa"),
-        os.path.join(dirname, "include", "bwa"),
-    ]
+    pybwa_possibilities = {
+        "htslib": [
+            os.path.join(dirname, "..", "htslib"),
+            os.path.join(dirname, "include", "htslib"),
+        ],
+        "bwa": [
+            os.path.join(dirname, "..", "bwa"),
+            os.path.join(dirname, "include", "bwa"),
+        ],
+    }
 
     includes = [dirname]
-    for header_locations in [pybwa_possibilities]:
+
+    for header_locations in pybwa_possibilities.values():
         for header_location in header_locations:
             if os.path.exists(header_location):
                 includes.append(os.path.abspath(header_location))

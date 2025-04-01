@@ -4,11 +4,14 @@ import pytest
 from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
 from pysam import array_to_qualitystring
+from utils import use_pyximport
 
 from pybwa import BwaIndex
 from pybwa.libbwamem import BwaMem
 from pybwa.libbwamem import BwaMemMode
 from pybwa.libbwamem import BwaMemOptions
+
+NO_PYXIMPORT: bool = not use_pyximport(libname="libbwamem")
 
 
 def test_bwamem_options_not_finalized() -> None:
@@ -26,7 +29,6 @@ def test_bwamem_options_set() -> None:
         mismatch_penalty=2,
         minimum_score=2,
         unpaired_penalty=2,
-        n_threads=2,
         skip_pairing=True,
         output_all_for_fragments=True,
         interleaved_paired_end=True,
@@ -61,7 +63,6 @@ def test_bwamem_options_set() -> None:
     assert opt.mismatch_penalty == 2
     assert opt.minimum_score == 2
     assert opt.unpaired_penalty == 2
-    assert opt.n_threads == 2
     assert opt.skip_pairing
     assert opt.output_all_for_fragments
     assert opt.interleaved_paired_end
@@ -161,6 +162,13 @@ def test_bwamem_options_mode() -> None:
     opt = BwaMemOptions(mode=BwaMemMode.PACBIO).finalize()
     assert opt.clipping_penalty == 0
     assert opt.min_seeded_bases_in_chain == 40
+
+
+@pytest.mark.skipif(NO_PYXIMPORT, reason="no pyximport")
+def test_bwamem_options_default() -> None:
+    import _test_libbwamem
+
+    _test_libbwamem.test_bwamem_options_default()
 
 
 def test_bwamem2(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:

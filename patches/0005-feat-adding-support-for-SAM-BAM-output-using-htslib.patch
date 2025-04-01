@@ -1,7 +1,7 @@
 From 09b2145aaead4a411c0623385385f26e5c0203c7 Mon Sep 17 00:00:00 2001
 From: Nils Homer <nilshomer@gmail.com>
 Date: Tue, 25 Mar 2025 23:06:59 -0700
-Subject: [PATCH 5/6] feat: adding support for SAM/BAM output using htslib
+Subject: [PATCH 5/7] feat: adding support for SAM/BAM output using htslib
 
 ---
  Makefile      |  23 ++++++--

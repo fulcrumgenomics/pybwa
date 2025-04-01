@@ -78,7 +78,7 @@ cdef extern from "bntseq.h":
     bntseq_t * bns_restore(const char * prefix)
     void bns_destroy(bntseq_t *bns)
 
-cdef extern from "kstring.h":
+cdef extern from "htslib/kstring.h":
     ctypedef struct kstring_t:
         size_t l, m
         char *s
@@ -157,3 +157,10 @@ cdef extern from "htslib/sam.h":
         char *text
 
     sam_hdr_t *sam_hdr_parse(size_t l_text, const char *text)
+
+
+cdef class BwaAlnOptions:
+    cdef gap_opt_t* gap_opt(self)
+    cdef gap_opt_t * _delegate
+    cdef public object _max_hits
+    cdef public object _with_md

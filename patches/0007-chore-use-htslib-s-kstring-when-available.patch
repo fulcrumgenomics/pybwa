@@ -1,0 +1,69 @@
+From 587520076851a63529285ca302b57fb4ba915a3b Mon Sep 17 00:00:00 2001
+From: Nils Homer <nilshomer@gmail.com>
+Date: Tue, 1 Apr 2025 11:28:17 -0700
+Subject: [PATCH 7/7] chore: use htslib's kstring when available
+
+---
+ Makefile | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 8d812ca..61e55fe 100644
+--- a/Makefile
++++ b/Makefile
+@@ -6,8 +6,11 @@ WRAP_MALLOC=-DUSE_MALLOC_WRAPPERS
+ USE_HTSLIB=1
+ AR=			ar
+ DFLAGS=		-DHAVE_PTHREAD $(WRAP_MALLOC)
+-LOBJS=		utils.o kthread.o kstring.o ksw.o bwt.o bntseq.o bwa.o bwamem.o bwamem_pair.o bwamem_extra.o malloc_wrap.o \
++LOBJS=		utils.o kthread.o ksw.o bwt.o bntseq.o bwa.o bwamem.o bwamem_pair.o bwamem_extra.o malloc_wrap.o \
+ 			QSufSort.o bwt_gen.o rope.o rle.o is.o bwtindex.o
++ifneq ($(USE_HTSLIB),1)
++LOBJS+=kstring.o
++endif
+ AOBJS=		bwashm.o bwase.o bwaseqio.o bwtgap.o bwtaln.o bamlite.o \
+ 			bwape.o kopen.o pemerge.o maxk.o \
+ 			bwtsw2_core.o bwtsw2_main.o bwtsw2_aux.o bwt_lite.o \
+@@ -61,16 +64,16 @@ depend:
+ QSufSort.o: QSufSort.h
+ bamlite.o: bamlite.h malloc_wrap.h
+ bntseq.o: bntseq.h utils.h kseq.h malloc_wrap.h khash.h
+-bwa.o: bntseq.h bwa.h bwt.h ksw.h utils.h kstring.h malloc_wrap.h kvec.h
++bwa.o: bntseq.h bwa.h bwt.h ksw.h utils.h malloc_wrap.h kvec.h
+ bwa.o: kseq.h
+-bwamem.o: kstring.h malloc_wrap.h bwamem.h bwt.h bntseq.h bwa.h ksw.h kvec.h
++bwamem.o: malloc_wrap.h bwamem.h bwt.h bntseq.h bwa.h ksw.h kvec.h
+ bwamem.o: ksort.h utils.h kbtree.h
+-bwamem_extra.o: bwa.h bntseq.h bwt.h bwamem.h kstring.h malloc_wrap.h
+-bwamem_pair.o: kstring.h malloc_wrap.h bwamem.h bwt.h bntseq.h bwa.h kvec.h
++bwamem_extra.o: bwa.h bntseq.h bwt.h bwamem.h malloc_wrap.h
++bwamem_pair.o: malloc_wrap.h bwamem.h bwt.h bntseq.h bwa.h kvec.h
+ bwamem_pair.o: utils.h ksw.h
+ bwape.o: bwtaln.h bwt.h kvec.h malloc_wrap.h bntseq.h utils.h bwase.h bwa.h
+ bwape.o: ksw.h khash.h
+-bwase.o: bwase.h bntseq.h bwt.h bwtaln.h utils.h kstring.h malloc_wrap.h
++bwase.o: bwase.h bntseq.h bwt.h bwtaln.h utils.h malloc_wrap.h
+ bwase.o: bwa.h ksw.h
+ bwaseqio.o: bwtaln.h bwt.h utils.h bamlite.h malloc_wrap.h kseq.h
+ bwashm.o: bwa.h bntseq.h bwt.h
+@@ -92,12 +95,14 @@ example.o: bwamem.h bwt.h bntseq.h bwa.h kseq.h malloc_wrap.h
+ fastmap.o: bwa.h bntseq.h bwt.h bwamem.h kvec.h malloc_wrap.h utils.h kseq.h
+ is.o: malloc_wrap.h
+ kopen.o: malloc_wrap.h
+-kstring.o: kstring.h malloc_wrap.h
++ifneq ($(USE_HTSLIB),1)
++kstring.o: malloc_wrap.h
++endif
+ ksw.o: ksw.h neon_sse.h scalar_sse.h malloc_wrap.h
+-main.o: kstring.h malloc_wrap.h utils.h
++main.o: malloc_wrap.h utils.h
+ malloc_wrap.o: malloc_wrap.h
+ maxk.o: bwa.h bntseq.h bwt.h bwamem.h kseq.h malloc_wrap.h
+-pemerge.o: ksw.h kseq.h malloc_wrap.h kstring.h bwa.h bntseq.h bwt.h utils.h
++pemerge.o: ksw.h kseq.h malloc_wrap.h bwa.h bntseq.h bwt.h utils.h
+ rle.o: rle.h
+ rope.o: rle.h rope.h
+ utils.o: utils.h ksort.h malloc_wrap.h kseq.h
+-- 
+2.39.5 (Apple Git-154)
+

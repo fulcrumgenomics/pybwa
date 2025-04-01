@@ -42,7 +42,7 @@ cdef bytes force_bytes_with(
     elif PyUnicode_Check(s):
         return s.encode(encoding or TEXT_ENCODING, errors or ERROR_HANDLER)
     else:
-        raise TypeError("Argument must be string, bytes or unicode.")
+        raise TypeError("Argument must be a string, bytes or unicode.")
 
 cpdef bint _set_bwa_idx_verbosity(int level):
     """Set the BWA C-API verbosity, returning True if changed, false otherwise."""

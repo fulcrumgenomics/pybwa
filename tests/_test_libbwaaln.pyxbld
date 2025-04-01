@@ -1,0 +1,18 @@
+# link against pybwa
+def make_ext(modname, pyxfilename):
+    from distutils.extension import Extension
+    import pybwa
+    return Extension(name = modname,
+                     sources = [pyxfilename],
+                     include_dirs = pybwa._get_include(),
+                     extra_compile_args = [
+                         "-Wno-unused-result",
+                         "-Wno-unreachable-code",
+                         "-Wno-single-bit-bitfield-constant-conversion",
+                         "-Wno-deprecated-declarations",
+                         "-Wno-unused",
+                         "-Wno-strict-prototypes",
+                         "-Wno-sign-compare",
+                         "-Wno-error=declaration-after-statement"
+                     ],
+                     define_macros = pybwa._get_defines())

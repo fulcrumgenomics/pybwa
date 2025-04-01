@@ -15,7 +15,7 @@ from pybwa.libbwaindex import BwaIndex
 
 def test_get_includes() -> None:
     names = [Path(p).name for p in pybwa._get_include()]
-    assert names == ["pybwa", "bwa"]
+    assert names == ["pybwa", "htslib", "bwa"]
 
 
 def test_get_defines() -> None:

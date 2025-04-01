@@ -99,7 +99,7 @@ SOURCE_DIR = Path("pybwa")
 BUILD_DIR = Path("cython_build")
 compile_args = []
 link_args = []
-include_dirs = ["bwa", "pybwa", "htslib", os.path.dirname(pysam.__file__)]
+include_dirs = ["htslib", "bwa", "pybwa", os.path.dirname(pysam.__file__)]
 libraries = ["m", "z", "pthread", "lzma", "bz2", "curl", "deflate"]
 if platform.system() == "Linux":
     libraries.append("rt")
@@ -121,9 +121,11 @@ for root_dir in library_dirs:
     if root_dir == "htslib":  # these are added via extra_objects above
         continue
     exc = exclude_files.get(root_dir, {})
-    h_files.extend(str(x) for x in Path(root_dir).rglob("*.h") if "tests/" not in f"{x}")
+    h_files.extend(
+        str(x) for x in Path(root_dir).rglob("*.h") if "tests/" not in x.parts and x.name not in exc
+    )
     c_files.extend(
-        str(x) for x in Path(root_dir).rglob("*.c") if "tests/" not in f"{x}" and x.name not in exc
+        str(x) for x in Path(root_dir).rglob("*.c") if "tests/" not in x.parts and x.name not in exc
     )
 
 # Check if we should build with linetracing for coverage

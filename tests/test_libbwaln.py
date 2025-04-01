@@ -6,10 +6,13 @@ import pysam
 import pytest
 from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
+from utils import use_pyximport
 
 from pybwa import BwaAln
 from pybwa import BwaAlnOptions
 from pybwa import BwaIndex
+
+NO_PYXIMPORT: bool = not use_pyximport(libname="libbwaaln")
 
 
 def test_bwaaln_options() -> None:
@@ -61,6 +64,13 @@ def test_bwaaln_options() -> None:
 
     options.with_md = True
     assert options.with_md
+
+
+@pytest.mark.skipif(NO_PYXIMPORT, reason="no pyximport")
+def test_bwaaln_options_default() -> None:
+    import _test_libbwaaln
+
+    _test_libbwaaln.test_bwaaln_options_default()
 
 
 def test_bwaaln_load_index(e_coli_k12_fasta: Path) -> None:
@@ -297,7 +307,10 @@ def test_bwaaln_with_deletion(
     )
     e_coli_k12_fastx_record = FastxRecord(name=e_coli_k12_fastx_record.name, sequence=sequence)
 
-    opt = BwaAlnOptions(max_gap_extensions=max_gap_extensions)
+    if max_gap_extensions is None:
+        opt = BwaAlnOptions()
+    else:
+        opt = BwaAlnOptions(max_gap_extensions=max_gap_extensions)
     recs = bwa.align(opt=opt, queries=[e_coli_k12_fastx_record])
     assert len(recs) == 1
     rec = recs[0]
