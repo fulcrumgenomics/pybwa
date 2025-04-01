@@ -42,20 +42,20 @@ cdef class BwaAlnOptions:
     """The container for options for :class:`pybwa.BwaAln`.
     
     Args:
-        max_mismatches (int | None): :code:`-n <int>`
-        max_gap_opens (int | None): :code:`-o <int>`
-        max_gap_extensions (int | None): :code:`-e <int>`
-        min_indel_to_end_distance (int | None): :code:`-i <int>`
-        max_occurrences_for_extending_long_deletion (int | None): :code:`-d <int>`
-        seed_length (int | None): :code:`-l <int>`
-        max_mismatches_in_seed (int | None): :code:`-k <int>`
-        mismatch_penalty (int | None): :code:`-M <int>`
-        gap_open_penalty (int | None): :code:`-O <int>`
-        gap_extension_penalty (int | None): :code:`-E <int>`
-        stop_at_max_best_hits (int | None): :code:`-R <int>`
-        max_hits (int | None): :code:`bwa samse -n <int>`
-        log_scaled_gap_penalty (bool | None): :code:`-L`
-        find_all_hits (bool | None): :code:`-N`
+        max_mismatches (int): :code:`-n <int>`
+        max_gap_opens (int): :code:`-o <int>`
+        max_gap_extensions (int): :code:`-e <int>`
+        min_indel_to_end_distance (int): :code:`-i <int>`
+        max_occurrences_for_extending_long_deletion (int): :code:`-d <int>`
+        seed_length (int): :code:`-l <int>`
+        max_mismatches_in_seed (int): :code:`-k <int>`
+        mismatch_penalty (int): :code:`-M <int>`
+        gap_open_penalty (int): :code:`-O <int>`
+        gap_extension_penalty (int): :code:`-E <int>`
+        stop_at_max_best_hits (int): :code:`-R <int>`
+        max_hits (int): :code:`bwa samse -n <int>`
+        log_scaled_gap_penalty (bool): :code:`-L`
+        find_all_hits (bool): :code:`-N`
         with_md (bool): output the MD to each alignment in the XA tag, otherwise use :code:`"."`
         threads (int): the number of threads to use
     """
@@ -64,56 +64,65 @@ cdef class BwaAlnOptions:
     _max_hits: int
     _with_md: bool
 
+    # The `_delegate` attribute of this class is an instance of BWA's `gap_opt_t` struct.
+    # https://github.com/lh3/bwa/blob/b92993c1161e73167181558856567ef2f367e3f0/bwtaln.c#L24
+    #
+    # Mappings between the properties of this class and the members of the `gap_opt_t` struct are as
+    # follows:
+    #
+    # `BwaAlnOptions` property                    | `gap_opt_t` member
+    # ----------------------------------------------------------------
+    # max_mismatches                              | max_diff
+    # max_gap_opens                               | max_gapo
+    # max_gap_extensions                          | max_gape
+    # min_indel_to_end_distance                   | indel_end_skip
+    # max_occurrences_for_extending_long_deletion | max_del_occ
+    # seed_length                                 | seed_len
+    # max_mismatches_in_seed                      | max_seed_diff
+    # mismatch_penalty                            | s_mm
+    # gap_open_penalty                            | s_gapo
+    # gap_extension_penalty                       | s_gape
+    # stop_at_max_best_hits                       | max_top2
+    # max_hits                                    | <not a member>
+    # log_scaled_gap_penalty                      | mode (bitwise flag)
+    # find_all_hits                               | mode (bitwise flag)
+    # with_md                                     | <not a member>
+    # threads                                     | n_threads
+
     def __init__(self,
-                 max_mismatches: int | None = None,
-                 max_gap_opens: int | None = None,
-                 max_gap_extensions: int | None = None,
-                 min_indel_to_end_distance: int | None = None,
-                 max_occurrences_for_extending_long_deletion: int | None = None,
-                 seed_length: int | None = None,
-                 max_mismatches_in_seed: int | None = None,
-                 mismatch_penalty: int | None = None,
-                 gap_open_penalty: int | None = None,
-                 gap_extension_penalty: int | None = None,
-                 stop_at_max_best_hits: int | None = None,
-                 max_hits: int | None = 3,
-                 log_scaled_gap_penalty: bool | None = None,
-                 find_all_hits: bool | None = None,
-                 with_md: bool | None = False,
-                 threads: int | None = None
+                 max_mismatches: int = -1,
+                 max_gap_opens: int = 1,
+                 max_gap_extensions: int = 6,
+                 min_indel_to_end_distance: int = 5,
+                 max_occurrences_for_extending_long_deletion: int = 10,
+                 seed_length: int = 32,
+                 max_mismatches_in_seed: int = 2,
+                 mismatch_penalty: int = 3,
+                 gap_open_penalty: int = 11,
+                 gap_extension_penalty: int = 4,
+                 stop_at_max_best_hits: int = 30,
+                 max_hits: int | None = None,
+                 log_scaled_gap_penalty: bool = False,
+                 find_all_hits: bool = False,
+                 with_md: bool = False,
+                 threads: int = 1,
                  ):
-        if max_mismatches is not None:
-            self.max_mismatches = max_mismatches
-        if max_gap_opens is not None:
-            self.max_gap_opens = max_gap_opens
-        if max_gap_extensions is not None:
-            self.max_gap_extensions = max_gap_extensions
-        if min_indel_to_end_distance is not None:
-            self.min_indel_to_end_distance = min_indel_to_end_distance
-        if max_occurrences_for_extending_long_deletion is not None:
-            self.max_occurrences_for_extending_long_deletion = max_occurrences_for_extending_long_deletion
-        if seed_length is not None:
-            self.seed_length = seed_length
-        if max_mismatches_in_seed is not None:
-            self.max_mismatches_in_seed = max_mismatches_in_seed
-        if mismatch_penalty is not None:
-            self.mismatch_penalty = mismatch_penalty
-        if gap_open_penalty is not None:
-            self.gap_open_penalty = gap_open_penalty
-        if gap_extension_penalty is not None:
-            self.gap_extension_penalty = gap_extension_penalty
-        if stop_at_max_best_hits is not None:
-            self.stop_at_max_best_hits = stop_at_max_best_hits
-        if max_hits is not None:
-            self.max_hits = max_hits
-        if log_scaled_gap_penalty is not None:
-            self.log_scaled_gap_penalty = log_scaled_gap_penalty
-        if find_all_hits is not None:
-            self.find_all_hits = find_all_hits
-        if with_md is not None:
-            self.with_md = with_md
-        if threads is not None:
-            self.threads = threads
+        self.max_mismatches = max_mismatches
+        self.max_gap_opens = max_gap_opens
+        self.max_gap_extensions = max_gap_extensions
+        self.min_indel_to_end_distance = min_indel_to_end_distance
+        self.max_occurrences_for_extending_long_deletion = max_occurrences_for_extending_long_deletion
+        self.seed_length = seed_length
+        self.max_mismatches_in_seed = max_mismatches_in_seed
+        self.mismatch_penalty = mismatch_penalty
+        self.gap_open_penalty = gap_open_penalty
+        self.gap_extension_penalty = gap_extension_penalty
+        self.stop_at_max_best_hits = stop_at_max_best_hits
+        self.max_hits = max_hits
+        self.log_scaled_gap_penalty = log_scaled_gap_penalty
+        self.find_all_hits = find_all_hits
+        self.with_md = with_md
+        self.threads = threads
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
