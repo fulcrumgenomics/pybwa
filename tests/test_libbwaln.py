@@ -6,13 +6,10 @@ import pysam
 import pytest
 from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
-from utils import use_pyximport
 
 from pybwa import BwaAln
 from pybwa import BwaAlnOptions
 from pybwa import BwaIndex
-
-NO_PYXIMPORT: bool = not use_pyximport(libname="libbwaaln")
 
 
 def test_bwaaln_options() -> None:
@@ -66,11 +63,10 @@ def test_bwaaln_options() -> None:
     assert options.with_md
 
 
-@pytest.mark.skipif(NO_PYXIMPORT, reason="no pyximport")
 def test_bwaaln_options_default() -> None:
-    import _test_libbwaaln
+    from pybwa.libbwaaln import _assert_gap_opt_are_the_same
 
-    _test_libbwaaln.test_bwaaln_options_default()
+    _assert_gap_opt_are_the_same()
 
 
 def test_bwaaln_load_index(e_coli_k12_fasta: Path) -> None:

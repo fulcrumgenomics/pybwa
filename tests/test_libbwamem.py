@@ -4,14 +4,11 @@ import pytest
 from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
 from pysam import array_to_qualitystring
-from utils import use_pyximport
 
 from pybwa import BwaIndex
 from pybwa.libbwamem import BwaMem
 from pybwa.libbwamem import BwaMemMode
 from pybwa.libbwamem import BwaMemOptions
-
-NO_PYXIMPORT: bool = not use_pyximport(libname="libbwamem")
 
 
 def test_bwamem_options_not_finalized() -> None:
@@ -164,11 +161,10 @@ def test_bwamem_options_mode() -> None:
     assert opt.min_seeded_bases_in_chain == 40
 
 
-@pytest.mark.skipif(NO_PYXIMPORT, reason="no pyximport")
 def test_bwamem_options_default() -> None:
-    import _test_libbwamem
+    from pybwa.libbwamem import _assert_mem_opt_are_the_same
 
-    _test_libbwamem.test_bwamem_options_default()
+    _assert_mem_opt_are_the_same()
 
 
 def test_bwamem2(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:
