@@ -1,0 +1,40 @@
+name: testing git-cliff
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "!**"
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  make-changelog:
+    runs-on: ubuntu-24.04
+    outputs:
+      release_body: ${{ steps.git-cliff.outputs.content }}
+    steps:
+      - name: Checkout the Repository at the Tagged Commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          submodules: 'recursive'
+
+      - name: Generate a Changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: pyproject.toml
+          args: --latest --verbose
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+          OUTPUT: CHANGELOG.md
+
+      - name: Print the changelog
+        run: cat "${{ steps.git-cliff.outputs.changelog }}"
+
+
+
