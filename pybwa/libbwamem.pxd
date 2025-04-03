@@ -51,7 +51,7 @@ cdef extern from "bntseq.h":
 
     unsigned char nst_nt4_table[256]
 
-cdef extern from "kstring.h":
+cdef extern from "htslib/kstring.h":
     ctypedef struct kstring_t:
         size_t l, m
         char *s
@@ -150,3 +150,12 @@ cdef extern from "htslib/sam.h":
         char *text
 
     sam_hdr_t *sam_hdr_parse(size_t l_text, const char *text)
+
+cdef class BwaMemOptions:
+    """The container for options for :class:`~pybwa.BwaMem`."""
+    cdef public object _finalized
+    cdef public object  _ignore_alt
+    cdef public object _mode
+    cdef mem_opt_t* _options
+    cdef mem_opt_t* _options0
+    cdef mem_opt_t* mem_opt(self)

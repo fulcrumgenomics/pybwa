@@ -1,40 +1,20 @@
-import os
 import re
 import shutil
-import sysconfig
 from pathlib import Path
 from typing import Union
 
 import pytest
+from utils import use_pyximport
 
 from pybwa import BwaIndex
 
-so_ext = sysconfig.get_config_var("EXT_SUFFIX")
-so = os.path.join("tests", "_test_libbwaindex" + so_ext)
-
-try:
-    os.unlink("tests/_test_libbwaindex.c")
-    os.unlink("tests/_test_libbwaindex.pyxbldc")
-    os.unlink(so)
-except OSError:
-    pass
-
-NO_PYXIMPORT = False
-try:
-    import ctypes
-
-    import pyximport
-
-    retval = pyximport.install(build_in_temp=False, inplace=True)
-    ctypes.cdll.LoadLibrary(so)
-    import _test_libbwaindex
-except Exception as ex:
-    print(f"Cannot import pyximport: {ex}")
-    NO_PYXIMPORT = True
+NO_PYXIMPORT: bool = not use_pyximport(libname="libbwaindex")
 
 
 @pytest.mark.skipif(NO_PYXIMPORT, reason="no pyximport")
 def test_force_bytes_with() -> None:
+    import _test_libbwaindex
+
     _test_libbwaindex.test_force_bytes_with()
 
 

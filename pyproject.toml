@@ -124,7 +124,7 @@ enable_error_code           = "ignore-without-code"
 exclude                     = ["site/", "docs/"]
 
 [[tool.mypy.overrides]]
-module = ["pyximport.*", "_test_libbwaindex"]
+module = ["pyximport.*", "_test_libbwaindex", "_test_libbwaaln", "_test_libbwamem"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

@@ -59,28 +59,24 @@ cdef class BwaAlnOptions:
         with_md (bool): output the MD to each alignment in the XA tag, otherwise use :code:`"."`
         threads (int): the number of threads to use
     """
-    cdef gap_opt_t * _delegate
-
-    _max_hits: int
-    _with_md: bool
 
     def __init__(self,
-                 max_mismatches: int | None = None,
-                 max_gap_opens: int | None = None,
-                 max_gap_extensions: int | None = None,
-                 min_indel_to_end_distance: int | None = None,
-                 max_occurrences_for_extending_long_deletion: int | None = None,
-                 seed_length: int | None = None,
-                 max_mismatches_in_seed: int | None = None,
-                 mismatch_penalty: int | None = None,
-                 gap_open_penalty: int | None = None,
-                 gap_extension_penalty: int | None = None,
-                 stop_at_max_best_hits: int | None = None,
-                 max_hits: int | None = 3,
-                 log_scaled_gap_penalty: bool | None = None,
-                 find_all_hits: bool | None = None,
-                 with_md: bool | None = False,
-                 threads: int | None = None
+                 max_mismatches: int = -1,
+                 max_gap_opens: int = 1,
+                 max_gap_extensions: int = 6,
+                 min_indel_to_end_distance: int = 5,
+                 max_occurrences_for_extending_long_deletion: int = 10,
+                 seed_length: int = 32,
+                 max_mismatches_in_seed: int = 2,
+                 mismatch_penalty: int = 3,
+                 gap_open_penalty: int = 11,
+                 gap_extension_penalty: int = 4,
+                 stop_at_max_best_hits: int = 30,
+                 max_hits: int = 3,
+                 log_scaled_gap_penalty: bool = False,
+                 find_all_hits: bool = False,
+                 with_md: bool = False,
+                 threads: int = 1
                  ):
         if max_mismatches is not None:
             self.max_mismatches = max_mismatches
@@ -88,6 +84,12 @@ cdef class BwaAlnOptions:
             self.max_gap_opens = max_gap_opens
         if max_gap_extensions is not None:
             self.max_gap_extensions = max_gap_extensions
+            # this mimics the behavior in bwtaln.c, where the default # of gap extensions is 6
+            # and BWA_MODE_GAPE is set.  But when a value is given on the command line, then
+            # BWA_MODE_GAPE is unset.  So in this constructor if the default value is given, then
+            # we keep BWA_MODE_GAPE set, and if this parameter is set via the setter, we unset it.
+            if max_gap_extensions == 6:
+                self._delegate.mode |= BWA_MODE_GAPE
         if min_indel_to_end_distance is not None:
             self.min_indel_to_end_distance = min_indel_to_end_distance
         if max_occurrences_for_extending_long_deletion is not None:
@@ -130,8 +132,12 @@ cdef class BwaAlnOptions:
         def __get__(self) -> int:
             return self._delegate.max_diff
         def __set__(self, value: int):
-            self._delegate.fnr = -1.0
-            self._delegate.max_diff = value
+            if value >= 0:
+                self._delegate.fnr = -1.0
+                self._delegate.max_diff = value
+            else:
+                self._delegate.max_diff = -1
+                self._delegate.fnr = 0.04
 
     property max_gap_opens:
         """:code:`bwa aln -o <int>`"""

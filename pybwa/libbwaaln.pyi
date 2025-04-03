@@ -9,22 +9,22 @@ from pybwa.libbwaindex import BwaIndex
 class BwaAlnOptions:
     def __init__(
         self,
-        max_mismatches: int | None = None,
-        max_gap_opens: int | None = None,
-        max_gap_extensions: int | None = None,
-        min_indel_to_end_distance: int | None = None,
-        max_occurrences_for_extending_long_deletion: int | None = None,
-        seed_length: int | None = None,
-        max_mismatches_in_seed: int | None = None,
-        mismatch_penalty: int | None = None,
-        gap_open_penalty: int | None = None,
-        gap_extension_penalty: int | None = None,
-        stop_at_max_best_hits: int | None = None,
-        max_hits: int | None = 3,
-        log_scaled_gap_penalty: bool | None = None,
-        find_all_hits: bool | None = None,
-        with_md: bool | None = None,
-        threads: int | None = None,
+        max_mismatches: int = -1,
+        max_gap_opens: int = 1,
+        max_gap_extensions: int = 6,
+        min_indel_to_end_distance: int = 5,
+        max_occurrences_for_extending_long_deletion: int = 10,
+        seed_length: int = 32,
+        max_mismatches_in_seed: int = 2,
+        mismatch_penalty: int = 3,
+        gap_open_penalty: int = 11,
+        gap_extension_penalty: int = 4,
+        stop_at_max_best_hits: int = 30,
+        max_hits: int = 3,
+        log_scaled_gap_penalty: bool = False,
+        find_all_hits: bool = False,
+        with_md: bool = False,
+        threads: int = 1,
     ) -> None: ...
     max_mismatches: int  # -n <int>
     # fnr:float # -n <float>
@@ -45,6 +45,8 @@ class BwaAlnOptions:
     threads: int  # -t <int>
 
 class BwaAln:
+    _max_hits: int
+    _with_md: bool
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...
     def align(
         self, queries: List[FastxRecord] | List[str], opt: BwaAlnOptions | None = None

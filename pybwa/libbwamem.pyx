@@ -61,7 +61,6 @@ cdef class BwaMemOptions:
         mismatch_penalty (int): :code:`bwa mem -B <int>`
         minimum_score (int): :code:`bwa mem -T <int>`
         unpaired_penalty (int): :code:`bwa mem -U <int>`
-        n_threads (int): :code:`bwa mem -t <int>`
         skip_pairing (bool): :code:`bwa mem -P`
         output_all_for_fragments (bool): :code:`bwa mem -a`
         interleaved_paired_end (bool): :code:`bwa mem -p`
@@ -85,12 +84,9 @@ cdef class BwaMemOptions:
         gap_open_penalty (int | tuple[int, int]): :code:`bwa mem -O <int<,int>>`
         gap_extension_penalty (int | tuple[int, int]): :code:`bwa mem -E <int<,int>>`
         clipping_penalty (int | tuple[int, int]): :code:`bwa mem -L <int<,int>>`
+        threads (int): :code:`bwa mem -t <int>`
+        chunk_size (int): :code:`bwa mem -K <int>`
     """
-    _finalized: bool
-    _ignore_alt: bool
-    _mode: BwaMemMode | None
-    cdef mem_opt_t* _options
-    cdef mem_opt_t* _options0
 
     def _assert_not_finalized(self, attr_name: str) -> None:
         """Raises an AttributeError if the options have been finalized.
@@ -103,39 +99,38 @@ cdef class BwaMemOptions:
             raise AttributeError(f"can't set attribute: {attr_name}")
 
     def __init__(self,
-                 min_seed_len: int | None = None,
-                 mode: BwaMemMode | None = None,
-                 band_width: int | None = None,
-                 match_score: int | None = None,
-                 mismatch_penalty: int | None = None,
-                 minimum_score: int | None = None,
-                 unpaired_penalty: int | None = None,
-                 n_threads: int | None = None,
-                 skip_pairing: bool | None = None,
-                 output_all_for_fragments: bool | None = None,
-                 interleaved_paired_end: bool | None = None,
-                 short_split_as_secondary: bool | None = None,
-                 skip_mate_rescue: bool | None = None,
-                 soft_clip_supplementary: bool | None = None,
-                 with_xr_tag: bool | None = None,
-                 query_coord_as_primary: bool | None = None,
-                 keep_mapq_for_supplementary: bool | None = None,
-                 with_xb_tag: bool | None = None,
-                 max_occurrences: int | None = None,
-                 off_diagonal_x_dropoff: int | None = None,
-                 ignore_alternate_contigs: bool | None = None,
-                 internal_seed_split_factor: float | None = None,
-                 drop_chain_fraction: float | None = None,
-                 max_mate_rescue_rounds: int | None = None,
-                 min_seeded_bases_in_chain: int | None = None,
-                 seed_occurrence_in_3rd_round: int | None = None,
-                 xa_max_hits: int | tuple[int, int] | None = None,
-                 xa_drop_ratio: float | None = None,
-                 gap_open_penalty: int | tuple[int, int] | None = None,
-                 gap_extension_penalty: int | tuple[int, int] | None = None,
-                 clipping_penalty: int | tuple[int, int] | None = None,
-                 threads: int | None = None,
-                 chunk_size: int | None = None) -> None:
+                 min_seed_len: int = 19,
+                 mode: BwaMemMode = None,
+                 band_width: int = 100,
+                 match_score: int = 1,
+                 mismatch_penalty: int = 4,
+                 minimum_score: int = 30,
+                 unpaired_penalty: int = 17,
+                 skip_pairing: bool = False,
+                 output_all_for_fragments: bool = False,
+                 interleaved_paired_end: bool = False,
+                 short_split_as_secondary: bool = False,
+                 skip_mate_rescue: bool = False,
+                 soft_clip_supplementary: bool = False,
+                 with_xr_tag: bool = False,
+                 query_coord_as_primary: bool = False,
+                 keep_mapq_for_supplementary: bool = False,
+                 with_xb_tag: bool = False,
+                 max_occurrences: int = 500,
+                 off_diagonal_x_dropoff: int = 100,
+                 ignore_alternate_contigs: bool = False,
+                 internal_seed_split_factor: float = 1.5,
+                 drop_chain_fraction: float = 0.50,
+                 max_mate_rescue_rounds: int = 50,
+                 min_seeded_bases_in_chain: int = 0,
+                 seed_occurrence_in_3rd_round: int = 20,
+                 xa_max_hits: int | tuple[int, int] = (5, 200),
+                 xa_drop_ratio: float = 0.80,
+                 gap_open_penalty: int | tuple[int, int] = 6,
+                 gap_extension_penalty: int | tuple[int, int] = 1,
+                 clipping_penalty: int | tuple[int, int] = 5,
+                 threads: int = 1,
+                 chunk_size: int = 10_000_000) -> None:
         self._finalized = False
         self._ignore_alt = False
         self._mode = None
@@ -155,6 +150,7 @@ cdef class BwaMemOptions:
         self._options0.split_factor = 0
         self._options0.min_chain_weight = 0
         self._options0.min_seed_len = 0
+        self._options0.chunk_size = 0
 
         if min_seed_len is not None:
             self.min_seed_len = min_seed_len
@@ -170,8 +166,6 @@ cdef class BwaMemOptions:
             self.minimum_score = minimum_score
         if unpaired_penalty is not None:
             self.unpaired_penalty = unpaired_penalty
-        if n_threads is not None:
-            self.n_threads = n_threads
         if skip_pairing is not None:
             self.skip_pairing = skip_pairing
         if output_all_for_fragments is not None:
@@ -339,8 +333,9 @@ cdef class BwaMemOptions:
     @min_seed_len.setter
     def min_seed_len(self, value: int):
         self._assert_not_finalized(attr_name=BwaMemOptions.min_seed_len.__name__)
-        self._options.min_seed_len = value
-        self._options0.min_seed_len = 1
+        if self._options.min_seed_len != value:
+            self._options.min_seed_len = value
+            self._options0.min_seed_len = 1
 
     @property
     def mode(self) -> BwaMemMode | None:
@@ -360,8 +355,9 @@ cdef class BwaMemOptions:
     @band_width.setter
     def band_width(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.band_width.__name__)
-        self._options.w = value
-        self._options0.w = 1
+        if self._options.w != value:
+            self._options.w = value
+            self._options0.w = 1
 
     @property
     def match_score(self) -> int:
@@ -372,8 +368,9 @@ cdef class BwaMemOptions:
     @match_score.setter
     def match_score(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.match_score.__name__)
-        self._options.a = value
-        self._options0.a = 1
+        if self._options.a != value:
+            self._options.a = value
+            self._options0.a = 1
 
     @property
     def mismatch_penalty(self) -> int:
@@ -383,8 +380,9 @@ cdef class BwaMemOptions:
     @mismatch_penalty.setter
     def mismatch_penalty(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.mismatch_penalty.__name__)
-        self._options.b = value
-        self._options0.b = 1
+        if self._options.b != value:
+            self._options.b = value
+            self._options0.b = 1
 
     @property
     def minimum_score(self) -> int:
@@ -394,8 +392,9 @@ cdef class BwaMemOptions:
     @minimum_score.setter
     def minimum_score(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.minimum_score.__name__)
-        self._options.T = value
-        self._options0.T = 1
+        if self._options.T != value:
+            self._options.T = value
+            self._options0.T = 1
 
     @property
     def unpaired_penalty(self) -> int:
@@ -405,18 +404,9 @@ cdef class BwaMemOptions:
     @unpaired_penalty.setter
     def unpaired_penalty(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.unpaired_penalty.__name__)
-        self._options.pen_unpaired = value
-        self._options0.pen_unpaired = 1
-
-    @property
-    def n_threads(self) -> int:
-        """:code:`bwa mem -t <int>`"""
-        return self._options.n_threads
-
-    @n_threads.setter
-    def n_threads(self, value: int) -> None:
-        self._assert_not_finalized(attr_name=BwaMemOptions.n_threads.__name__)
-        self._options.n_threads = value if value > 1 else 1
+        if self._options.pen_unpaired != value:
+            self._options.pen_unpaired = value
+            self._options0.pen_unpaired = 1
 
     def _set_flag(self, value: bool, flag: int):
         if value:
@@ -533,8 +523,9 @@ cdef class BwaMemOptions:
     @max_occurrences.setter
     def max_occurrences(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.max_occurrences.__name__)
-        self._options.max_occ = value
-        self._options0.max_occ = 1
+        if self._options.max_occ != value:
+            self._options.max_occ = value
+            self._options0.max_occ = 1
 
     @property
     def off_diagonal_x_dropoff(self) -> int:
@@ -544,8 +535,9 @@ cdef class BwaMemOptions:
     @off_diagonal_x_dropoff.setter
     def off_diagonal_x_dropoff(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.off_diagonal_x_dropoff.__name__)
-        self._options.zdrop = value
-        self._options0.zdrop = 1
+        if self._options.zdrop != value:
+            self._options.zdrop = value
+            self._options0.zdrop = 1
 
     @property
     def ignore_alternate_contigs(self) -> bool:
@@ -565,8 +557,9 @@ cdef class BwaMemOptions:
     @internal_seed_split_factor.setter
     def internal_seed_split_factor(self, value: float) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.internal_seed_split_factor.__name__)
-        self._options.split_factor = value
-        self._options0.split_factor = 1
+        if self._options.split_factor != value:
+            self._options.split_factor = value
+            self._options0.split_factor = 1
 
     @property
     def drop_chain_fraction(self) -> float:
@@ -576,8 +569,9 @@ cdef class BwaMemOptions:
     @drop_chain_fraction.setter
     def drop_chain_fraction(self, value: float) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.drop_chain_fraction.__name__)
-        self._options.drop_ratio = value
-        self._options0.drop_ratio = 1
+        if self._options.drop_ratio != value:
+            self._options.drop_ratio = value
+            self._options0.drop_ratio = 1
 
     @property
     def max_mate_rescue_rounds(self) -> int:
@@ -587,8 +581,9 @@ cdef class BwaMemOptions:
     @max_mate_rescue_rounds.setter
     def max_mate_rescue_rounds(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.max_mate_rescue_rounds.__name__)
-        self._options.max_matesw = value
-        self._options0.max_matesw = 1
+        if self._options.max_matesw != value:
+            self._options.max_matesw = value
+            self._options0.max_matesw = 1
 
     @property
     def min_seeded_bases_in_chain(self) -> int:
@@ -598,8 +593,9 @@ cdef class BwaMemOptions:
     @min_seeded_bases_in_chain.setter
     def min_seeded_bases_in_chain(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.min_seeded_bases_in_chain.__name__)
-        self._options.min_chain_weight = value
-        self._options0.min_chain_weight = 1
+        if self._options.min_chain_weight != value:
+            self._options.min_chain_weight = value
+            self._options0.min_chain_weight = 1
 
     @property
     def seed_occurrence_in_3rd_round(self) -> int:
@@ -609,8 +605,9 @@ cdef class BwaMemOptions:
     @seed_occurrence_in_3rd_round.setter
     def seed_occurrence_in_3rd_round(self, value: int) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.seed_occurrence_in_3rd_round.__name__)
-        self._options.max_mem_intv = value
-        self._options0.max_mem_intv = 1
+        if self._options.max_mem_intv != value:
+            self._options.max_mem_intv = value
+            self._options0.max_mem_intv = 1
 
     @property
     def xa_max_hits(self) -> int | tuple[int, int]:
@@ -623,15 +620,16 @@ cdef class BwaMemOptions:
     @xa_max_hits.setter
     def xa_max_hits(self, value: int | tuple[int, int]) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.xa_max_hits.__name__)
-        self._options0.max_XA_hits = 1
-        self._options0.max_XA_hits_alt = 1
         if isinstance(value, int):
-            self._options.max_XA_hits = value
-            self._options.max_XA_hits_alt = value
+            max_XA_hits = max_XA_hits_alt = value
         else:
-            left, right = value
-            self._options.max_XA_hits = left
-            self._options.max_XA_hits_alt = right
+            max_XA_hits, max_XA_hits_alt = value
+        if self._options.max_XA_hits != max_XA_hits:
+            self._options.max_XA_hits = max_XA_hits
+            self._options0.max_XA_hits = 1
+        if self._options.max_XA_hits_alt != max_XA_hits_alt:
+            self._options0.max_XA_hits_alt = 1
+            self._options.max_XA_hits_alt = max_XA_hits_alt
 
     @property
     def xa_drop_ratio(self) -> float:
@@ -654,14 +652,15 @@ cdef class BwaMemOptions:
     @gap_open_penalty.setter
     def gap_open_penalty(self, value: int | tuple[int, int]) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.gap_open_penalty.__name__)
-        self._options0.o_del = 1
-        self._options0.o_ins = 1
         if isinstance(value, int):
-            self._options.o_del = value
-            self._options.o_ins = value
+            deletions = insertions = value
         else:
             deletions, insertions = value
+        if self._options.o_del != deletions:
             self._options.o_del = deletions
+            self._options0.o_del = 1
+        if self._options.o_ins != insertions:
+            self._options0.o_ins = 1
             self._options.o_ins = insertions
 
     @property
@@ -675,14 +674,15 @@ cdef class BwaMemOptions:
     @gap_extension_penalty.setter
     def gap_extension_penalty(self, value: int | tuple[int, int]) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.gap_extension_penalty.__name__)
-        self._options0.e_del = 1
-        self._options0.e_ins = 1
         if isinstance(value, int):
-            self._options.e_del = value
-            self._options.e_ins = value
+            deletions = insertions = value
         else:
             deletions, insertions = value
+        if self._options.e_del != deletions:
             self._options.e_del = deletions
+            self._options0.e_del = 1
+        if self._options.e_ins != insertions:
+            self._options0.e_ins = 1
             self._options.e_ins = insertions
 
     @property
@@ -696,14 +696,15 @@ cdef class BwaMemOptions:
     @clipping_penalty.setter
     def clipping_penalty(self, value: int | tuple[int, int]) -> None:
         self._assert_not_finalized(attr_name=BwaMemOptions.clipping_penalty.__name__)
-        self._options0.pen_clip5 = 1
-        self._options0.pen_clip3 = 1
         if isinstance(value, int):
-            self._options.pen_clip5 = value
-            self._options.pen_clip3 = value
+            five_prime = three_prime = value
         else:
             five_prime, three_prime = value
+        if self._options.pen_clip5 != five_prime:
             self._options.pen_clip5 = five_prime
+            self._options0.pen_clip5 = 1
+        if self._options.pen_clip3 != three_prime:
+            self._options0.pen_clip3 = 1
             self._options.pen_clip3 = three_prime
 
     @property
@@ -722,8 +723,9 @@ cdef class BwaMemOptions:
 
     @chunk_size.setter
     def chunk_size(self, value: int) -> None:
-        self._options0.chunk_size = 1
-        self._options.chunk_size = value
+        if self._options.chunk_size != value:
+            self._options0.chunk_size = 1
+            self._options.chunk_size = value
 
 
 cdef class BwaMem:
