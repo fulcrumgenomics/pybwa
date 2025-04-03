@@ -13,7 +13,7 @@ __all__ = [
 # class syntax
 @enum.unique
 class BwaVerbosity(enum.IntEnum):
-    """The verbosity level for the BWA C-API"""
+    """The verbosity level for the BWA C-API."""
 
     QUIET = 0
     ERROR = 1
@@ -23,6 +23,7 @@ class BwaVerbosity(enum.IntEnum):
 
 
 def set_bwa_verbosity(level: BwaVerbosity) -> bool:
+    """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
     changed = _set_bwa_idx_verbosity(level)
     changed |= _set_bwa_mem_verbosity(level)
     changed |= _set_bwa_aln_verbosity(level)

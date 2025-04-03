@@ -10,7 +10,7 @@ from pybwa.libbwaindex import BwaIndex
 # class syntax
 @enum.unique
 class BwaMemMode(enum.Enum):
-    """The read type for overriding multiple options"""
+    """The read type for overriding multiple options."""
 
     PACBIO = enum.auto()
     ONT2D = enum.auto()
@@ -200,3 +200,4 @@ class BwaMem:
 
 def _set_bwa_mem_verbosity(level: int) -> bool: ...
 def _assert_mem_opt_are_the_same() -> None: ...
+def _call_mem_opt_when_not_finalized() -> None: ...

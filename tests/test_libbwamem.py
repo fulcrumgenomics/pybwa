@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,15 @@ def test_bwamem_options_not_finalized() -> None:
     opt = BwaMemOptions().finalize()
     with pytest.raises(AttributeError):
         opt.min_seed_len = 2
+
+
+def test_mem_opt_when_not_finalized() -> None:
+    from pybwa.libbwamem import _call_mem_opt_when_not_finalized
+
+    with pytest.raises(
+        Exception, match=re.escape("Cannot call `mem_opt` until `finalize()` is called")
+    ):
+        _call_mem_opt_when_not_finalized()
 
 
 def test_bwamem_options_set() -> None:
@@ -218,7 +228,7 @@ def test_bwamem2(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -
                 assert rec.has_tag(tag), f"Missing tag {tag} in: {rec}"
 
 
-def test_bwamem_from_index(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:
+def test_bwamem_from_index(e_coli_k12_fasta: Path) -> None:
     index = BwaIndex(prefix=e_coli_k12_fasta)
     BwaMem(index=index)
 

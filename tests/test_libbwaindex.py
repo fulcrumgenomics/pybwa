@@ -50,16 +50,12 @@ def test_bwa_index_build(
 
 
 @pytest.mark.parametrize("prefix_as_str", [True, False])
-def test_bwa_index_load(
-    e_coli_k12_fasta: Path, tmp_path_factory: pytest.TempPathFactory, prefix_as_str: bool
-) -> None:
+def test_bwa_index_load(e_coli_k12_fasta: Path, prefix_as_str: bool) -> None:
     prefix = f"{e_coli_k12_fasta}" if prefix_as_str else e_coli_k12_fasta
     BwaIndex(prefix=prefix)
 
 
-def test_bwa_index_load_path_does_not_exist(
-    e_coli_k12_fasta: Path, tmp_path_factory: pytest.TempPathFactory
-) -> None:
+def test_bwa_index_load_path_does_not_exist() -> None:
     # does not load when the prefix does not exist
     with pytest.raises(FileNotFoundError, match=r"could not locate the index file \[prefix\]:.*"):
         BwaIndex(prefix="/path/does/not/exist")

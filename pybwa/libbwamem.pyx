@@ -21,16 +21,6 @@ __all__ = [
     "BwaMem",
 ]
 
-cdef int _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[5]
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[0] = CMATCH
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[1] = CINS
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[2] = CDEL
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[3] = CSOFT_CLIP
-_BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[4] = CHARD_CLIP
-
-cdef inline int _to_pysam_cigar_op(int x):
-    return _BWA_MEM_TO_PYSAM_CIGAR_OPERATOR[x]
-
 
 cpdef bint _set_bwa_mem_verbosity(int level):
     """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
@@ -792,10 +782,6 @@ cdef class BwaMem:
 
         return results
     
-    @staticmethod
-    def __to_str(_bytes: bytes) -> str:
-        return _bytes.decode('utf-8')
-
     cdef _copy_seq(self, q: FastxRecord, bseq1_t *s):
 
         # name
@@ -936,3 +922,12 @@ cdef _assert_mem_opt_are_the_same_c():
 def _assert_mem_opt_are_the_same() -> None:
     """Tests that the defaults are synced between bwa and pybwa."""
     _assert_mem_opt_are_the_same_c()
+
+
+cdef _call_mem_opt_when_not_finalized_c():
+    options = BwaMemOptions()
+    assert options.mem_opt() != NULL  # this should except since it is not finalized
+
+
+def _call_mem_opt_when_not_finalized() -> None:
+    _call_mem_opt_when_not_finalized_c()

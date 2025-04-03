@@ -90,6 +90,8 @@ def test_bwaaln_basic(
     with_quals: bool,
 ) -> None:
     """
+    Tests running `bwa aln` without anything fancy.
+
     Args:
         e_coli_k12_fasta: path to the index FASTA
         e_coli_k12_fastx_record: the FASTX record to align
@@ -318,15 +320,15 @@ def test_bwaaln_with_deletion(
     if is_mapped:
         assert rec.reference_start == 80
         assert rec.is_forward
-        assert rec.cigarstring == f"40M{deletion_length}D{40-deletion_length}M"
+        assert rec.cigarstring == f"40M{deletion_length}D{40 - deletion_length}M"
     else:
         assert rec.reference_start == -1, e_coli_k12_fastx_record.sequence
         assert rec.is_unmapped
 
 
 def test_bwa_aln_map_one_multi_mapped_max_hits_one(e_coli_k12_fasta: Path) -> None:
-    """Tests that a query that returns too many hits (>max_hits) returns the number of hits but
-    not the list of hits themselves."""
+    # Tests that a query that returns too many hits (>max_hits) returns the number of hits but
+    # not the list of hits themselves.
     opt = BwaAlnOptions(
         threads=2,
         max_hits=1,

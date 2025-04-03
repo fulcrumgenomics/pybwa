@@ -21,15 +21,6 @@ __all__ = [
     "BwaAln",
 ]
 
-cdef int _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[4]
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_M] = CMATCH
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_I] = CINS
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_D] = CDEL
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = CSOFT_CLIP
-
-cdef inline int _to_pysam_cigar_op(int x):
-    return _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[x]
-
 cpdef bint _set_bwa_aln_verbosity(int level):
     """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
     global bwa_verbose
@@ -244,7 +235,7 @@ cdef class BwaAlnOptions:
                 self._delegate.mode &= ~BWA_MODE_NONSTOP
 
     property with_md:
-        """:code:`bwa samse -d
+        """:code:`bwa samse -d`
         
         Output the MD to each alignment in the XA tag, otherwise use :code:`"."`.
         """
@@ -254,7 +245,7 @@ cdef class BwaAlnOptions:
            self._with_md = value
 
     property threads:
-        """:code:`bwa aln -t"""
+        """:code:`bwa aln -t`"""
         def __get__(self) -> int:
             return self._delegate.n_threads
         def __set__(self, value: int):

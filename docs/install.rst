@@ -42,6 +42,104 @@ Installation
     poetry run pytest
 
 
+Primary Development Commands
+============================
+
+To check and resolve linting issues in the codebase, run:
+
+.. code-block:: bash
+
+    poetry run ruff check --fix
+
+To check and resolve formatting issues in the codebase, run:
+
+.. code-block:: bash
+
+    poetry run ruff format
+
+To check the unit tests in the codebase, run:
+
+.. code-block:: bash
+
+    poetry run pytest
+
+To check the typing in the codebase, run:
+
+.. code-block:: bash
+
+    poetry run mypy
+
+To generate a code coverage report after testing locally, run:
+
+.. code-block:: bash
+
+    poetry run coverage html
+
+To check the lock file is up to date:
+
+.. code-block:: bash
+
+    poetry check --lock
+
+To build the documentation:
+
+.. code-block:: bash
+
+    cd docs
+    poetry run make html
+
+
+Shortcut Task Commands
+======================
+
+To be able to run shortcut task commands, first install the Poetry plugin `poethepoet <https://poethepoet.natn.io/index.html>`_:
+
+.. code-block:: bash
+
+    poetry self add 'poethepoet[poetry_plugin]'
+
+
+For Running Individual Checks
+=============================
+
+.. code-block:: bash
+
+    poetry task check-lock
+    poetry task check-format
+    poetry task check-lint
+    poetry task check-tests
+    poetry task check-typing
+    poetry task build-docs
+
+For Running All Checks
+======================
+
+.. code-block:: bash
+
+    poetry task check-all
+
+For Running Individual Fixes
+============================
+
+.. code-block:: bash
+
+    poetry task fix-format
+    poetry task fix-lint
+
+For Running All Fixes
+=====================
+
+.. code-block:: bash
+
+    poetry task fix-all
+
+For Running All Fixes and Checks
+================================
+
+.. code-block:: bash
+
+    poetry task fix-and-check-all
+
 Creating a Release on PyPi
 ==========================
 
@@ -54,7 +152,7 @@ Creating a Release on PyPi
 7. Tag the new commit on the main branch of the origin repository with the new SemVer
 
 .. note::
-    This project follows [Semantic Versioning](https://semver.org/).
+    This project follows `Semantic Versioning <https://semver.org/>`_.
     In brief:
     
     * `MAJOR` version when you make incompatible API changes
