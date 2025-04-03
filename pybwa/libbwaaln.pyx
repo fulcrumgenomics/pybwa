@@ -21,15 +21,6 @@ __all__ = [
     "BwaAln",
 ]
 
-cdef int _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[4]
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_M] = CMATCH
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_I] = CINS
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_D] = CDEL
-_BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[FROM_S] = CSOFT_CLIP
-
-cdef inline int _to_pysam_cigar_op(int x):
-    return _BWA_ALN_TO_PYSAM_CIGAR_OPERATOR[x]
-
 cpdef bint _set_bwa_aln_verbosity(int level):
     """Set the BWA C-API verbosity, returning True if changed, false otherwise."""
     global bwa_verbose
