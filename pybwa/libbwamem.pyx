@@ -782,10 +782,6 @@ cdef class BwaMem:
 
         return results
     
-    @staticmethod
-    def __to_str(_bytes: bytes) -> str:
-        return _bytes.decode('utf-8')
-
     cdef _copy_seq(self, q: FastxRecord, bseq1_t *s):
 
         # name
@@ -926,3 +922,12 @@ cdef _assert_mem_opt_are_the_same_c():
 def _assert_mem_opt_are_the_same() -> None:
     """Tests that the defaults are synced between bwa and pybwa."""
     _assert_mem_opt_are_the_same_c()
+
+
+cdef _call_mem_opt_when_not_finalized_c():
+    options = BwaMemOptions()
+    assert options.mem_opt() != NULL  # this should except since it is not finalized
+
+
+def _call_mem_opt_when_not_finalized() -> None:
+    _call_mem_opt_when_not_finalized_c()
