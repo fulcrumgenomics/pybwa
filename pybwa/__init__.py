@@ -8,7 +8,7 @@ from pybwa.libbwamem import *  # noqa: F403
 
 
 def _get_include() -> list[str]:  # pragma: no cover
-    """return a list of include directories."""
+    """Return a list of include directories."""
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
     # Header files may be stored in different relative locations
@@ -38,12 +38,12 @@ def _get_include() -> list[str]:  # pragma: no cover
 
 
 def _get_defines() -> list[str]:
-    """return a list of defined compilation parameters."""
+    """Return a list of defined compilation parameters."""
     return []
 
 
 def _get_libraries() -> list[str]:
-    """return a list of libraries to link against."""
+    """Return a list of libraries to link against."""
     dirname = os.path.abspath(os.path.join(os.path.dirname(__file__)))
     pybwa_libs = ["libbwaaln", "libbwaindex", "libbwamem"]
 

@@ -8,7 +8,7 @@ TEXT_ENCODING: str
 
 @enum.unique
 class BwaIndexBuildMethod(enum.Enum):
-    """The BWT construction algorithm (:code:`bwa index -a <str>`)"""
+    """The BWT construction algorithm (:code:`bwa index -a <str>`)."""
 
     AUTO = enum.auto()
     """Choose the algorithm automatically (based on the reference length)"""

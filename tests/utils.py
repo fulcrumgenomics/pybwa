@@ -3,7 +3,8 @@ from pathlib import Path
 
 
 def import_test_lib(libname: str) -> None:
-    """Imports the cython test library.
+    """
+    Imports the cython test library.
 
     The cython test library must compile successfully.
 

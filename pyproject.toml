@@ -62,6 +62,7 @@ exclude = [
 	"*.so",
 	"htslib/*config*.h",
 ]
+requires-poetry = ">=2.1"
 
 [tool.poetry.build]
 generate-setup-file = false
@@ -69,45 +70,119 @@ script = "build.py"
 
 [tool.poetry.dependencies]
 
+[tool.poetry.requires-plugins]
+poethepoet = ">=0.29"
+
 [tool.poetry.group.dev.dependencies]
 # dependencies for linting, style checking, and unit testing
-mypy = ">=1.7.0"
-pytest = ">=7.4.0"
-pytest-cov = ">=2.8.1"
-ruff = "0.4.8"
+mypy = ">=1.13.0"
+pytest = ">=8.3.3"
+pytest-cov = ">=5.0.0"
+ruff = ">=0.7.4"
 setuptools = ">=68.0.0"
 black = ">=24.8.0"  # for readthedocs
-cython = "^3.0.11"
-coverage = {extras = ["toml"], version = "^7.6.10"}
+cython = ">=3.0.11"
+coverage = {extras = ["toml"], version = ">=7.6.10"}
+types-setuptools = "^78.1.0.20250329"
 
 [tool.poetry.group.docs.dependencies]
 # dependencies for building docs 
 sphinx = { version = ">=7.0.0"}
-enum-tools = "^0.12.0"
-sphinx-toolbox = "^3.8.1"
-sphinx-jinja2-compat = "^0.3.0"
-sphinx-rtd-theme = "^3.0.2"
+enum-tools = ">=0.12.0"
+sphinx-toolbox = ">=3.8.1"
+sphinx-jinja2-compat = ">=0.3.0"
+sphinx-rtd-theme = ">=3.0.2"
 sphinx-autodoc-typehints = "2"
 
 [build-system]
 requires = ["poetry-core>=2.1.1", "cython>=3.0.11", "setuptools>=75.1.0", "pysam >=0.22.1"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poe]
+poetry_command = "task"
+
+[tool.poe.tasks]
+fix-format = "ruff format pybwa tests build.py"
+fix-lint   = "ruff check --fix pybwa tests build.py"
+
+fix-all.ignore_fail = "return_non_zero"
+fix-all.sequence    = [
+    "fix-format",
+    "fix-lint"
+]
+
+check-lock   = "poetry check --lock"
+check-format = "ruff format --check --diff pybwa tests build.py"
+check-lint   = "ruff check pybwa tests build.py"
+check-tests  = "pytest"
+check-typing = "mypy build.py pybwa tests --config=pyproject.toml"
+
+check-all.ignore_fail = "return_non_zero"
+check-all.sequence    = [
+    "check-lock",
+    "check-format",
+    "check-lint",
+    "check-tests",
+    "check-typing",
+	"build-docs"
+]
+
+fix-and-check-all.ignore_fail = "return_non_zero"
+fix-and-check-all.sequence    = [
+    "fix-all",
+    "check-all"
+]
+
+build-docs.cwd = "docs"
+build-docs.cmd = "make html"
+
 [tool.ruff]
 line-length    = 100
 target-version = "py39"
 output-format  = "full"
+preview        = true
 
 [tool.ruff.lint]
-select    = ["C901", "B", "E", "F", "I", "W", "Q"]
-ignore    = ["E203", "E701"]
+select    = [
+    "ARG",    # Unused arguments
+    "C901",   # McCabe complexity
+    "B",      # bugbear
+    "D",      # pydocstyle (docstrings. We have the "google" convention enabled)
+    "D204",   # Blank line between class docstring and first (__init__) method
+    "D213",   # Summary line should be located on the line after opening quotes
+    "E",      # pycodestyle errors
+    "LOG",    # flake8-logging
+    "LOG015", # (preview rule) Prohibit calls to the root logger
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # PEP8 naming
+    "W",      # pycodestyle warnings
+    "Q",      # flake8-quotes
+]
+ignore    = [
+    "E203",
+    "E701",
+    "D212",  # summary line should be located on the same line as opening quotes
+    "D100",  # missing docstring in public module
+    "D104",  # missing docstring in public package
+]
 unfixable = ["B"]
+# NB: only preview rules explicitly selected above (e.g. LOG015) will be enforced
+preview = true
+explicit-preview-rules = true
 
 [tool.ruff.lint.isort]
 force-single-line = true
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D103"] # missing docstring in public function
+
 [tool.mypy]
 strict_optional             = true
+strict_equality             = true
 check_untyped_defs          = true
 disallow_incomplete_defs    = true
 disallow_untyped_calls      = true
@@ -120,13 +195,48 @@ warn_return_any             = true
 warn_unreachable            = true
 warn_unused_configs         = true
 warn_unused_ignores         = true
-enable_error_code           = "ignore-without-code"
-exclude                     = ["site/", "docs/"]
+enable_error_code           = [
+    "ignore-without-code",
+    "possibly-undefined",
+]
+exclude                     = [
+    "docs/",
+    "site/",
+]
 
 [[tool.mypy.overrides]]
-module = ["pyximport.*", "_test_libbwaindex", "_test_libbwaaln", "_test_libbwamem"]
+module = ["pyximport.*", "_test_libbwaindex", "Cython.Distutils.build_ext", "Cython.Build"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
 plugins = ["Cython.Coverage"]
 branch = true
+
+[tool.git-cliff.changelog]
+header = ""
+trim = true
+body = """
+{{ '{% for group, commits in commits | group_by(attribute="group") %}
+    ## {{ group | upper_first }}
+    {% for commit in commits %}
+        - {{ commit.message | upper_first }} ({{ commit.id | truncate(length=8, end="") }})\\
+    {% endfor %}
+{% endfor %}\\n' }}
+"""
+
+[tool.git-cliff.git]
+conventional_commits = true
+commit_parsers = [
+    { message = "^.+!:*", group = "Breaking"},
+    { message = "^feat*", group = "Features"},
+    { message = "^fix*", group = "Bug Fixes"},
+    { message = "^docs*", group = "Documentation"},
+    { message = "^perf*", group = "Performance"},
+    { message = "^refactor*", group = "Refactor"},
+    { message = "^style*", group = "Styling"},
+    { message = "^test*", group = "Testing"},
+    { message = "^chore\\(release\\):*", skip = true},
+    { message = "^chore*", group = "Miscellaneous Tasks"},
+    { body = ".*security", group = "Security"}
+]
+filter_commits = false

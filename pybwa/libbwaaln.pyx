@@ -244,7 +244,7 @@ cdef class BwaAlnOptions:
                 self._delegate.mode &= ~BWA_MODE_NONSTOP
 
     property with_md:
-        """:code:`bwa samse -d
+        """:code:`bwa samse -d`
         
         Output the MD to each alignment in the XA tag, otherwise use :code:`"."`.
         """
@@ -254,7 +254,7 @@ cdef class BwaAlnOptions:
            self._with_md = value
 
     property threads:
-        """:code:`bwa aln -t"""
+        """:code:`bwa aln -t`"""
         def __get__(self) -> int:
             return self._delegate.n_threads
         def __set__(self, value: int):

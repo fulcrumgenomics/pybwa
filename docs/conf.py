@@ -10,7 +10,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os, glob
+import os
+import sys
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -25,45 +26,45 @@ if os.path.exists(_libdir):
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.napoleon', # must go **before** typehints below
-              'sphinx_autodoc_typehints',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.extlinks',
-              'sphinx.ext.todo', 
-              'sphinx.ext.ifconfig',
-              'sphinx.ext.intersphinx',
-              'enum_tools.autoenum',
+extensions = ["sphinx.ext.autodoc",
+              "sphinx.ext.napoleon", # must go **before** typehints below
+              "sphinx_autodoc_typehints",
+              "sphinx.ext.autosummary",
+              "sphinx.ext.extlinks",
+              "sphinx.ext.todo",
+              "sphinx.ext.ifconfig",
+              "sphinx.ext.intersphinx",
+              "enum_tools.autoenum",
               ]
 
 intersphinx_mapping = {
-    'python': ('http://docs.python.org/3.8', None),
-    'pysam': ('https://pysam.readthedocs.io/en/latest', None)
+    "python": ("http://docs.python.org/3.8", None),
+    "pysam": ("https://pysam.readthedocs.io/en/latest", None)
 }
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The encoding of source files.
 #source_encoding = 'utf-8'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = u'pybwa'
-copyright = u'2024, Fulcrum Genomics'
+project = u"pybwa"
+copyright = u"2024, Fulcrum Genomics"
 
 # Included at the end of each rst file
-rst_epilog = '''
+rst_epilog = """
 .. _pybwa: https://github.com/fulcrumgenomics/pybwa
 .. _bwa: https://github.com/lh3/bwa
 .. _python: http://python.org/
 .. _conda: https://conda.io/docs/
-'''
+"""
 
 autosummary_generate = True
 
@@ -71,9 +72,10 @@ autosummary_generate = True
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-from pathlib import Path
 import os
-toml_path = Path(os.path.realpath(__file__)).parent.parent / 'pyproject.toml'
+from pathlib import Path
+
+toml_path = Path(os.path.realpath(__file__)).parent.parent / "pyproject.toml"
 with toml_path.open("r") as reader:
     for line in reader:
         if line.startswith("version"):
@@ -99,7 +101,7 @@ release = version
 
 # List of directories, relative to source directory, that shouldn't be searched
 # for source files.
-exclude_trees = ['_build']
+exclude_trees = ["_build"]
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 # default_role = None
@@ -116,7 +118,7 @@ exclude_trees = ['_build']
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
@@ -126,7 +128,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  Major themes that come with
 # Sphinx are currently 'default' and 'sphinxdoc'.
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -193,7 +195,7 @@ html_static_path = []
 # html_file_suffix = ''
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'pybwadoc'
+htmlhelp_basename = "pybwadoc"
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -207,7 +209,7 @@ htmlhelp_basename = 'pybwadoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'pybwa.tex', u'pybwa documentation', u'Fulcrum Genomics', 'manual'),
+    ("index", "pybwa.tex", u"pybwa documentation", u"Fulcrum Genomics", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -229,6 +231,6 @@ latex_documents = [
 
 # For sphinx-autodoc-typehints
 always_use_bars_union = True
-typehints_defaults = 'comma'
+typehints_defaults = "comma"
 typehints_use_signature = True
 typehints_use_signature_return = True

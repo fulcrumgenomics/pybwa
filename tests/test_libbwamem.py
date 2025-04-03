@@ -218,7 +218,7 @@ def test_bwamem2(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -
                 assert rec.has_tag(tag), f"Missing tag {tag} in: {rec}"
 
 
-def test_bwamem_from_index(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord) -> None:
+def test_bwamem_from_index(e_coli_k12_fasta: Path) -> None:
     index = BwaIndex(prefix=e_coli_k12_fasta)
     BwaMem(index=index)
 

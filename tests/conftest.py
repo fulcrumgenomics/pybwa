@@ -1,6 +1,4 @@
-"""
-Fixtures intended to be shared across multiple files in the tests directory.
-"""
+"""Fixtures intended to be shared across multiple files in the tests directory."""
 
 from pathlib import Path
 
@@ -15,7 +13,7 @@ def temp_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def e_coli_k12_fasta() -> Path:
-    """The path to the e. Coli K12 reference FASTA"""
+    """The path to the e. Coli K12 reference FASTA."""
     cur_dir = Path(__file__).parent
     fasta: Path = cur_dir / "data" / "e_coli_k12.fasta"
     return fasta
@@ -23,6 +21,6 @@ def e_coli_k12_fasta() -> Path:
 
 @pytest.fixture(scope="session")
 def e_coli_k12_fastx_record() -> FastxRecord:
-    """Sequence-only FastxRecord that maps to position 80 (0-based) for 80bp on the + strand"""
+    """Sequence-only FastxRecord that maps to position 80 (0-based) for 80bp on the + strand."""
     sequence = "gttacctgccgtgagtaaattaaaattttattgacttaggtcactaaatactttaaccaatataggcatagcgcacagac"
     return FastxRecord(name="test", sequence=sequence.upper())
