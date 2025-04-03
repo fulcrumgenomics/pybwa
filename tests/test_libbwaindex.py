@@ -4,14 +4,13 @@ from pathlib import Path
 from typing import Union
 
 import pytest
-from utils import use_pyximport
+from utils import import_test_lib
 
 from pybwa import BwaIndex
 
-NO_PYXIMPORT: bool = not use_pyximport(libname="libbwaindex")
+import_test_lib(libname="libbwaindex")
 
 
-@pytest.mark.skipif(NO_PYXIMPORT, reason="no pyximport")
 def test_force_bytes_with() -> None:
     import _test_libbwaindex
 

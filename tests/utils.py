@@ -2,16 +2,13 @@ import sysconfig
 from pathlib import Path
 
 
-def use_pyximport(libname: str) -> bool:
-    """Attempts to import the cython test library, and returns a boolean indicating success.
+def import_test_lib(libname: str) -> None:
+    """Imports the cython test library.
 
     The cython test library must compile successfully.
 
     Args:
         libname: the name of the cython test library to import.
-
-    Returns:
-        true if the cython test library was successfully imported, false otherwise.
 
     Raises:
         ImportError: if the cython test library could not be compiled during import due to one of
@@ -37,7 +34,6 @@ def use_pyximport(libname: str) -> bool:
         pyximport.install(build_in_temp=False, inplace=True)
         importlib.import_module(f"_test_{libname}")
         ctypes.cdll.LoadLibrary(f"{so}")
-        return True
     except ImportError as ex:
         patterns = [
             "distutils.compilers.C.errors.CompileError",
@@ -46,8 +42,5 @@ def use_pyximport(libname: str) -> bool:
         for pattern in patterns:
             if pattern in f"{ex}":
                 raise Exception(f"Cannot compile {libname}:\n\t{ex}") from ex
-        print(f"Cannot import pyximport: {ex}")
-        return False
-    except Exception as ex:
-        print(f"Cannot import pyximport: {ex}")
-        return False
+        else:
+            raise ex
