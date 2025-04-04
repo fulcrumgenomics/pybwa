@@ -215,8 +215,7 @@ branch = true
 [tool.git-cliff.changelog]
 header = ""
 trim = true
-body = """
-{{ '{% for group, commits in commits | group_by(attribute="group") %}
+body = """{{ '{% for group, commits in commits | group_by(attribute="group") %}
     ## {{ group | upper_first }}
     {% for commit in commits %}
         - {{ commit.message | upper_first }} ({{ commit.id | truncate(length=8, end="") }})\\
