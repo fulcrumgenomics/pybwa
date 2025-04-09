@@ -39,7 +39,7 @@ index 5480536..8d812ca 100644
  PROG=		bwa
  INCLUDES=	
 -LIBS=		-lm -lz -lpthread
-+LIBS=		-lm -lz -lbz2 -llzma -lcurl -lpthread -ldeflate
++LIBS=		-lm -lz -lpthread
  SUBDIRS=	.
  
  ifeq ($(shell uname -s),Linux)
