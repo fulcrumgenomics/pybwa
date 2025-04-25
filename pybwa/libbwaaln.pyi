@@ -24,6 +24,7 @@ class BwaAlnOptions:
         log_scaled_gap_penalty: bool = False,
         find_all_hits: bool = False,
         with_md: bool = False,
+        max_entries: int = 2000000,
         threads: int = 1,
     ) -> None: ...
     max_mismatches: int  # -n <int>
@@ -42,6 +43,7 @@ class BwaAlnOptions:
     log_scaled_gap_penalty: bool = True  # -L
     find_all_hits: bool = False  # -N
     with_md: bool = True  # bwa samse -d
+    max_entries: int = 2000000  # -m <int>
     threads: int  # -t <int>
 
 class BwaAln:
