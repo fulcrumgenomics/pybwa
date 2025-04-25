@@ -32,7 +32,8 @@ def test_bwaaln_options() -> None:
         log_scaled_gap_penalty=False,
         find_all_hits=False,
         with_md=False,
-        threads=13,
+        max_entries=13,
+        threads=14,
     )
 
     assert options.max_mismatches == 1
@@ -50,7 +51,8 @@ def test_bwaaln_options() -> None:
     assert not options.log_scaled_gap_penalty
     assert not options.find_all_hits
     assert not options.with_md
-    assert options.threads == 13
+    assert options.max_entries == 13
+    assert options.threads == 14
 
     options.log_scaled_gap_penalty = True
     assert options.log_scaled_gap_penalty
