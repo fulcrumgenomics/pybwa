@@ -33,22 +33,22 @@ cdef class BwaAlnOptions:
     """The container for options for :class:`pybwa.BwaAln`.
     
     Args:
-        max_mismatches (int | None): :code:`-n <int>`
-        max_gap_opens (int | None): :code:`-o <int>`
-        max_gap_extensions (int | None): :code:`-e <int>`
-        min_indel_to_end_distance (int | None): :code:`-i <int>`
-        max_occurrences_for_extending_long_deletion (int | None): :code:`-d <int>`
-        seed_length (int | None): :code:`-l <int>`
-        max_mismatches_in_seed (int | None): :code:`-k <int>`
-        mismatch_penalty (int | None): :code:`-M <int>`
-        gap_open_penalty (int | None): :code:`-O <int>`
-        gap_extension_penalty (int | None): :code:`-E <int>`
-        stop_at_max_best_hits (int | None): :code:`-R <int>`
-        max_hits (int | None): :code:`bwa samse -n <int>`
-        log_scaled_gap_penalty (bool | None): :code:`-L`
-        find_all_hits (bool | None): :code:`-N`
-        with_md (bool): output the MD to each alignment in the XA tag, otherwise use :code:`"."`
-        threads (int): the number of threads to use
+        max_mismatches: :code:`-n <int>`
+        max_gap_opens: :code:`-o <int>`
+        max_gap_extensions: :code:`-e <int>`
+        min_indel_to_end_distance: :code:`-i <int>`
+        max_occurrences_for_extending_long_deletion: :code:`-d <int>`
+        seed_length: :code:`-l <int>`
+        max_mismatches_in_seed: :code:`-k <int>`
+        mismatch_penalty: :code:`-M <int>`
+        gap_open_penalty: :code:`-O <int>`
+        gap_extension_penalty: :code:`-E <int>`
+        stop_at_max_best_hits: :code:`-R <int>`
+        max_hits: :code:`bwa samse -n <int>`
+        log_scaled_gap_penalty: :code:`-L`
+        find_all_hits: :code:`-N`
+        with_md: output the MD to each alignment in the XA tag, otherwise use :code:`"."`
+        threads: the number of threads to use
     """
 
     def __init__(self,
