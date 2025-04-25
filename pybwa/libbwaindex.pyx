@@ -60,10 +60,10 @@ cdef class BwaIndex:
     with :code:`samtools dict <fasta>`).
 
     Args:
-        prefix (str | Path): the path prefix for the BWA index (typically a FASTA)
-        bwt (bool): load the BWT (FM-index)
-        bns (bool): load the BNS (reference sequence metadata)
-        pac (bool): load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
+        prefix: the path prefix for the BWA index (typically a FASTA)
+        bwt: load the BWT (FM-index)
+        bns: load the BNS (reference sequence metadata)
+        pac: load the PAC (the actual 2-bit encoded reference sequences with 'N' converted to a
              random base)
     """
 
@@ -89,11 +89,11 @@ cdef class BwaIndex:
         """Indexes a given FASTA.  Also builds the sequence dictionary (.dict).
 
         Args:
-            fasta (str | Path): the path to the FASTA to index
-            method (BwaIndexBuildMethod): the BWT construction algorithm (:code:`bwa index -a <str>`)
-            prefix (str | Path | None): the path prefix for the BWA index (typically a FASTA)
-            block_size (int): block size for the bwtsw algorithm (effective with -a bwtsw)
-            out_64 (bool): index files named as :code:`<in.fasta>.64.*` instead of :code:`<in.fasta>.*`
+            fasta: the path to the FASTA to index
+            method: the BWT construction algorithm (:code:`bwa index -a <str>`)
+            prefix: the path prefix for the BWA index (typically a FASTA)
+            block_size: block size for the bwtsw algorithm (effective with -a bwtsw)
+            out_64: index files named as :code:`<in.fasta>.64.*` instead of :code:`<in.fasta>.*`
         """
         if prefix is None:
             prefix = fasta
