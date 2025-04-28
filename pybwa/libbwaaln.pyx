@@ -48,6 +48,7 @@ cdef class BwaAlnOptions:
         log_scaled_gap_penalty: :code:`-L`
         find_all_hits: :code:`-N`
         with_md: output the MD to each alignment in the XA tag, otherwise use :code:`"."`
+        max_entries: :code:`-m`
         threads: the number of threads to use
     """
 
@@ -67,6 +68,7 @@ cdef class BwaAlnOptions:
                  log_scaled_gap_penalty: bool = False,
                  find_all_hits: bool = False,
                  with_md: bool = False,
+                 max_entries: int = 2000000,
                  threads: int = 1
                  ):
         if max_mismatches is not None:
@@ -105,6 +107,8 @@ cdef class BwaAlnOptions:
             self.find_all_hits = find_all_hits
         if with_md is not None:
             self.with_md = with_md
+        if max_entries is not None:
+            self.max_entries = max_entries
         if threads is not None:
             self.threads = threads
 
@@ -243,6 +247,13 @@ cdef class BwaAlnOptions:
             return self._with_md
         def __set__(self, value: bool):
            self._with_md = value
+
+    property max_entries:
+        """:code:`bwa aln -m`"""
+        def __get__(self) -> int:
+            return self._delegate.max_entries
+        def __set__(self, value: int):
+            self._delegate.max_entries = value
 
     property threads:
         """:code:`bwa aln -t`"""
