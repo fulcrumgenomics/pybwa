@@ -44,38 +44,38 @@ cdef class BwaMemOptions:
     """The container for options for :class:`~pybwa.BwaMem`.
 
     Args:
-        min_seed_len (int): :code:`bwa mem -k <int>`
-        mode (BwaMemMode): :code:`bwa mem -x <str>`
-        band_width (int): :code:`bwa mem -w <int>`
-        match_score (int): :code:`bwa mem -A <int>`
-        mismatch_penalty (int): :code:`bwa mem -B <int>`
-        minimum_score (int): :code:`bwa mem -T <int>`
-        unpaired_penalty (int): :code:`bwa mem -U <int>`
-        skip_pairing (bool): :code:`bwa mem -P`
-        output_all_for_fragments (bool): :code:`bwa mem -a`
-        interleaved_paired_end (bool): :code:`bwa mem -p`
-        short_split_as_secondary (bool): :code:`bwa mem -M`
-        skip_mate_rescue (bool): :code:`bwa mem -S`
-        soft_clip_supplementary (bool): :code:`bwa mem -Y`
-        with_xr_tag (bool): :code:`bwa mem -V`
-        query_coord_as_primary (bool): :code:`bwa mem -5`
-        keep_mapq_for_supplementary (bool): :code:`bwa mem -q`
-        with_xb_tag (bool): :code:`bwa mem -u`
-        max_occurrences (int): :code:`bwa mem -c <int>`
-        off_diagonal_x_dropoff (int): :code:`bwa mem -d <float>`
-        ignore_alternate_contigs (bool): :code:`bwa mem -j`
-        internal_seed_split_factor (float): :code:`bwa mem -r <float>`
-        drop_chain_fraction (float): :code:`bwa mem -D <float>`
-        max_mate_rescue_rounds (int): :code:`bwa mem -m <int>`
-        min_seeded_bases_in_chain (int): :code:`bwa mem -W <int>`
-        seed_occurrence_in_3rd_round (int): :code:`bwa mem -y <int>`
-        xa_max_hits (int | tuple[int, int]): :code:`bwa mem -h <int<,int>>`
-        xa_drop_ratio (float): :code:`bwa mem -z <float>`
-        gap_open_penalty (int | tuple[int, int]): :code:`bwa mem -O <int<,int>>`
-        gap_extension_penalty (int | tuple[int, int]): :code:`bwa mem -E <int<,int>>`
-        clipping_penalty (int | tuple[int, int]): :code:`bwa mem -L <int<,int>>`
-        threads (int): :code:`bwa mem -t <int>`
-        chunk_size (int): :code:`bwa mem -K <int>`
+        min_seed_len: :code:`bwa mem -k <int>`
+        mode: :code:`bwa mem -x <str>`
+        band_width: :code:`bwa mem -w <int>`
+        match_score: :code:`bwa mem -A <int>`
+        mismatch_penalty: :code:`bwa mem -B <int>`
+        minimum_score: :code:`bwa mem -T <int>`
+        unpaired_penalty: :code:`bwa mem -U <int>`
+        skip_pairing: :code:`bwa mem -P`
+        output_all_for_fragments: :code:`bwa mem -a`
+        interleaved_paired_end: :code:`bwa mem -p`
+        short_split_as_secondary: :code:`bwa mem -M`
+        skip_mate_rescue: :code:`bwa mem -S`
+        soft_clip_supplementary: :code:`bwa mem -Y`
+        with_xr_tag: :code:`bwa mem -V`
+        query_coord_as_primary: :code:`bwa mem -5`
+        keep_mapq_for_supplementary: :code:`bwa mem -q`
+        with_xb_tag: :code:`bwa mem -u`
+        max_occurrences: :code:`bwa mem -c <int>`
+        off_diagonal_x_dropoff: :code:`bwa mem -d <float>`
+        ignore_alternate_contigs: :code:`bwa mem -j`
+        internal_seed_split_factor: :code:`bwa mem -r <float>`
+        drop_chain_fraction: :code:`bwa mem -D <float>`
+        max_mate_rescue_rounds: :code:`bwa mem -m <int>`
+        min_seeded_bases_in_chain: :code:`bwa mem -W <int>`
+        seed_occurrence_in_3rd_round: :code:`bwa mem -y <int>`
+        xa_max_hits: :code:`bwa mem -h <int<,int>>`
+        xa_drop_ratio: :code:`bwa mem -z <float>`
+        gap_open_penalty: :code:`bwa mem -O <int<,int>>`
+        gap_extension_penalty: :code:`bwa mem -E <int<,int>>`
+        clipping_penalty: :code:`bwa mem -L <int<,int>>`
+        threads: :code:`bwa mem -t <int>`
+        chunk_size: :code:`bwa mem -K <int>`
     """
 
     def _assert_not_finalized(self, attr_name: str) -> None:
