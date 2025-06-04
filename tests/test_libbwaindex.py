@@ -11,10 +11,10 @@ from pybwa import BwaIndex
 import_test_lib(libname="libbwaindex")
 
 
-def test_force_bytes_with() -> None:
+def test_force_bytes() -> None:
     import _test_libbwaindex
 
-    _test_libbwaindex.test_force_bytes_with()
+    _test_libbwaindex.test_force_bytes()
 
 
 @pytest.mark.parametrize("in_place", [True, False])
