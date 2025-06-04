@@ -373,7 +373,7 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
     else:
         assert rec.has_tag("XN"), str(rec)
         assert rec.get_tag("XN") == num_amb
-        
+
 
 @pytest.mark.parametrize("limit", [1, 32767, 32768, 100000])
 def test_bwa_aln_max_hits(limit: int, tmp_path_factory: pytest.TempPathFactory) -> None:
