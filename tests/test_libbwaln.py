@@ -373,3 +373,27 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
     else:
         assert rec.has_tag("XN"), str(rec)
         assert rec.get_tag("XN") == num_amb
+
+
+@pytest.mark.parametrize("limit", [1, 32767, 32768, 100000])
+def test_bwa_aln_max_hits(limit: int, tmp_path_factory: pytest.TempPathFactory) -> None:
+    query = "G" * 25
+    target = ("A" * 25) + query + ("T" * 25)
+
+    src_dir = Path(str(tmp_path_factory.mktemp("test_bwa_aln_max_hits")))
+    fasta = src_dir / "ref.fasta"
+    with fasta.open("w") as writer:
+        writer.write(">ref\n")
+        for _ in range(limit):
+            writer.write(f"{target}\n")
+    BwaIndex.index(fasta=fasta)
+
+    bwa = BwaAln(prefix=fasta)
+    queries = [FastxRecord(name="NA", sequence=query)]
+    options = BwaAlnOptions(seed_length=len(query), max_mismatches=0, max_hits=limit)
+    recs = bwa.align(queries=queries, opt=options)
+    assert len(recs) == 1
+    rec = recs[0]
+    print(rec)
+    assert rec.is_unmapped is False
+    assert rec.get_tag("HN") == limit, f"limit was {limit}"
