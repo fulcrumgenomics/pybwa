@@ -10,6 +10,8 @@ from pysam import FastxRecord
 from pybwa import BwaAln
 from pybwa import BwaAlnOptions
 from pybwa import BwaIndex
+from pybwa.libbwaaln import XaHit
+from pybwa.libbwaaln import to_xa_hits
 
 
 def test_bwaaln_options() -> None:
@@ -194,6 +196,14 @@ def test_bwaaln_multi_hit(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: Fastx
     xa_values = str(rec.get_tag("XA")).split(";")[:-1]
     assert len(xa_values) == 416
 
+    # parse the XA values once
+    xa_hits: list[XaHit] = to_xa_hits(rec)
+    assert len(xa_hits) == 416
+
+    # test when we parse it again
+    xa_hits = to_xa_hits(rec)
+    assert len(xa_hits) == 416
+
 
 def test_bwaaln_multi_hit_split_cigar(
     e_coli_k12_fasta: Path, e_coli_k12_fastx_record: FastxRecord
@@ -373,3 +383,112 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
     else:
         assert rec.has_tag("XN"), str(rec)
         assert rec.get_tag("XN") == num_amb
+
+
+def test_to_xa_hits_single() -> None:
+    xa: str = "chr4,-97592047,24M,3;"
+    hits: list[XaHit] = to_xa_hits(xa)
+    assert len(hits) == 1
+    hit: XaHit = hits[0]
+    assert hit.refname == "chr4"
+    assert hit.start == 97592047
+    assert hit.negative
+    assert f"{hit.cigar}" == "24M"
+    assert hit.edits == 3
+    assert hit.md is None
+    assert hit.rest is None
+
+
+def test_to_xa_hits_multi() -> None:
+    xa: str = "chr4,-97592047,24M,3;chr8,+32368749,32M,4;"
+    hits: list[XaHit] = to_xa_hits(xa)
+    assert len(hits) == 2
+
+    # first hit
+    hit: XaHit = hits[0]
+    assert hit.refname == "chr4"
+    assert hit.start == 97592047
+    assert hit.negative
+    assert f"{hit.cigar}" == "24M"
+    assert hit.edits == 3
+    assert hit.md is None
+    assert hit.rest is None
+
+    # second hit
+    hit = hits[1]
+    assert hit.refname == "chr8"
+    assert hit.start == 32368749
+    assert not hit.negative
+    assert f"{hit.cigar}" == "32M"
+    assert hit.edits == 4
+    assert hit.md is None
+    assert hit.rest is None
+
+
+def test_to_xa_hits_with_md() -> None:
+    xa: str = "chr4,-97592047,24M,3,24;"
+    hits: list[XaHit] = to_xa_hits(xa)
+    assert len(hits) == 1
+    hit: XaHit = hits[0]
+    assert hit.refname == "chr4"
+    assert hit.start == 97592047
+    assert hit.negative
+    assert f"{hit.cigar}" == "24M"
+    assert hit.edits == 3
+    assert hit.md == "24"
+    assert hit.rest is None
+
+
+def test_to_xa_hits_with_md_and_rest() -> None:
+    xa: str = "chr4,-97592047,24M,3,24,rest;"
+    hits: list[XaHit] = to_xa_hits(xa)
+    assert len(hits) == 1
+    hit: XaHit = hits[0]
+    assert hit.refname == "chr4"
+    assert hit.start == 97592047
+    assert hit.negative
+    assert f"{hit.cigar}" == "24M"
+    assert hit.edits == 3
+    assert hit.md == "24"
+    assert hit.rest == "rest"
+
+
+def test_to_xa_hits_missing_trailing_semicolon() -> None:
+    xa: str = "chr4,-97592047,24M,3"
+    with pytest.raises(ValueError, match="Could not parse XA tag"):
+        to_xa_hits(xa)
+
+
+def test_to_xa_hits_too_few_fields() -> None:
+    xa: str = "chr4,-97592047,24M"
+    with pytest.raises(ValueError, match="Could not parse XA tag"):
+        to_xa_hits(xa)
+
+
+def test_to_xa_hits_single_semicolon() -> None:
+    xa: str = ";"
+    with pytest.raises(ValueError, match="Could not parse XA tag"):
+        to_xa_hits(xa)
+
+
+def test_to_xa_hits_empty() -> None:
+    xa: str = ""
+    with pytest.raises(ValueError, match="Could not parse XA tag"):
+        to_xa_hits(xa)
+
+
+def test_to_xa_hits_parse_int() -> None:
+    xa: str = "chr4,-ABCDEF,24M,3;"
+    with pytest.raises(ValueError, match="Could not parse XA tag"):
+        to_xa_hits(xa)
+    xa = "chr4,-ABCDEF,24M,;"
+    with pytest.raises(ValueError, match="Could not parse XA tag"):
+        to_xa_hits(xa)
+
+
+def test_to_xa_hits_parse_error() -> None:
+    xa: str = "chr4,-97592047,24M,3;"
+    while len(xa) > 0:
+        xa = xa[:-1]
+        with pytest.raises(ValueError, match="Could not parse XA tag"):
+            to_xa_hits(xa)

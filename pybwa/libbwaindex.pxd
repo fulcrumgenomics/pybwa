@@ -3,6 +3,7 @@ from pathlib import Path
 
 from libc.stdint cimport int64_t, int32_t, uint8_t, uint32_t
 from libc.stdio cimport FILE
+from pybwa.libbwa cimport bwa_verbose
 
 cdef extern from "bwa.h":
     char * bwa_idx_infer_prefix(const char * hint)
@@ -43,7 +44,6 @@ cdef extern from "bntseq.h":
     void bns_destroy(bntseq_t *bns)
 
 cdef bytes force_bytes(object s)
-cdef bytes force_bytes_with(object s, encoding: str | None = *, errors: str | None = *)
 cpdef bint _set_bwa_idx_verbosity(int level)
 
 cdef class BwaIndex:

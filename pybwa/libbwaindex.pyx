@@ -28,19 +28,13 @@ cdef str TEXT_ENCODING = 'utf-8'
 
 
 cdef bytes force_bytes(object s):
-    return force_bytes_with(s, None, None)
-
-
-cdef bytes force_bytes_with(
-    object s, encoding: str | None = None, errors: str | None = None
-): # pragma: no cover
     """convert string or unicode object to bytes, assuming utf8 encoding."""
     if s is None:
         return None
     elif PyBytes_Check(s):
         return s
     elif PyUnicode_Check(s):
-        return s.encode(encoding or TEXT_ENCODING, errors or ERROR_HANDLER)
+        return s.encode(TEXT_ENCODING, ERROR_HANDLER)
     else:
         raise TypeError("Argument must be a string, bytes or unicode.")
 

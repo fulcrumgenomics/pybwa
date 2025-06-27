@@ -2,19 +2,20 @@
 
 from pathlib import Path
 from typing import List
-from fgpyo.sequence import reverse_complement
+from fgpyo.sam import CigarOp
+from fgpyo.sam import CigarElement
+from fgpyo.sam import Cigar
 
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from posix.stdlib cimport srand48
 from libc.string cimport strncpy
-from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, CINS, CDEL, CSOFT_CLIP
+from pysam import FastxRecord, AlignedSegment
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwaindex cimport BwaIndex
-from pybwa.libbwa cimport bwa_verbose
-
 from pysam.libcalignedsegment cimport makeAlignedSegment
-
+from dataclasses import dataclass
+from libc.errno cimport errno
 
 __all__ = [
     "BwaAlnOptions",
@@ -350,6 +351,7 @@ cdef class BwaAln:
         cdef sam_hdr_t *h
         cdef kstring_t hdr_str
         cdef bam1_t **bams
+        cdef bwa_hits_t * c_hits
 
         hdr_str.l = hdr_str.m = 0
         hdr_str.s = NULL
@@ -387,11 +389,58 @@ cdef class BwaAln:
         """Re-initializes the random seed."""
         srand48(self._index.bns().seed)
 
+cdef _to_cigar(uint32_t n_cigar, uint32_t *cigar):
+    cdef uint32_t code, length
+    elements = []
+    cdef uint32_t k = 0
+    while k < n_cigar:
+        code = cigar[k] & BAM_CIGAR_MASK
+        length = cigar[k] >> BAM_CIGAR_SHIFT
+        operator = CigarOp.from_code(code)
+        elements.append(CigarElement(length, operator))
+        k += 1
+    return Cigar(tuple(elements))
+
+cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
+    if isinstance(rec, AlignedSegment):
+        if not rec.has_tag("XA"):
+            return []
+        value = force_bytes(rec.get_tag("XA"))
+    elif isinstance(rec, str):
+        value = force_bytes(rec)
+    else:
+        value = rec
+    c_hits = parse_xa(value)
+    if c_hits == NULL:
+        if errno != 0:
+            raise ValueError(f"Could not parse XA tag (error: {errno}: {rec}")
+        return []
+    hits: list[XaHit] = [
+        XaHit(
+            refname=c_hits.hits[j].refname[:c_hits.hits[j].refname_len].decode("ascii"),
+            start=c_hits.hits[j].pos,
+            negative=c_hits.hits[j].negative == '-',
+            cigar=_to_cigar(
+                n_cigar=c_hits.hits[j].n_cigar, cigar=c_hits.hits[j].cigar
+            ),
+            edits=c_hits.hits[j].edits,
+            md=None if c_hits.hits[j].md == NULL else c_hits.hits[j].md[:c_hits.hits[j].md_len].decode("ascii"),
+            rest=None if c_hits.hits[j].rest == NULL else c_hits.hits[j].rest[:c_hits.hits[j].rest_len].decode("ascii"),
+        )
+        for j in range(c_hits.n)
+    ]
+    for j in range(c_hits.n):
+        free(c_hits.hits[j].refname)
+        free(c_hits.hits[j].md)
+        free(c_hits.hits[j].rest)
+    free(c_hits.hits)
+    free(c_hits)
+
+    return hits
 
 ###########################################################
 # Below is code to facilitate testing
 ###########################################################
-
 
 cdef _assert_gap_opt_are_the_same_c():
     """Tests that the defaults are synced between bwa and pybwa."""
@@ -424,3 +473,39 @@ cdef _assert_gap_opt_are_the_same_c():
 def _assert_gap_opt_are_the_same() -> None:
     """Tests that the defaults are synced between bwa and pybwa."""
     _assert_gap_opt_are_the_same_c()
+
+
+@dataclass(frozen=True)
+class XaHit:
+    refname: str
+    start: int
+    negative: bool
+    cigar: Cigar
+    edits: int
+    md: str | None = None
+    rest: str | None = None
+
+    @property
+    def mismatches(self) -> int:
+        """The number of mismatches for the hit."""
+        indel_sum = sum(elem.length for elem in self.cigar.elements if elem.operator.is_indel)
+        if indel_sum > self.edits:
+            raise ValueError(
+                f"indel_sum ({indel_sum}) > self.edits ({self.edits}) with cigar: {self.cigar}"
+            )
+        return self.edits - indel_sum
+
+    @property
+    def end(self) -> int:
+        """The end position of the hit (1-based inclusive)."""
+        return self.start + self.cigar.length_on_target() - 1
+
+    def __str__(self) -> str:
+        """Returns the string representation in bwa's XA tag format."""
+        # E.g. XA:Z:chr4,-97592047,24M,3;chr8,-32368749,24M,3;
+        return ",".join([
+            self.refname,
+            ("-" if self.negative else "+") + f"{self.start}",
+            f"{self.cigar}",
+            f"{self.edits}",
+        ])
