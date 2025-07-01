@@ -402,6 +402,19 @@ cdef _to_cigar(uint32_t n_cigar, uint32_t *cigar):
     return Cigar(tuple(elements))
 
 cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
+    """Parses the value of the XA SAM tag, returning a list of `XaHit`s.
+    
+    Args:
+        rec: one of an `AlignedSegment`, string, or bytes.  If a string or bytes are provided,
+            the _value_ of the XA SAM tag must be provided (i.e. not including the leading `XA:Z:`).
+    
+    Returns:
+        An empty list if a provided `AlignedSegment` has no "XA" tag, otherwise a list of
+        `XaHit`s parsed from the XA SAM tag.
+    
+    Raises:
+        A `ValueError` if the XA SAM tag could not be parsed.
+    """
     if isinstance(rec, AlignedSegment):
         if not rec.has_tag("XA"):
             return []
@@ -435,6 +448,57 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
     free(c_hits)
 
     return hits
+
+
+
+@dataclass(frozen=True)
+class XaHit:
+    """Represents a single hit or alignment of a sequence to a location in the genome.
+
+    Typically, this is parsed from the XA SAM tag.
+
+    Attributes:
+        refname: the reference name of the hit
+        start: the start position of the hit (1-based inclusive)
+        negative: whether the hit is on the negative strand
+        cigar: the cigar string returned by BWA
+        edits: the number of edits between the read and the reference
+        md: if present, the MD value that's appended to the entry in the XA SAM tag.
+        rest: if present, any string that's appended to the entry in the XA SAM tag (after the MD).
+    """
+    refname: str
+    start: int
+    negative: bool
+    cigar: Cigar
+    edits: int
+    md: str | None = None
+    rest: str | None = None
+
+    @property
+    def mismatches(self) -> int:
+        """The number of mismatches for the hit."""
+        indel_sum = sum(elem.length for elem in self.cigar.elements if elem.operator.is_indel)
+        if indel_sum > self.edits:
+            raise ValueError(
+                f"indel_sum ({indel_sum}) > self.edits ({self.edits}) with cigar: {self.cigar}"
+            )
+        return self.edits - indel_sum
+
+    @property
+    def end(self) -> int:
+        """The end position of the hit (1-based inclusive)."""
+        return self.start + self.cigar.length_on_target() - 1
+
+    def __str__(self) -> str:
+        """Returns the string representation in bwa's XA tag format."""
+        # E.g. XA:Z:chr4,-97592047,24M,3;chr8,-32368749,24M,3;
+        return ",".join([
+            self.refname,
+            ("-" if self.negative else "+") + f"{self.start}",
+            f"{self.cigar}",
+            f"{self.edits}",
+        ])
+
 
 ###########################################################
 # Below is code to facilitate testing
@@ -471,39 +535,3 @@ cdef _assert_gap_opt_are_the_same_c():
 def _assert_gap_opt_are_the_same() -> None:
     """Tests that the defaults are synced between bwa and pybwa."""
     _assert_gap_opt_are_the_same_c()
-
-
-@dataclass(frozen=True)
-class XaHit:
-    refname: str
-    start: int
-    negative: bool
-    cigar: Cigar
-    edits: int
-    md: str | None = None
-    rest: str | None = None
-
-    @property
-    def mismatches(self) -> int:
-        """The number of mismatches for the hit."""
-        indel_sum = sum(elem.length for elem in self.cigar.elements if elem.operator.is_indel)
-        if indel_sum > self.edits:
-            raise ValueError(
-                f"indel_sum ({indel_sum}) > self.edits ({self.edits}) with cigar: {self.cigar}"
-            )
-        return self.edits - indel_sum
-
-    @property
-    def end(self) -> int:
-        """The end position of the hit (1-based inclusive)."""
-        return self.start + self.cigar.length_on_target() - 1
-
-    def __str__(self) -> str:
-        """Returns the string representation in bwa's XA tag format."""
-        # E.g. XA:Z:chr4,-97592047,24M,3;chr8,-32368749,24M,3;
-        return ",".join([
-            self.refname,
-            ("-" if self.negative else "+") + f"{self.start}",
-            f"{self.cigar}",
-            f"{self.edits}",
-        ])
