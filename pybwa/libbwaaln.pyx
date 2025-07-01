@@ -412,9 +412,7 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
         value = rec
     c_hits = parse_xa(value)
     if c_hits == NULL:
-        if errno != 0:
-            raise ValueError(f"Could not parse XA tag (error: {errno}: {rec}")
-        return []
+        raise ValueError(f"Could not parse XA tag (error: {errno}: {rec}")
     hits: list[XaHit] = [
         XaHit(
             refname=c_hits.hits[j].refname[:c_hits.hits[j].refname_len].decode("ascii"),

@@ -4,6 +4,8 @@ from typing import Union
 
 import pysam
 import pytest
+from fgpyo.sam import Cigar
+from fgpyo.sam.builder import SamBuilder
 from fgpyo.sequence import reverse_complement
 from pysam import FastxRecord
 
@@ -385,18 +387,38 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
         assert rec.get_tag("XN") == num_amb
 
 
-def test_to_xa_hits_single() -> None:
-    xa: str = "chr4,-97592047,24M,3;"
-    hits: list[XaHit] = to_xa_hits(xa)
-    assert len(hits) == 1
-    hit: XaHit = hits[0]
+def _assert_single_hit(hit: XaHit, md: str | None = None, rest: str | None = None) -> None:
     assert hit.refname == "chr4"
     assert hit.start == 97592047
     assert hit.negative
     assert f"{hit.cigar}" == "24M"
     assert hit.edits == 3
-    assert hit.md is None
-    assert hit.rest is None
+    assert hit.md == md
+    assert hit.rest == rest
+
+
+def test_to_xa_hits_single_from_string() -> None:
+    xa: str = "chr4,-97592047,24M,3;"
+    hits: list[XaHit] = to_xa_hits(xa)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
+
+
+def test_to_xa_hits_single_from_bytes() -> None:
+    xa: bytes = b"chr4,-97592047,24M,3;"
+    hits: list[XaHit] = to_xa_hits(xa)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
+
+
+def test_to_xa_hits_single_from_alignedsegment() -> None:
+    xa: str = "chr4,-97592047,24M,3;"
+    builder = SamBuilder()
+    rec, _ = builder.add_pair()
+    rec.set_tag("XA", xa)
+    hits: list[XaHit] = to_xa_hits(rec)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
 
 
 def test_to_xa_hits_multi() -> None:
@@ -405,14 +427,7 @@ def test_to_xa_hits_multi() -> None:
     assert len(hits) == 2
 
     # first hit
-    hit: XaHit = hits[0]
-    assert hit.refname == "chr4"
-    assert hit.start == 97592047
-    assert hit.negative
-    assert f"{hit.cigar}" == "24M"
-    assert hit.edits == 3
-    assert hit.md is None
-    assert hit.rest is None
+    _assert_single_hit(hits[0])
 
     # second hit
     hit = hits[1]
@@ -430,13 +445,7 @@ def test_to_xa_hits_with_md() -> None:
     hits: list[XaHit] = to_xa_hits(xa)
     assert len(hits) == 1
     hit: XaHit = hits[0]
-    assert hit.refname == "chr4"
-    assert hit.start == 97592047
-    assert hit.negative
-    assert f"{hit.cigar}" == "24M"
-    assert hit.edits == 3
-    assert hit.md == "24"
-    assert hit.rest is None
+    _assert_single_hit(hit, md="24")
 
 
 def test_to_xa_hits_with_md_and_rest() -> None:
@@ -444,13 +453,7 @@ def test_to_xa_hits_with_md_and_rest() -> None:
     hits: list[XaHit] = to_xa_hits(xa)
     assert len(hits) == 1
     hit: XaHit = hits[0]
-    assert hit.refname == "chr4"
-    assert hit.start == 97592047
-    assert hit.negative
-    assert f"{hit.cigar}" == "24M"
-    assert hit.edits == 3
-    assert hit.md == "24"
-    assert hit.rest == "rest"
+    _assert_single_hit(hit, md="24", rest="rest")
 
 
 def test_to_xa_hits_missing_trailing_semicolon() -> None:
@@ -492,3 +495,53 @@ def test_to_xa_hits_parse_error() -> None:
         xa = xa[:-1]
         with pytest.raises(ValueError, match="Could not parse XA tag"):
             to_xa_hits(xa)
+
+
+def test_to_xa_hits_no_xa() -> None:
+    builder = SamBuilder()
+    rec, _ = builder.add_pair()
+    assert not rec.has_tag("XA")
+    assert len(to_xa_hits(rec)) == 0
+
+
+def _to_xa_hit(refname: str, start: int, negative: bool, cigar: str, edits: int) -> XaHit:
+    return XaHit(
+        refname=refname,
+        start=start,
+        negative=negative,
+        cigar=Cigar.from_cigarstring(cigar),
+        edits=edits,
+        md=None,
+        rest=None,
+    )
+
+
+def test_xa_hit_mismatches_indels_gt_edits() -> None:
+    hit = _to_xa_hit("chr1", 1081, False, "20M5I30M", 0)
+    with pytest.raises(ValueError, match="indel_sum"):
+        assert 0 == hit.mismatches
+
+
+def test_xa_hit_mismatches() -> None:
+    hit = _to_xa_hit("chr1", 1081, False, "20M5I30M", 5)
+    assert 0 == hit.mismatches
+    hit = _to_xa_hit("chr1", 1081, False, "22M3I30M", 5)
+    assert 2 == hit.mismatches
+    hit = _to_xa_hit("chr1", 1081, False, "55M", 5)
+    assert 5 == hit.mismatches
+
+
+def test_xa_hit_end() -> None:
+    hit = _to_xa_hit("chr1", 1081, False, "50M", 5)
+    assert hit.end == 1130
+    hit = _to_xa_hit("chr1", 1081, False, "20M5I30M", 5)
+    assert hit.end == 1130
+    hit = _to_xa_hit("chr1", 1081, False, "20M5D30M", 5)
+    assert hit.end == 1135
+
+
+def test_xa_hit_str() -> None:
+    hit = _to_xa_hit("chr1", 1081, False, "20M5I30M", 5)
+    assert str(hit) == "chr1,+1081,20M5I30M,5"
+    hit = _to_xa_hit("chr1", 1081, True, "20M5I30M", 5)
+    assert str(hit) == "chr1,-1081,20M5I30M,5"
