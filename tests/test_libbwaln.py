@@ -387,7 +387,7 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
         assert rec.get_tag("XN") == num_amb
 
 
-def _assert_single_hit(hit: XaHit, md: str | None = None, rest: str | None = None) -> None:
+def _assert_single_hit(hit: XaHit, md: Optional[str] = None, rest: Optional[str] = None) -> None:
     assert hit.refname == "chr4"
     assert hit.start == 97592047
     assert hit.negative
