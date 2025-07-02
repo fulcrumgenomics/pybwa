@@ -12,7 +12,7 @@ from pysam import FastxRecord
 from pybwa import BwaAln
 from pybwa import BwaAlnOptions
 from pybwa import BwaIndex
-from pybwa.libbwaaln import XaHit
+from pybwa.libbwaaln import AuxHit
 from pybwa.libbwaaln import to_xa_hits
 
 
@@ -199,7 +199,7 @@ def test_bwaaln_multi_hit(e_coli_k12_fasta: Path, e_coli_k12_fastx_record: Fastx
     assert len(xa_values) == 416
 
     # parse the XA values once
-    xa_hits: list[XaHit] = to_xa_hits(rec)
+    xa_hits: list[AuxHit] = to_xa_hits(rec)
     assert len(xa_hits) == 416
 
     # test when we parse it again
@@ -387,7 +387,7 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
         assert rec.get_tag("XN") == num_amb
 
 
-def _assert_single_hit(hit: XaHit, md: Optional[str] = None, rest: Optional[str] = None) -> None:
+def _assert_single_hit(hit: AuxHit, md: Optional[str] = None, rest: Optional[str] = None) -> None:
     assert hit.refname == "chr4"
     assert hit.start == 97592047
     assert hit.negative
@@ -399,14 +399,14 @@ def _assert_single_hit(hit: XaHit, md: Optional[str] = None, rest: Optional[str]
 
 def test_to_xa_hits_single_from_string() -> None:
     xa: str = "chr4,-97592047,24M,3;"
-    hits: list[XaHit] = to_xa_hits(xa)
+    hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 1
     _assert_single_hit(hits[0])
 
 
 def test_to_xa_hits_single_from_bytes() -> None:
     xa: bytes = b"chr4,-97592047,24M,3;"
-    hits: list[XaHit] = to_xa_hits(xa)
+    hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 1
     _assert_single_hit(hits[0])
 
@@ -416,14 +416,14 @@ def test_to_xa_hits_single_from_alignedsegment() -> None:
     builder = SamBuilder()
     rec, _ = builder.add_pair()
     rec.set_tag("XA", xa)
-    hits: list[XaHit] = to_xa_hits(rec)
+    hits: list[AuxHit] = to_xa_hits(rec)
     assert len(hits) == 1
     _assert_single_hit(hits[0])
 
 
 def test_to_xa_hits_multi() -> None:
     xa: str = "chr4,-97592047,24M,3;chr8,+32368749,32M,4;"
-    hits: list[XaHit] = to_xa_hits(xa)
+    hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 2
 
     # first hit
@@ -442,17 +442,17 @@ def test_to_xa_hits_multi() -> None:
 
 def test_to_xa_hits_with_md() -> None:
     xa: str = "chr4,-97592047,24M,3,24;"
-    hits: list[XaHit] = to_xa_hits(xa)
+    hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 1
-    hit: XaHit = hits[0]
+    hit: AuxHit = hits[0]
     _assert_single_hit(hit, md="24")
 
 
 def test_to_xa_hits_with_md_and_rest() -> None:
     xa: str = "chr4,-97592047,24M,3,24,rest;"
-    hits: list[XaHit] = to_xa_hits(xa)
+    hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 1
-    hit: XaHit = hits[0]
+    hit: AuxHit = hits[0]
     _assert_single_hit(hit, md="24", rest="rest")
 
 
@@ -504,8 +504,8 @@ def test_to_xa_hits_no_xa() -> None:
     assert len(to_xa_hits(rec)) == 0
 
 
-def _to_xa_hit(refname: str, start: int, negative: bool, cigar: str, edits: int) -> XaHit:
-    return XaHit(
+def _to_xa_hit(refname: str, start: int, negative: bool, cigar: str, edits: int) -> AuxHit:
+    return AuxHit(
         refname=refname,
         start=start,
         negative=negative,

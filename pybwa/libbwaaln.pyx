@@ -402,7 +402,7 @@ cdef _to_cigar(uint32_t n_cigar, uint32_t *cigar):
     return Cigar(tuple(elements))
 
 cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
-    """Parses the value of the XA SAM tag, returning a list of `XaHit`s.
+    """Parses the value of the XA SAM tag, returning a list of `AuxHit`s.
     
     Args:
         rec: one of an `AlignedSegment`, string, or bytes.  If a string or bytes are provided,
@@ -410,7 +410,7 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
     
     Returns:
         An empty list if a provided `AlignedSegment` has no "XA" tag, otherwise a list of
-        `XaHit`s parsed from the XA SAM tag.
+        `AuxHit`s parsed from the XA SAM tag.
     
     Raises:
         A `ValueError` if the XA SAM tag could not be parsed.
@@ -426,8 +426,8 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
     c_hits = parse_xa(value)
     if c_hits == NULL:
         raise ValueError(f"Could not parse XA tag (error: {errno}: {rec}")
-    hits: list[XaHit] = [
-        XaHit(
+    hits: list[AuxHit] = [
+        AuxHit(
             refname=c_hits.hits[j].refname[:c_hits.hits[j].refname_len].decode("ascii"),
             start=c_hits.hits[j].pos,
             negative=c_hits.hits[j].negative == '-',
@@ -452,7 +452,7 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
 
 
 @dataclass(frozen=True)
-class XaHit:
+class AuxHit:
     """Represents a single hit or alignment of a sequence to a location in the genome.
 
     Typically, this is parsed from the XA SAM tag.
