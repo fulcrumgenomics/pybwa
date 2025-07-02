@@ -458,11 +458,13 @@ class XaHit:
     Typically, this is parsed from the XA SAM tag.
 
     Attributes:
-        refname: the reference name of the hit
-        start: the start position of the hit (1-based inclusive)
-        negative: whether the hit is on the negative strand
-        cigar: the cigar string returned by BWA
-        edits: the number of edits between the read and the reference
+        refname: the reference name of the hit.
+        start: the start position of the hit (1-based inclusive).
+        negative: whether the hit is on the negative strand.
+        cigar: the cigar returned by BWA.
+        edits: the number of edits (mismatches only, no indels) between the read and the reference.
+            Calculated as the NM value in the XA SAM tag minus the number of indel bases from
+            the cigar.
         md: if present, the MD value that's appended to the entry in the XA SAM tag.
         rest: if present, any string that's appended to the entry in the XA SAM tag (after the MD).
     """
@@ -476,7 +478,7 @@ class XaHit:
 
     @property
     def mismatches(self) -> int:
-        """The number of mismatches for the hit."""
+        """The number of mismatches for the hit (not including indels)."""
         indel_sum = sum(elem.length for elem in self.cigar.elements if elem.operator.is_indel)
         if indel_sum > self.edits:
             raise ValueError(
