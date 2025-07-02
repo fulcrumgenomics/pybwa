@@ -20,6 +20,8 @@ from libc.errno cimport errno
 __all__ = [
     "BwaAlnOptions",
     "BwaAln",
+    "AuxHit",
+    "to_xa_hits",
 ]
 
 cpdef bint _set_bwa_aln_verbosity(int level):

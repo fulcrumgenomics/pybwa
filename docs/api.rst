@@ -114,7 +114,7 @@ Bwa Aln
 .. autoclass:: pybwa.BwaAln
    :members:
 
-.. autoclass:: pybwa.XaHit
+.. autoclass:: pybwa.AuxHit
    :members:
 
 .. autofunction:: pybwa.to_xa_hits
