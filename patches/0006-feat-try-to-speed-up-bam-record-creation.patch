@@ -1,7 +1,7 @@
 From 247c3ca8f6c8e2a81a00b720a51d16564a2ddcea Mon Sep 17 00:00:00 2001
 From: Nils Homer <nilshomer@gmail.com>
 Date: Sat, 29 Mar 2025 00:07:36 -0700
-Subject: [PATCH 6/7] feat: try to speed up bam record creation
+Subject: [PATCH 6/8] feat: try to speed up bam record creation
 
 ---
  bwa.c         |   1 +

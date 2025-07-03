@@ -95,7 +95,7 @@ sphinx-rtd-theme = ">=3.0.2"
 sphinx-autodoc-typehints = "2"
 
 [build-system]
-requires = ["poetry-core>=2.1.1", "cython>=3.0.11", "setuptools>=75.1.0", "pysam >=0.22.1"]
+requires = ["poetry-core>=2.1.1", "cython>=3.0.11", "setuptools>=75.1.0", "pysam ==0.22.1"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poe]

@@ -1,7 +1,7 @@
 From 9a9e459d581fc9cae5c4a73fb65ad191425630ec Mon Sep 17 00:00:00 2001
 From: Nils Homer <nh13@users.noreply.github.com>
 Date: Fri, 17 Jan 2025 00:29:08 -0800
-Subject: [PATCH 2/7] feat: add an option to output MD in the XA tag
+Subject: [PATCH 2/8] feat: add an option to output MD in the XA tag
 
 ---
  bwape.c  | 12 +++++++-----
