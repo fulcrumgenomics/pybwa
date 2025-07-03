@@ -428,7 +428,7 @@ def test_to_xa_hits_single_from_string(xa_single_hit: str) -> None:
 
 
 def test_to_xa_hits_single_from_bytes(xa_single_hit: str) -> None:
-    hits: list[AuxHit] = to_xa_hits(xa_single_hit)
+    hits: list[AuxHit] = to_xa_hits(xa_single_hit.encode("utf-8"))
     assert len(hits) == 1
     _assert_single_hit(hits[0])
 
