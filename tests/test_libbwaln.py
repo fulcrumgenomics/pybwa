@@ -457,7 +457,7 @@ def test_to_xa_hits_max_hits(xa_double_hit: str) -> None:
 
     # Should return two hits
     for max_hits in [0, 2, 3]:
-        hits: list[AuxHit] = to_xa_hits(xa_double_hit, max_hits=max_hits)
+        hits = to_xa_hits(xa_double_hit, max_hits=max_hits)
         _assert_double_hit(hits)
 
 
