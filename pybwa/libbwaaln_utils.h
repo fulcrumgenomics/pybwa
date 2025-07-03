@@ -27,4 +27,4 @@ typedef struct {
 
 bam1_t **bwa_aln_and_samse(const bntseq_t *bns, bwt_t *const bwt, uint8_t *pac, sam_hdr_t *h, int n_seqs, bwa_seq_t *seqs, const gap_opt_t *opt, int max_hits, int with_md);
 bwa_hit_t* parse_xa_entry(char *value, int32_t len, bwa_hit_t *hit);
-bwa_hits_t* parse_xa(char *value);
+bwa_hits_t* parse_xa(char *value, uint32_t max_hits);

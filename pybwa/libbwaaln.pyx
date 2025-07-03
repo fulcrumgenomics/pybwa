@@ -403,7 +403,7 @@ cdef _to_cigar(uint32_t n_cigar, uint32_t *cigar):
         k += 1
     return Cigar(tuple(elements))
 
-cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
+cpdef to_xa_hits(rec: AlignedSegment | str | bytes, max_hits: int | None = None):
     """Parses the value of the XA SAM tag, returning a list of :code:`AuxHit`\s.
     
     Args:
@@ -426,7 +426,8 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
         value = force_bytes(rec)
     else:
         value = rec
-    c_hits = parse_xa(value)
+    max_hits = 0 if max_hits is None else max_hits
+    c_hits = parse_xa(value, max_hits)
     if c_hits == NULL:
         raise ValueError(f"Could not parse XA tag (error: {errno}: {rec}")
     hits: list[AuxHit] = [
@@ -451,7 +452,6 @@ cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
     free(c_hits)
 
     return hits
-
 
 
 @dataclass(frozen=True)

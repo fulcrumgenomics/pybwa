@@ -387,6 +387,11 @@ def test_bwa_aln_ambiguous_bases(num_amb: int, tmp_path_factory: pytest.TempPath
         assert rec.get_tag("XN") == num_amb
 
 
+@pytest.fixture()
+def xa_single_hit() -> str:
+    return "chr4,-97592047,24M,3;"
+
+
 def _assert_single_hit(hit: AuxHit, md: Optional[str] = None, rest: Optional[str] = None) -> None:
     assert hit.refname == "chr4"
     assert hit.start == 97592047
@@ -397,40 +402,16 @@ def _assert_single_hit(hit: AuxHit, md: Optional[str] = None, rest: Optional[str
     assert hit.rest == rest
 
 
-def test_to_xa_hits_single_from_string() -> None:
-    xa: str = "chr4,-97592047,24M,3;"
-    hits: list[AuxHit] = to_xa_hits(xa)
-    assert len(hits) == 1
-    _assert_single_hit(hits[0])
+@pytest.fixture()
+def xa_double_hit() -> str:
+    return "chr4,-97592047,24M,3;chr8,+32368749,32M,4;"
 
 
-def test_to_xa_hits_single_from_bytes() -> None:
-    xa: bytes = b"chr4,-97592047,24M,3;"
-    hits: list[AuxHit] = to_xa_hits(xa)
-    assert len(hits) == 1
-    _assert_single_hit(hits[0])
-
-
-def test_to_xa_hits_single_from_alignedsegment() -> None:
-    xa: str = "chr4,-97592047,24M,3;"
-    builder = SamBuilder()
-    rec, _ = builder.add_pair()
-    rec.set_tag("XA", xa)
-    hits: list[AuxHit] = to_xa_hits(rec)
-    assert len(hits) == 1
-    _assert_single_hit(hits[0])
-
-
-def test_to_xa_hits_multi() -> None:
-    xa: str = "chr4,-97592047,24M,3;chr8,+32368749,32M,4;"
-    hits: list[AuxHit] = to_xa_hits(xa)
+def _assert_double_hit(hits: list[AuxHit]) -> None:
     assert len(hits) == 2
-
-    # first hit
     _assert_single_hit(hits[0])
 
-    # second hit
-    hit = hits[1]
+    hit: AuxHit = hits[1]
     assert hit.refname == "chr8"
     assert hit.start == 32368749
     assert not hit.negative
@@ -440,26 +421,65 @@ def test_to_xa_hits_multi() -> None:
     assert hit.rest is None
 
 
-def test_to_xa_hits_with_md() -> None:
-    xa: str = "chr4,-97592047,24M,3,24;"
+def test_to_xa_hits_single_from_string(xa_single_hit: str) -> None:
+    hits: list[AuxHit] = to_xa_hits(xa_single_hit)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
+
+
+def test_to_xa_hits_single_from_bytes(xa_single_hit: str) -> None:
+    hits: list[AuxHit] = to_xa_hits(xa_single_hit)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
+
+
+def test_to_xa_hits_single_from_alignedsegment(xa_single_hit: str) -> None:
+    builder = SamBuilder()
+    rec, _ = builder.add_pair()
+    rec.set_tag("XA", xa_single_hit)
+    hits: list[AuxHit] = to_xa_hits(rec)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
+
+
+def test_to_xa_hits_multi(xa_double_hit: str) -> None:
+    hits: list[AuxHit] = to_xa_hits(xa_double_hit)
+    _assert_double_hit(hits)
+
+
+def test_to_xa_hits_max_hits(xa_double_hit: str) -> None:
+    hits: list[AuxHit]
+
+    # Should return only one hit
+    hits = to_xa_hits(xa_double_hit, max_hits=1)
+    assert len(hits) == 1
+    _assert_single_hit(hits[0])
+
+    # Should return two hits
+    for max_hits in [0, 2, 3]:
+        hits: list[AuxHit] = to_xa_hits(xa_double_hit, max_hits=max_hits)
+        _assert_double_hit(hits)
+
+
+def test_to_xa_hits_with_md(xa_single_hit: str) -> None:
+    xa: str = f"{xa_single_hit[:-1]},24;"
     hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 1
     hit: AuxHit = hits[0]
     _assert_single_hit(hit, md="24")
 
 
-def test_to_xa_hits_with_md_and_rest() -> None:
-    xa: str = "chr4,-97592047,24M,3,24,rest;"
+def test_to_xa_hits_with_md_and_rest(xa_single_hit: str) -> None:
+    xa: str = f"{xa_single_hit[:-1]},24,rest;"
     hits: list[AuxHit] = to_xa_hits(xa)
     assert len(hits) == 1
     hit: AuxHit = hits[0]
     _assert_single_hit(hit, md="24", rest="rest")
 
 
-def test_to_xa_hits_missing_trailing_semicolon() -> None:
-    xa: str = "chr4,-97592047,24M,3"
+def test_to_xa_hits_missing_trailing_semicolon(xa_single_hit: str) -> None:
     with pytest.raises(ValueError, match="Could not parse XA tag"):
-        to_xa_hits(xa)
+        to_xa_hits(xa_single_hit[:-1])
 
 
 def test_to_xa_hits_too_few_fields() -> None:

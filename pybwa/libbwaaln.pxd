@@ -7,7 +7,7 @@ from pybwa.libbwa cimport bwa_verbose
 cdef extern from "libbwaaln_utils.h":
     bam1_t **bwa_aln_and_samse(const bntseq_t *bns, bwt_t *const bwt, uint8_t *pac, sam_hdr_t *h, int n_seqs, bwa_seq_t *seqs,
          const gap_opt_t *opt, int max_hits, int with_md)
-    bwa_hits_t* parse_xa(char *value)
+    bwa_hits_t* parse_xa(char *value, uint32_t max_hits)
     ctypedef struct bwa_hit_t:
         char *refname
         uint32_t refname_len

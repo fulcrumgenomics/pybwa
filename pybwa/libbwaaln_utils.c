@@ -273,7 +273,7 @@ fail_at_refname:
     return NULL;
 }
 
-bwa_hits_t* parse_xa(char *value) {
+bwa_hits_t* parse_xa(char *value, uint32_t max_hits) {
     errno = 0;
     if (value == NULL) {
         errno = EINVAL;
@@ -284,6 +284,7 @@ bwa_hits_t* parse_xa(char *value) {
 
     while (value[end] != '\0') {
         if (end > 0 && value[end] == ';') num_hits++;
+        if (0 < max_hits && num_hits == max_hits) break;
         end++;
     }
     if (num_hits == 0) {
@@ -304,7 +305,7 @@ bwa_hits_t* parse_xa(char *value) {
 
     end = 0;
     hits->n = 0;
-    while (value[end] != '\0') {
+    while (value[end] != '\0' && hits->n < num_hits) {
         int32_t start = end;
         while (value[end] != '\0' && value[end] != ';') {
             end++;
