@@ -2,10 +2,27 @@
 
 from libc.stdint cimport uint8_t, uint64_t, uint16_t, uint32_t, int64_t, int32_t
 from libc.stdio cimport FILE
+from pybwa.libbwa cimport bwa_verbose
 
 cdef extern from "libbwaaln_utils.h":
     bam1_t **bwa_aln_and_samse(const bntseq_t *bns, bwt_t *const bwt, uint8_t *pac, sam_hdr_t *h, int n_seqs, bwa_seq_t *seqs,
-                     const gap_opt_t *opt, int max_hits, int with_md)
+         const gap_opt_t *opt, int max_hits, int with_md)
+    bwa_hits_t* parse_xa(char *value, uint32_t max_hits)
+    ctypedef struct bwa_hit_t:
+        char *refname
+        uint32_t refname_len
+        uint32_t pos
+        char negative
+        uint32_t *cigar
+        uint32_t n_cigar
+        uint32_t edits
+        char *md
+        uint32_t md_len
+        char *rest
+        uint32_t rest_len
+    ctypedef struct bwa_hits_t:
+        uint32_t n
+        bwa_hit_t * hits
 
 cdef extern from "bntseq.h":
     unsigned char nst_nt4_table[256]
@@ -157,6 +174,9 @@ cdef extern from "htslib/sam.h":
         char *text
 
     sam_hdr_t *sam_hdr_parse(size_t l_text, const char *text)
+
+    int      BAM_CIGAR_SHIFT
+    uint32_t BAM_CIGAR_MASK
 
 
 cdef class BwaAlnOptions:

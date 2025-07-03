@@ -14,6 +14,9 @@
 #  include "malloc_wrap.h"
 #endif
 
+#include <errno.h>
+#include <unistd.h>
+
 void bwa_cal_pac_pos_with_bwt(const bntseq_t *bns, bwt_t *bwt, bwa_seq_t *p, int max_mm, float fnr)
 {
     int j, strand, n_multi;
@@ -119,4 +122,210 @@ bam1_t **bwa_aln_and_samse(const bntseq_t *bns, bwt_t *const bwt, uint8_t *pac, 
     _bwa_aln_core(bns, bwt, pac, h, n_seqs, seqs, opt, max_hits, with_md, bams, -1);
 #endif
     return bams;
+}
+
+/** Finds the index of the given delimiter in the given string with a given length.  If
+ *  found, the delimiter is replaced with the NULL terminator.  Returns the index of the
+ *  delimiter, otherwise sets the errno to EINVAL and returns -1 (i.e. cannot be found).
+ */
+static inline
+int32_t _next_index(char *value, int32_t start, int32_t len, char delim) {
+    errno = 0;
+    int32_t end = start;
+    while (end < len && value[end] != '\0' && value[end] != delim) {
+        end++;
+    }
+    if (end < len) {
+        value[end] = '\0';
+        return end;
+    }
+    errno = EINVAL;
+    return -1;
+}
+
+/** Little helper function to copy the source string to the destination, after allocation. */
+static inline
+char* _malloc_and_strncopy(char *dest, char *src, size_t len) {
+    dest = (char*)malloc(sizeof(char)*(len+1));
+    if (dest == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    dest = strncpy(dest, src, len);
+    dest[len] = '\0';
+    return dest;
+}
+
+/** Little helper function to parse an integer from a string, with some error checking */
+static inline
+long int _strtol_helper(const char *value) {
+    errno = 0;
+    char *endptr = NULL;
+    long int retval = strtol(value, &endptr, 0);
+    if (endptr == value) { // no digits found
+        errno = EINVAL;
+    }
+    return retval;
+}
+
+/** Parse the XA tag e.g. XA:Z:chr4,-97592047,24M,3 */
+bwa_hit_t* parse_xa_entry(char *value, int32_t len, bwa_hit_t *hit) {
+    int32_t start = 0, end = 0;
+    errno = 0;
+
+    hit->s = value;
+    hit->s_len = len;
+    hit->refname = NULL;
+    hit->cigar = NULL;
+    hit->md = NULL;
+    hit->md_len = 0;
+    hit->rest = NULL;
+    hit->rest_len = 0;
+
+    if (len == 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    value[len] = '\0';
+
+    // refname
+    end = _next_index(value, start, len, ',');
+    if (errno != 0) goto fail_at_refname;
+    hit->refname_len = end - start;
+    hit->refname = _malloc_and_strncopy(hit->refname, value + start, hit->refname_len);
+    if (hit->refname == NULL) goto fail_at_refname;
+    value[end] = ',';
+
+    // strand and pos
+    start = end + 1;
+    end = _next_index(value, start, len, ',');
+    if (errno != 0) goto fail_at_strand;
+    hit->negative = value[start];
+    hit->pos = _strtol_helper(value + start + 1);
+    if (errno != 0) goto fail_at_pos;
+    value[end] = ',';
+
+    // strand and cigar
+    start = end + 1;
+    end = _next_index(value, start, len, ',');
+    if (errno != 0) goto fail_at_strand;
+    size_t cigar_mem = 0;
+    ssize_t n_cigar = 0;
+    if ((n_cigar = sam_parse_cigar(value + start , NULL, &hit->cigar, &cigar_mem)) < 0) {
+        errno = EINVAL;
+        goto fail_at_cigar;
+    }
+    hit->n_cigar = n_cigar;
+    value[end] = ',';
+
+    // edits
+    start = end + 1;
+    end = _next_index(value, start, len, ',');
+    if (errno == 0) value[end] = ',';
+    else { // read to the end of the string, which is OK
+        end = len;
+        errno = 0;
+    }
+    hit->edits = _strtol_helper(value + start);
+    if (errno != 0) goto fail_at_edits;
+
+    // md and the rest
+    if (end != len) {
+        start = end + 1;
+        end = _next_index(value, start, len, ',');
+        if (errno == 0) value[end] = ',';
+        else { // read to the end of the string, which is OK
+            end = len;
+            errno = 0;
+        }
+        hit->md_len = end - start;
+        hit->md = _malloc_and_strncopy(hit->md, value + start, hit->md_len);
+        if (hit->md == NULL) goto fail_at_md;
+        if (end < len) {
+            start = end + 1;
+            hit->rest_len = len - start;
+            hit->rest = _malloc_and_strncopy(hit->rest, value + start, hit->rest_len);
+            if (hit->rest == NULL) goto fail_at_rest;
+        }
+    }
+
+    value[len] = ';';
+
+    return hit;
+
+fail_at_rest:
+    free(hit->md);
+    hit->md = NULL;
+    hit->md_len = 0;
+fail_at_md:
+fail_at_edits:
+    free(hit->cigar);
+    hit->cigar = NULL;
+    hit->n_cigar = 0;
+fail_at_cigar:
+fail_at_pos:
+fail_at_strand:
+    free(hit->refname);
+    hit->refname = NULL;
+    hit->refname_len = 0;
+fail_at_refname:
+    return NULL;
+}
+
+bwa_hits_t* parse_xa(char *value, uint32_t max_hits) {
+    errno = 0;
+    if (value == NULL) {
+        errno = EINVAL;
+        return NULL;
+    }
+    int32_t end = 0;
+    uint32_t num_hits = 0;
+
+    while (value[end] != '\0') {
+        if (end > 0 && value[end] == ';') num_hits++;
+        if (0 < max_hits && num_hits == max_hits) break;
+        end++;
+    }
+    if (num_hits == 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    bwa_hits_t *hits = (bwa_hits_t*)calloc(sizeof(bwa_hits_t), 1);
+    if (hits == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    hits->hits = (bwa_hit_t*)calloc(sizeof(bwa_hit_t), num_hits);
+    if (hits->hits == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    end = 0;
+    hits->n = 0;
+    while (value[end] != '\0' && hits->n < num_hits) {
+        int32_t start = end;
+        while (value[end] != '\0' && value[end] != ';') {
+            end++;
+        }
+        if (NULL == parse_xa_entry(value + start, end - start, &hits->hits[hits->n])) {
+            int32_t i = 0;
+            while (i < hits->n) {
+                free(hits->hits[i].refname);
+                free(hits->hits[i].cigar);
+                free(hits->hits[i].md);
+                free(hits->hits[i].rest);
+                i++;
+            }
+            free(hits->hits);
+            free(hits);
+            errno = EINVAL;
+            return NULL;
+        }
+        end++; // move past the delimiter
+        hits->n++;
+    }
+    return hits;
 }

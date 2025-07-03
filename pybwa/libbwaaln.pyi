@@ -1,6 +1,8 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+from fgpyo.sam import Cigar
 from pysam import AlignedSegment
 from pysam import FastxRecord
 
@@ -55,5 +57,20 @@ class BwaAln:
     ) -> List[AlignedSegment]: ...
     def reinitialize_seed(self) -> None: ...
 
+@dataclass(frozen=True)
+class AuxHit:
+    refname: str
+    start: int
+    negative: bool
+    cigar: Cigar
+    edits: int
+    md: str | None = None
+    rest: str | None = None
+    @property
+    def mismatches(self) -> int: ...
+    @property
+    def end(self) -> int: ...
+
+def to_xa_hits(rec: AlignedSegment | str | bytes, max_hits: int | None = None) -> list[AuxHit]: ...
 def _set_bwa_aln_verbosity(level: int) -> bool: ...
 def _assert_gap_opt_are_the_same() -> None: ...
