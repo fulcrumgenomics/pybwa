@@ -50,8 +50,8 @@ cdef class BwaIndex:
     """Contains the index and nucleotide sequence for Bwa.  Use :code:`bwa index` on the command
     line to generate the bwa index.
 
-    Note: the accompanying sequence dictionary must exist (i.e. `.dict` file, which can be generated
-    with :code:`samtools dict <fasta>`).
+    Note: the accompanying sequence dictionary must exist (i.e. :code:`.dict` file, which can
+    be generated with :code:`samtools dict <fasta>`).
 
     Args:
         prefix: the path prefix for the BWA index (typically a FASTA)

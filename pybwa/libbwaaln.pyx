@@ -274,7 +274,7 @@ cdef class BwaAln:
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
         """Constructs the :code:`bwa aln` aligner.
 
-        One of `prefix` or `index` must be specified.
+        One of :code:`prefix` or :code:`index` must be specified.
 
         Args:
             prefix: the path prefix for the BWA index (typically a FASTA)
@@ -291,7 +291,7 @@ cdef class BwaAln:
         bwase_initialize()
 
     def align(self, queries: List[FastxRecord] | List[str] | None = None, opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
-        """Align one or more queries with `bwa aln`.
+        """Align one or more queries with :code:`bwa aln`.
 
         Args:
             queries: the queries to align
@@ -404,18 +404,19 @@ cdef _to_cigar(uint32_t n_cigar, uint32_t *cigar):
     return Cigar(tuple(elements))
 
 cpdef to_xa_hits(rec: AlignedSegment | str | bytes):
-    """Parses the value of the XA SAM tag, returning a list of `AuxHit`s.
+    """Parses the value of the XA SAM tag, returning a list of :code:`AuxHit`\s.
     
     Args:
-        rec: one of an `AlignedSegment`, string, or bytes.  If a string or bytes are provided,
-            the _value_ of the XA SAM tag must be provided (i.e. not including the leading `XA:Z:`).
+        rec: one of an :code:`AlignedSegment`, string, or bytes.  If a string or bytes are provided,
+            the _value_ of the XA SAM tag must be provided (i.e. not including the leading 
+            :code:`XA:Z:`).
     
     Returns:
-        An empty list if a provided `AlignedSegment` has no "XA" tag, otherwise a list of
-        `AuxHit`s parsed from the XA SAM tag.
+        An empty list if a provided :code:`AlignedSegment` has no "XA" tag, otherwise a list of
+        :code:`AuxHit`\s parsed from the XA SAM tag.
     
     Raises:
-        A `ValueError` if the XA SAM tag could not be parsed.
+        A :code:`ValueError` if the XA SAM tag could not be parsed.
     """
     if isinstance(rec, AlignedSegment):
         if not rec.has_tag("XA"):

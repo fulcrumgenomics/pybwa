@@ -726,7 +726,7 @@ cdef class BwaMem:
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
         """Constructs the :code:`bwa mem` aligner.
 
-        One of `prefix` or `index` must be specified.
+        One of :code:`prefix` or :code:`index` must be specified.
 
         Args:
             prefix: the path prefix for the BWA index (typically a FASTA)
@@ -742,7 +742,7 @@ cdef class BwaMem:
 
     # TODO: support paired end
     def align(self, queries: List[FastxRecord] | List[str], opt: BwaMemOptions | None = None) -> List[List[AlignedSegment]]:
-        """Align one or more queries with `bwa aln`.
+        """Align one or more queries with :code:`bwa mem`.
 
         Args:
             queries: the queries to align
