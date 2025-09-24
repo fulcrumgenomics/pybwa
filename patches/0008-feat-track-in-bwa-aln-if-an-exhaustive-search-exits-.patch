@@ -1,0 +1,65 @@
+From 28e702f78ea7ccb57c3a50b0321302f98741feaf Mon Sep 17 00:00:00 2001
+From: Nils Homer <nilshomer@gmail.com>
+Date: Tue, 3 Jun 2025 17:48:13 -0700
+Subject: [PATCH 8/8] feat: track in bwa aln if an exhaustive search exits
+ early
+
+---
+ bwase.c  | 2 ++
+ bwtaln.h | 3 ++-
+ bwtgap.c | 5 ++++-
+ 3 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/bwase.c b/bwase.c
+index f18a82e..7cd4827 100644
+--- a/bwase.c
++++ b/bwase.c
+@@ -503,6 +503,7 @@ bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mod
+ 			}
+ 		}
+ 		err_printf("\tHN:i:%d", p->n_occ);
++		if (p->aln->exit_early) err_printf("\tea:A:T");
+ 		err_putchar('\n');
+ 	} else { // this read has no match
+ 		//ubyte_t *s = p->strand? p->rseq : p->seq;
+@@ -708,6 +709,7 @@ bwa_print_sam1(const bntseq_t *bns, bwa_seq_t *p, const bwa_seq_t *mate, int mod
+ 	if (!(flag & BAM_FUNMAP) || !(flag & BAM_FMUNMAP)) { 
+ 		bam_aux_update_int(b, "HN", p->n_occ);
+ 	} 
++	if (p->aln->exit_early) bam_aux_update_int(b, "ea", 1);
+ 	str->l = 0;
+ 	free(cigar);
+ 	return b;
+diff --git a/bwtaln.h b/bwtaln.h
+index b66959d..198db8f 100644
+--- a/bwtaln.h
++++ b/bwtaln.h
+@@ -41,7 +41,8 @@ typedef struct {
+ } bwt_width_t;
+ 
+ typedef struct {
+-	uint64_t n_mm:8, n_gapo:8, n_gape:8, score:20, n_ins:10, n_del:10;
++	// exit_early is a flag to indicate if we exited the search early in bwtgap.c (see bwa aln -m)
++	uint64_t n_mm:8, n_gapo:8, n_gape:8, score:19, n_ins:10, n_del:10, exit_early:1;
+ 	bwtint_t k, l;
+ } bwt_aln1_t;
+ 
+diff --git a/bwtgap.c b/bwtgap.c
+index 7dde443..7670dcf 100644
+--- a/bwtgap.c
++++ b/bwtgap.c
+@@ -136,7 +136,10 @@ bwt_aln1_t *bwt_match_gap(bwt_t *const bwt, int len, const ubyte_t *seq, bwt_wid
+ 		bwtint_t k, l, cnt_k[4], cnt_l[4], occ;
+ 
+ 		if (max_entries < stack->n_entries) max_entries = stack->n_entries;
+-		if (stack->n_entries > opt->max_entries) break;
++		if (stack->n_entries > opt->max_entries) {
++			aln->exit_early = 1;
++			break;
++		}
+ 		gap_pop(stack, &e); // get the best entry
+ 		k = e.k; l = e.l; // SA interval
+ 		i = e.info&0xffff; // length
+-- 
+2.39.5 (Apple Git-154)
+

@@ -565,3 +565,93 @@ def test_xa_hit_str() -> None:
     assert str(hit) == "chr1,+1081,20M5I30M,5"
     hit = _to_xa_hit("chr1", 1081, True, "20M5I30M", 5)
     assert str(hit) == "chr1,-1081,20M5I30M,5"
+
+
+@pytest.mark.parametrize("limit", [1, 32767, 32768, 100000])
+def test_bwa_aln_max_hits(limit: int, tmp_path_factory: pytest.TempPathFactory) -> None:
+    query = "G" * 25
+    target = ("A" * 25) + query + ("T" * 25)
+
+    src_dir = Path(str(tmp_path_factory.mktemp("test_bwa_aln_max_hits")))
+    fasta = src_dir / "ref.fasta"
+    with fasta.open("w") as writer:
+        writer.write(">ref\n")
+        for _ in range(limit):
+            writer.write(f"{target}\n")
+    BwaIndex.index(fasta=fasta)
+
+    bwa = BwaAln(prefix=fasta)
+    queries = [FastxRecord(name="NA", sequence=query)]
+    options = BwaAlnOptions(seed_length=len(query), max_mismatches=0, max_hits=limit)
+    recs = bwa.align(queries=queries, opt=options)
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec.is_unmapped is False
+    assert rec.get_tag("HN") == limit, f"limit was {limit}"
+
+
+def test_bwa_aln_max_hits_part_deux(tmp_path_factory: pytest.TempPathFactory) -> None:
+    query = "G" * 25
+    target = ("A" * 25) + query + ("T" * 25)
+
+    src_dir = Path(str(tmp_path_factory.mktemp("test_bwa_aln_max_hits")))
+    fasta = src_dir / "ref.fasta"
+    with fasta.open("w") as writer:
+        writer.write(">ref\n")
+        for _ in range(1000):
+            writer.write(f"{target}\n")
+    BwaIndex.index(fasta=fasta)
+
+    bwa = BwaAln(prefix=fasta)
+    queries = [FastxRecord(name="NA", sequence=query)]
+    limit = 2147483647
+    options = BwaAlnOptions(seed_length=len(query), max_mismatches=0, max_hits=limit)
+    recs = bwa.align(queries=queries, opt=options)
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec.is_unmapped is False
+    assert rec.get_tag("HN") == 1000, f"limit was {limit}"
+
+    limit += 1
+    options = BwaAlnOptions(seed_length=len(query), max_mismatches=0, max_hits=limit)
+    with pytest.raises(OverflowError, match="value too large to convert to int"):
+        bwa.align(queries=queries, opt=options)
+
+
+@pytest.mark.parametrize(
+    "max_mismatches,max_entries,should_fail",
+    [
+        # with 0 mismatches, it should always succeed
+        (0, 1, False),
+        (1, 1, True),
+        (1, 167, True),
+        (1, 168, False),
+        (2, 1, True),
+        (2, 204, True),
+        (2, 205, False),
+    ],
+)
+def test_bwa_aln_exit_early(
+    e_coli_k12_fasta: Path,
+    e_coli_k12_fastx_record: FastxRecord,
+    max_mismatches: int,
+    max_entries: int,
+    should_fail: bool,
+) -> None:
+    opt = BwaAlnOptions(threads=2, max_entries=max_entries, max_mismatches=max_mismatches)
+    bwa = BwaAln(prefix=e_coli_k12_fasta)
+    queries = [e_coli_k12_fastx_record]
+    recs = bwa.align(opt=opt, queries=queries)
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec.query_name == "test"
+    if should_fail:
+        assert rec.is_unmapped is True
+        assert rec.has_tag("ea")
+    else:
+        assert rec.is_forward
+        assert not rec.is_paired
+        assert not rec.is_read1
+        assert not rec.is_read2
+        assert rec.reference_start == 80
+        assert rec.cigarstring == "80M"
