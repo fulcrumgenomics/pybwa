@@ -34,6 +34,11 @@ def set_bwa_verbosity(level: BwaVerbosity) -> bool:
     By default BWA outputs informational and warning messages to stderr.  Use this to suppress
     or increase the output level.
 
+    Warning:
+        This function modifies a global C variable and is NOT thread-safe. If you are using
+        pybwa in a multi-threaded environment, call this function before creating any threads,
+        or ensure proper synchronization.
+
     Args:
         level: the desired verbosity level
 
