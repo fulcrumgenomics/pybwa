@@ -15,7 +15,7 @@ from pybwa import BwaMemOptions
 class TestResourceCleanup:
     """Test that resources are properly cleaned up."""
 
-    def test_index_cleanup(self, test_fa: Path):
+    def test_index_cleanup(self, test_fa: Path) -> None:
         """Test that BwaIndex properly cleans up resources."""
         # Create and destroy multiple index instances
         for _ in range(10):
@@ -23,7 +23,7 @@ class TestResourceCleanup:
             del idx
         # If there were memory leaks, this would accumulate
 
-    def test_bwa_mem_cleanup(self, test_fa: Path):
+    def test_bwa_mem_cleanup(self, test_fa: Path) -> None:
         """Test that BwaMem properly cleans up resources."""
         for _ in range(10):
             aligner = BwaMem(prefix=test_fa)
@@ -31,14 +31,14 @@ class TestResourceCleanup:
             aligner.align(["ACGTACGT"])
             del aligner
 
-    def test_bwa_aln_cleanup(self, test_fa: Path):
+    def test_bwa_aln_cleanup(self, test_fa: Path) -> None:
         """Test that BwaAln properly cleans up resources."""
         for _ in range(10):
             aligner = BwaAln(prefix=test_fa)
             aligner.align(["ACGTACGT"])
             del aligner
 
-    def test_options_cleanup(self):
+    def test_options_cleanup(self) -> None:
         """Test that options objects properly clean up memory."""
         for _ in range(100):
             opts_mem = BwaMemOptions()
@@ -52,7 +52,7 @@ class TestResourceCleanup:
 class TestReuseability:
     """Test that objects can be reused safely."""
 
-    def test_reuse_mem_aligner(self, bwa_mem_aligner: BwaMem):
+    def test_reuse_mem_aligner(self, bwa_mem_aligner: BwaMem) -> None:
         """Test that BwaMem can be used multiple times."""
         queries = ["ACGTACGT", "TGCATGCA", "GGGGCCCC"]
 
@@ -60,7 +60,7 @@ class TestReuseability:
             results = bwa_mem_aligner.align(queries)
             assert len(results) == 3
 
-    def test_reuse_aln_aligner(self, bwa_aln_aligner: BwaAln):
+    def test_reuse_aln_aligner(self, bwa_aln_aligner: BwaAln) -> None:
         """Test that BwaAln can be used multiple times."""
         queries = ["ACGTACGT", "TGCATGCA", "GGGGCCCC"]
 
@@ -68,7 +68,7 @@ class TestReuseability:
             results = bwa_aln_aligner.align(queries)
             assert len(results) == 3
 
-    def test_share_index_between_aligners(self, test_fa: Path):
+    def test_share_index_between_aligners(self, test_fa: Path) -> None:
         """Test that an index can be shared between multiple aligners."""
         # This is actually created fresh each time, but tests the pattern
         idx = BwaIndex(prefix=test_fa)
@@ -86,23 +86,23 @@ class TestReuseability:
 class TestLargeBatchProcessing:
     """Test handling of large batches of queries."""
 
-    def test_many_queries_mem(self, bwa_mem_aligner: BwaMem):
+    def test_many_queries_mem(self, bwa_mem_aligner: BwaMem) -> None:
         """Test BwaMem with many queries."""
         # Generate 1000 short queries
-        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)] 64809bc (style: fix formatting in test_resource_management.py)
+        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)]
 
         results = bwa_mem_aligner.align(queries)
         assert len(results) == 1000
 
-    def test_many_queries_aln(self, bwa_aln_aligner: BwaAln):
+    def test_many_queries_aln(self, bwa_aln_aligner: BwaAln) -> None:
         """Test BwaAln with many queries."""
         # Generate 1000 short queries
-        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)] 64809bc (style: fix formatting in test_resource_management.py)
+        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)]
 
         results = bwa_aln_aligner.align(queries)
         assert len(results) == 1000
 
-    def test_chunking_behavior(self, bwa_mem_aligner: BwaMem):
+    def test_chunking_behavior(self, bwa_mem_aligner: BwaMem) -> None:
         """Test that chunking works correctly with different chunk sizes."""
         queries = ["ACGTACGT" * 20 for _ in range(100)]
 
@@ -127,7 +127,7 @@ class TestConcurrentUsage:
 
         del aligners
 
-    def test_different_options_same_aligner(self, bwa_mem_aligner: BwaMem):
+    def test_different_options_same_aligner(self, bwa_mem_aligner: BwaMem) -> None:
         """Test using the same aligner with different options."""
         query = ["ACGTACGTACGTACGT"]
 
@@ -148,8 +148,9 @@ class TestConcurrentUsage:
 class TestOptionsImmutability:
     """Test that finalized options cannot be modified."""
 
-    def test_mem_options_immutable_after_finalize(self):
-        """Test that most BwaMemOptions cannot be modified after finalization.
+    def test_mem_options_immutable_after_finalize(self) -> None:
+        """
+        Test that most BwaMemOptions cannot be modified after finalization.
 
         Note: threads and chunk_size can be changed after finalization (by design).
         """
@@ -166,7 +167,7 @@ class TestOptionsImmutability:
         # But threads can be changed (intentional design for flexibility)
         opts.threads = 4  # Should not raise
 
-    def test_mem_options_copy_finalize(self):
+    def test_mem_options_copy_finalize(self) -> None:
         """Test that finalize(copy=True) creates an independent copy."""
         opts1 = BwaMemOptions(min_seed_len=19, threads=2)
         opts2 = opts1.finalize(copy=True)
