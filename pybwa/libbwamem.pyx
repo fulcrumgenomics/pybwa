@@ -11,6 +11,7 @@ from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, C
 from libc.string cimport strncpy
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwa cimport bwa_verbose
+from pybwa.libbwa_utils cimport check_alloc, check_not_null
 
 from pysam.libcalignedsegment cimport makeAlignedSegment
 
@@ -240,12 +241,14 @@ cdef class BwaMemOptions:
             self.chunk_size = chunk_size
 
     def __cinit__(self):
-        self._options = mem_opt_init()
-        if self._options == NULL:
-            raise MemoryError("Failed to allocate memory for BWA-MEM options")
-        self._options0 = mem_opt_init()
-        if self._options0 == NULL:
-            raise MemoryError("Failed to allocate memory for BWA-MEM options (copy)")
+        self._options = <mem_opt_t*>check_alloc(
+            mem_opt_init(),
+            "Failed to allocate memory for BWA-MEM options"
+        )
+        self._options0 = <mem_opt_t*>check_alloc(
+            mem_opt_init(),
+            "Failed to allocate memory for BWA-MEM options (copy)"
+        )
 
     def __dealloc__(self):
         free(self._options)
@@ -806,8 +809,6 @@ cdef class BwaMem:
             index: the index to use
         """
         if prefix is not None:
-            if not Path(prefix).exists():
-                raise FileNotFoundError(f"Index prefix does not exist: {prefix}")
             self._index = BwaIndex(prefix=prefix)
         elif index is not None:
             self._index = index
@@ -819,8 +820,7 @@ cdef class BwaMem:
         kstr.l = kstr.m = 0
         kstr.s = NULL
         bwa_format_sam_hdr(self._index.bns(), NULL, &kstr)
-        if kstr.s == NULL:
-            raise RuntimeError("Failed to format SAM header")
+        check_not_null(kstr.s, "Failed to format SAM header")
         self._cached_header = sam_hdr_parse(kstr.l, kstr.s)
         if self._cached_header == NULL:
             free(kstr.s)
@@ -833,15 +833,18 @@ cdef class BwaMem:
         """Enter the context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit the context manager. No explicit cleanup needed as Cython handles deallocation."""
-        return False
-
-    def __dealloc__(self):
-        """Clean up the cached SAM header."""
+    cdef void _destroy_cached_header(self):
         if self._cached_header != NULL:
             sam_hdr_destroy(self._cached_header)
             self._cached_header = NULL
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the context manager and release cached C resources."""
+        self._destroy_cached_header()
+        return False
+
+    def __dealloc__(self):
+        self._destroy_cached_header()
 
     # TODO: support paired end
     def align(self, queries: Sequence[FastxRecord | str], opt: BwaMemOptions | None = None) -> List[List[AlignedSegment]]:
@@ -889,9 +892,10 @@ cdef class BwaMem:
     cdef _copy_seq(self, q: FastxRecord, bseq1_t *s):
 
         # name
-        s.name = <char *> calloc(sizeof(char), len(q.name) + 1)
-        if s.name == NULL:
-            raise MemoryError("Failed to allocate memory for sequence name")
+        s.name = <char *>check_alloc(
+            calloc(sizeof(char), len(q.name) + 1),
+            "Failed to allocate memory for sequence name"
+        )
         strncpy(s.name, force_bytes(q.name), len(q.name))
         s.name[len(q.name)] = b'\0'
 
@@ -901,9 +905,10 @@ cdef class BwaMem:
 
         # sequence
         s.l_seq = len(q.sequence)
-        s.seq = <char *> calloc(sizeof(char), s.l_seq + 1)
-        if s.seq == NULL:
-            raise MemoryError("Failed to allocate memory for sequence")
+        s.seq = <char *>check_alloc(
+            calloc(sizeof(char), s.l_seq + 1),
+            "Failed to allocate memory for sequence"
+        )
         for i, base in enumerate(q.sequence):
             s.seq[i] = nst_nt4_table[ord(base)]
         s.seq[s.l_seq] = b'\0'
@@ -912,9 +917,10 @@ cdef class BwaMem:
         if q.quality is None:
             s.qual = NULL
         else:
-            s.qual = <char *> calloc(sizeof(char), s.l_seq + 1)
-            if s.qual == NULL:
-                raise MemoryError("Failed to allocate memory for quality string")
+            s.qual = <char *>check_alloc(
+                calloc(sizeof(char), s.l_seq + 1),
+                "Failed to allocate memory for quality string"
+            )
             strncpy(s.qual, force_bytes(q.quality), s.l_seq)
             s.qual[s.l_seq] = b'\0'
 
@@ -941,35 +947,39 @@ cdef class BwaMem:
         # copy FastxRecord into bwa_seq_t
         num_seqs = len(queries)
         mem_opt = opt.mem_opt()
-        seqs = <bseq1_t*>calloc(sizeof(bseq1_t), num_seqs)
-        if seqs == NULL:
-            raise MemoryError(f"Failed to allocate memory for {num_seqs} sequences")
-        for i in range(num_seqs):
-            self._copy_seq(queries[i], &seqs[i])
+        seqs = <bseq1_t*>check_alloc(
+            calloc(sizeof(bseq1_t), num_seqs),
+            f"Failed to allocate memory for {num_seqs} sequences"
+        )
+        try:
+            for i in range(num_seqs):
+                self._copy_seq(queries[i], &seqs[i])
 
-        # process the sequences (ignores the paired end stats)
-        mem_process_seqs(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(),
-                         n_processed, num_seqs, seqs, NULL, h)
+            # process the sequences (ignores the paired end stats)
+            mem_process_seqs(mem_opt, self._index.bwt(), self._index.bns(), self._index.pac(),
+                             n_processed, num_seqs, seqs, NULL, h)
 
-        for i in range(num_seqs):
-            seq = &seqs[i]
-            recs = []
-            for j in range(seq.bams.l):
-                rec = makeAlignedSegment(seq.bams.bams[j], self._index.header)
-                recs.append(rec)
-            recs_to_return.append(recs)
-            bams_destroy(seq.bams)
-            seq.bams = NULL
+            for i in range(num_seqs):
+                seq = &seqs[i]
+                recs = []
+                for j in range(seq.bams.l):
+                    rec = makeAlignedSegment(seq.bams.bams[j], self._index.header)
+                    recs.append(rec)
+                recs_to_return.append(recs)
+                bams_destroy(seq.bams)
+                seq.bams = NULL
 
-        for i in range(num_seqs):
-            free(seqs[i].name)
-            free(seqs[i].comment)
-            free(seqs[i].seq)
-            free(seqs[i].qual)
-        free(seqs)
-        # Note: We don't destroy h here since it's the cached header (destroyed in __dealloc__)
-
-        return recs_to_return
+            return recs_to_return
+        finally:
+            for i in range(num_seqs):
+                if seqs[i].bams != NULL:
+                    bams_destroy(seqs[i].bams)
+                    seqs[i].bams = NULL
+                free(seqs[i].name)
+                free(seqs[i].comment)
+                free(seqs[i].seq)
+                free(seqs[i].qual)
+            free(seqs)
 
 
 ###########################################################
