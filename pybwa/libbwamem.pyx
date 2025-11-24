@@ -1,6 +1,6 @@
 # cython: language_level=3
 from pathlib import Path
-from typing import List
+from typing import List, Sequence
 
 from fgpyo.sequence import reverse_complement
 from libc.string cimport memcpy
@@ -209,7 +209,11 @@ cdef class BwaMemOptions:
 
     def __cinit__(self):
         self._options = mem_opt_init()
+        if self._options == NULL:
+            raise MemoryError("Failed to allocate memory for BWA-MEM options")
         self._options0 = mem_opt_init()
+        if self._options0 == NULL:
+            raise MemoryError("Failed to allocate memory for BWA-MEM options (copy)")
 
     def __dealloc__(self):
         free(self._options)
@@ -228,6 +232,23 @@ cdef class BwaMemOptions:
         """True if the options have been finalized with :meth:`~pybwa.BwaMemOptions.finalize`."""
         return self._finalized
 
+    def validate(self) -> None:
+        """Validate the options and raise ValueError if any are invalid.
+
+        Raises:
+            ValueError: If any option values are invalid
+        """
+        if self._options.min_seed_len < 1:
+            raise ValueError(f"min_seed_len must be >= 1, got {self._options.min_seed_len}")
+        if self._options.w < 0:
+            raise ValueError(f"band_width must be >= 0, got {self._options.w}")
+        if self._options.n_threads < 1:
+            raise ValueError(f"threads must be >= 1, got {self._options.n_threads}")
+        if self._options.chunk_size < 0:
+            raise ValueError(f"chunk_size must be >= 0, got {self._options.chunk_size}")
+        if self._options.max_occ < 0:
+            raise ValueError(f"max_occurrences must be >= 0, got {self._options.max_occ}")
+
     def finalize(self, copy: bool = False) -> BwaMemOptions:
         """Performs final initialization of these options.  The object returned may not be
         modified further.
@@ -245,6 +266,9 @@ cdef class BwaMemOptions:
             memcpy(opt._options, self._options, sizeof(mem_opt_t))
         else:
             opt = self
+
+        # Validate options before finalizing
+        opt.validate()
 
         if opt._mode is None:
             # matching score is changed so scale the rest of the penalties/scores
@@ -699,7 +723,13 @@ cdef class BwaMemOptions:
 
     @property
     def threads(self) -> int:
-        """:code:`bwa mem -t <int>`"""
+        """:code:`bwa mem -t <int>`
+
+        Note:
+            BWA uses internal multithreading for alignment. Each BwaMem instance maintains
+            its own thread pool. Multiple BwaMem instances can be used concurrently from
+            different Python threads safely.
+        """
         return self._options.n_threads
 
     @threads.setter
@@ -719,9 +749,17 @@ cdef class BwaMemOptions:
 
 
 cdef class BwaMem:
-    """The class to align reads with :code:`bwa mem`."""
+    """The class to align reads with :code:`bwa mem`.
+
+    This class can be used as a context manager for automatic resource cleanup:
+
+    Example:
+        >>> with BwaMem(prefix="genome.fa") as aligner:
+        ...     results = aligner.align(queries)
+    """
 
     cdef BwaIndex _index
+    cdef sam_hdr_t* _cached_header
 
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
         """Constructs the :code:`bwa mem` aligner.
@@ -733,15 +771,45 @@ cdef class BwaMem:
             index: the index to use
         """
         if prefix is not None:
-            assert Path(prefix).exists()
+            if not Path(prefix).exists():
+                raise FileNotFoundError(f"Index prefix does not exist: {prefix}")
             self._index = BwaIndex(prefix=prefix)
         elif index is not None:
             self._index = index
         else:
             raise ValueError("Either prefix or index must be given")
 
+        # Create the SAM header once and cache it for reuse
+        cdef kstring_t kstr
+        kstr.l = kstr.m = 0
+        kstr.s = NULL
+        bwa_format_sam_hdr(self._index.bns(), NULL, &kstr)
+        if kstr.s == NULL:
+            raise RuntimeError("Failed to format SAM header")
+        self._cached_header = sam_hdr_parse(kstr.l, kstr.s)
+        if self._cached_header == NULL:
+            free(kstr.s)
+            raise RuntimeError("Failed to parse SAM header")
+        self._cached_header.l_text = kstr.l
+        self._cached_header.text = kstr.s
+        # Note: kstr.s is now owned by _cached_header and will be freed in __dealloc__
+
+    def __enter__(self):
+        """Enter the context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the context manager. No explicit cleanup needed as Cython handles deallocation."""
+        return False
+
+    def __dealloc__(self):
+        """Clean up the cached SAM header."""
+        if self._cached_header != NULL:
+            sam_hdr_destroy(self._cached_header)
+            self._cached_header = NULL
+
     # TODO: support paired end
-    def align(self, queries: List[FastxRecord] | List[str], opt: BwaMemOptions | None = None) -> List[List[AlignedSegment]]:
+    def align(self, queries: Sequence[FastxRecord | str] | None = None, opt: BwaMemOptions | None = None) -> List[List[AlignedSegment]]:
         """Align one or more queries with :code:`bwa mem`.
 
         Args:
@@ -757,7 +825,7 @@ cdef class BwaMem:
         elif not opt.finalized:
             opt = opt.finalize(copy=True)
 
-        if len(queries) == 0:
+        if queries is None or len(queries) == 0:
             return []
         elif isinstance(queries[0], str):
             queries = [
@@ -786,6 +854,8 @@ cdef class BwaMem:
 
         # name
         s.name = <char *> calloc(sizeof(char), len(q.name) + 1)
+        if s.name == NULL:
+            raise MemoryError("Failed to allocate memory for sequence name")
         strncpy(s.name, force_bytes(q.name), len(q.name))
         s.name[len(q.name)] = b'\0'
 
@@ -796,6 +866,8 @@ cdef class BwaMem:
         # sequence
         s.l_seq = len(q.sequence)
         s.seq = <char *> calloc(sizeof(char), s.l_seq + 1)
+        if s.seq == NULL:
+            raise MemoryError("Failed to allocate memory for sequence")
         for i, base in enumerate(q.sequence):
             s.seq[i] = nst_nt4_table[ord(base)]
         s.seq[s.l_seq] = b'\0'
@@ -805,6 +877,8 @@ cdef class BwaMem:
             s.qual = NULL
         else:
             s.qual = <char *> calloc(sizeof(char), s.l_seq + 1)
+            if s.qual == NULL:
+                raise MemoryError("Failed to allocate memory for quality string")
             strncpy(s.qual, force_bytes(q.quality), s.l_seq)
             s.qual[s.l_seq] = b'\0'
 
@@ -813,23 +887,16 @@ cdef class BwaMem:
         # TODO: refactor to make this more readable
         cdef bseq1_t* seqs
         cdef bseq1_t* seq
-        cdef char* s_char
         cdef kstring_t kstr
         cdef int take_all
         cdef size_t j
         cdef mem_alnreg_t *mem_alnreg
         cdef mem_aln_t mem_aln
-        cdef char *md
         cdef mem_opt_t *mem_opt
         cdef bntann1_t *anno
-        cdef sam_hdr_t *h
 
-        kstr.l = kstr.m = 0
-        kstr.s = NULL
-        bwa_format_sam_hdr(self._index.bns(), NULL, &kstr)
-        h = sam_hdr_parse(kstr.l, kstr.s)
-        h.l_text = kstr.l
-        h.text = kstr.s
+        # Use the cached header instead of creating a new one each time
+        cdef sam_hdr_t *h = self._cached_header
 
         recs_to_return: List[List[AlignedSegment]] = []
 
@@ -837,6 +904,8 @@ cdef class BwaMem:
         num_seqs = len(queries)
         mem_opt = opt.mem_opt()
         seqs = <bseq1_t*>calloc(sizeof(bseq1_t), num_seqs)
+        if seqs == NULL:
+            raise MemoryError(f"Failed to allocate memory for {num_seqs} sequences")
         for i in range(num_seqs):
             self._copy_seq(queries[i], &seqs[i])
 
@@ -860,7 +929,7 @@ cdef class BwaMem:
             free(seqs[i].seq)
             free(seqs[i].qual)
         free(seqs)
-        free(kstr.s)
+        # Note: We don't destroy h here since it's the cached header (destroyed in __dealloc__)
 
         return recs_to_return
 

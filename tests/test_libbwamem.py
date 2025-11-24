@@ -248,9 +248,10 @@ def test_bwamem_align_no_options(
     assert len(list_of_recs[0]) == 1
 
 
-def test_bwamem_align_no_queries(e_coli_k12_fasta: Path) -> None:
+@pytest.mark.parametrize("queries", [[], None])
+def test_bwamem_align_no_queries(e_coli_k12_fasta: Path, queries: list | None) -> None:
     bwa = BwaMem(prefix=e_coli_k12_fasta)
-    list_of_recs = bwa.align(queries=[])
+    list_of_recs = bwa.align(queries=queries)
     assert len(list_of_recs) == 0
 
 
