@@ -1,9 +1,14 @@
 """Fixtures intended to be shared across multiple files in the tests directory."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from pysam import FastxRecord
+
+if TYPE_CHECKING:
+    from pybwa import BwaAln
+    from pybwa import BwaMem
 
 
 @pytest.fixture(scope="function")
@@ -33,7 +38,7 @@ def test_fa(e_coli_k12_fasta: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
-def bwa_mem_aligner(e_coli_k12_fasta: Path):
+def bwa_mem_aligner(e_coli_k12_fasta: Path) -> "BwaMem":
     """A BwaMem aligner initialized with the e. coli K12 reference."""
     from pybwa import BwaMem
 
@@ -41,7 +46,7 @@ def bwa_mem_aligner(e_coli_k12_fasta: Path):
 
 
 @pytest.fixture(scope="session")
-def bwa_aln_aligner(e_coli_k12_fasta: Path):
+def bwa_aln_aligner(e_coli_k12_fasta: Path) -> "BwaAln":
     """A BwaAln aligner initialized with the e. coli K12 reference."""
     from pybwa import BwaAln
 
