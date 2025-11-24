@@ -89,7 +89,7 @@ class TestLargeBatchProcessing:
     def test_many_queries_mem(self, bwa_mem_aligner: BwaMem):
         """Test BwaMem with many queries."""
         # Generate 1000 short queries
-        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)]
+        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)] 64809bc (style: fix formatting in test_resource_management.py)
 
         results = bwa_mem_aligner.align(queries)
         assert len(results) == 1000
@@ -97,7 +97,7 @@ class TestLargeBatchProcessing:
     def test_many_queries_aln(self, bwa_aln_aligner: BwaAln):
         """Test BwaAln with many queries."""
         # Generate 1000 short queries
-        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)]
+        queries = [f"ACGTACGT{'ACGT'[i % 4]}" * 10 for i in range(1000)] 64809bc (style: fix formatting in test_resource_management.py)
 
         results = bwa_aln_aligner.align(queries)
         assert len(results) == 1000
