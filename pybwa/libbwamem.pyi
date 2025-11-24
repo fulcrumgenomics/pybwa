@@ -1,6 +1,7 @@
 import enum
 from pathlib import Path
-from typing import List, Sequence
+from typing import List
+from typing import Sequence
 
 from pysam import AlignedSegment
 from pysam import FastxRecord
