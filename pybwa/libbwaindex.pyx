@@ -7,6 +7,7 @@ from pysam import AlignmentFile, FastxFile, samtools
 import enum
 from libc.stdlib cimport free
 from pybwa.libbwa cimport bwa_verbose
+from pybwa.libbwa_utils cimport check_not_null
 
 __all__ = [
     "BwaIndex",
