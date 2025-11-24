@@ -150,6 +150,7 @@ cdef extern from "htslib/sam.h":
         char *text
 
     sam_hdr_t *sam_hdr_parse(size_t l_text, const char *text)
+    void sam_hdr_destroy(sam_hdr_t *h)
 
 cdef class BwaMemOptions:
     """The container for options for :class:`~pybwa.BwaMem`."""
