@@ -23,7 +23,8 @@ class BwaVerbosity(enum.IntEnum):
 
 
 def set_bwa_verbosity(level: BwaVerbosity) -> bool:
-    """Set the BWA C-API verbosity, returning True if changed, false otherwise.
+    """
+    Set the BWA C-API verbosity, returning True if changed, false otherwise.
 
     Warning:
         This function modifies a global C variable and is NOT thread-safe. If you are using
