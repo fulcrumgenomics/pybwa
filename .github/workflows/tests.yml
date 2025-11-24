@@ -25,6 +25,18 @@ jobs:
       with:
         submodules: 'recursive'
 
+    - name: Cache htslib build
+      uses: actions/cache@v4
+      id: htslib-cache
+      with:
+        path: |
+          htslib/configure
+          htslib/config.h
+          htslib/config.mk
+          htslib/libhts.a
+          htslib/**/*.o
+        key: htslib-${{ runner.os }}-${{ hashFiles('htslib/**/*.c', 'htslib/**/*.h', 'htslib/configure.ac', 'htslib/Makefile') }}
+
     - name: Set up Python ${{matrix.PYTHON_VERSION}}
       uses: actions/setup-python@v1
       with:
