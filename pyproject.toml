@@ -49,7 +49,7 @@ include = [
 	{ path = "htslib/configure.ac", format = ["sdist", "wheel"] },
 	{ path = "htslib/m4/*.m4", format = ["sdist", "wheel"] },
 	{ path = "htslib/*.in", format = ["sdist", "wheel"] },
-	{ path = "htslin/configure", format = ["sdist", "wheel"] },
+	{ path = "htslib/configure", format = ["sdist", "wheel"] },
 	{ path = "htslib/config.guess", format = ["sdist", "wheel"] },
 	{ path = "htslib/config.sub", format = ["sdist", "wheel"] },
 	{ path = "htslib/version.sh", format = ["sdist", "wheel"] },
