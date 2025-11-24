@@ -94,9 +94,17 @@ def compile_htslib(logger: logging.Logger) -> None:
             cflags += " -mmacosx-version-min=11.0"
         cflags += "'"
 
-        # regenerate GNU build files
-        logger.info("Regenerating htslib build files...")
-        run_command(command="autoreconf -i")
+        # Check if already built (e.g., from cache)
+        if Path("libhts.a").exists() and Path("config.h").exists():
+            logger.info("Using cached htslib build...")
+            return
+
+        # Check if configure script exists (e.g., from cache)
+        if not Path("configure").exists():
+            logger.info("Regenerating htslib build files...")
+            run_command(command="autoreconf -i")
+        else:
+            logger.info("Using existing htslib configure script...")
 
         # run configure, trying to disable bz2 and lzma when it fails
         logger.info("Configuring htslib...")
