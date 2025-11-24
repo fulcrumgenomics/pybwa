@@ -102,6 +102,7 @@ cdef class BwaIndex:
 
     cdef _load_index(self, prefix, mode):
         # infer the prefix from the hint
+        cdef char* prefix_char_ptr = NULL
         prefix_char_ptr = bwa_idx_infer_prefix(force_bytes(prefix))
         try:
             if not prefix_char_ptr:
@@ -135,13 +136,16 @@ cdef class BwaIndex:
 
             # load the index
             self._delegate = bwa_idx_load(prefix_char_ptr, mode)
+            if self._delegate == NULL:
+                raise RuntimeError(f"Failed to load BWA index from: {prefix}")
 
             # load the SAM header from the sequence dictionary
             with AlignmentFile(seq_dict.open("r")) as reader:
                 self.header = reader.header
         finally:
             # free temporary memory
-            free(prefix_char_ptr)
+            if prefix_char_ptr != NULL:
+                free(prefix_char_ptr)
 
     cdef bwt_t *bwt(self):
         return self._delegate.bwt
