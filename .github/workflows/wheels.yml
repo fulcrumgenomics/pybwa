@@ -81,6 +81,8 @@ jobs:
         with:
           submodules: 'recursive'
 
+      # Note: QEMU is only needed for cross-compilation. Native ARM runners (ubuntu-*-arm)
+      # will build natively without emulation, which is significantly faster for ARM builds.
       - name: Set up QEMU
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
