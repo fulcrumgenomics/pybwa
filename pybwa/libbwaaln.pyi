@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Sequence
 
 from fgpyo.sam import Cigar
 from pysam import AlignedSegment
@@ -53,7 +53,7 @@ class BwaAln:
     _with_md: bool
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...
     def align(
-        self, queries: List[FastxRecord] | List[str], opt: BwaAlnOptions | None = None
+        self, queries: Sequence[FastxRecord | str] | None = None, opt: BwaAlnOptions | None = None
     ) -> List[AlignedSegment]: ...
     def reinitialize_seed(self) -> None: ...
 
