@@ -299,6 +299,17 @@ def build() -> None:
             logger.warning("... building **without** lzma support")
 
         # Define the extension modules
+        libbwa_utils_module = Extension(
+            name="pybwa.libbwa_utils",
+            sources=["pybwa/libbwa_utils.pyx"],
+            depends=[],
+            extra_compile_args=compile_args,
+            extra_link_args=link_args,
+            include_dirs=include_dirs,
+            language="c",
+            define_macros=define_macros,
+        )
+
         libbwaindex_module = Extension(
             name="pybwa.libbwaindex",
             sources=["pybwa/libbwaindex.pyx"] + c_files,
@@ -344,6 +355,7 @@ def build() -> None:
         logger.info("Cythonize extensions...")
         # Collect and cythonize all files
         extension_modules = cythonize_helper([
+            libbwa_utils_module,
             libbwaindex_module,
             libbwaaln_module,
             libbwamem_module,

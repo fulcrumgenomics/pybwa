@@ -11,6 +11,7 @@ from pysam import FastxRecord, AlignedSegment, qualitystring_to_array, CMATCH, C
 from libc.string cimport strncpy
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwa cimport bwa_verbose
+from pybwa.libbwa_utils cimport check_alloc, check_not_null
 
 from pysam.libcalignedsegment cimport makeAlignedSegment
 
@@ -208,12 +209,14 @@ cdef class BwaMemOptions:
             self.chunk_size = chunk_size
 
     def __cinit__(self):
-        self._options = mem_opt_init()
-        if self._options == NULL:
-            raise MemoryError("Failed to allocate memory for BWA-MEM options")
-        self._options0 = mem_opt_init()
-        if self._options0 == NULL:
-            raise MemoryError("Failed to allocate memory for BWA-MEM options (copy)")
+        self._options = <mem_opt_t*>check_alloc(
+            mem_opt_init(),
+            "Failed to allocate memory for BWA-MEM options"
+        )
+        self._options0 = <mem_opt_t*>check_alloc(
+            mem_opt_init(),
+            "Failed to allocate memory for BWA-MEM options (copy)"
+        )
 
     def __dealloc__(self):
         free(self._options)
@@ -784,8 +787,7 @@ cdef class BwaMem:
         kstr.l = kstr.m = 0
         kstr.s = NULL
         bwa_format_sam_hdr(self._index.bns(), NULL, &kstr)
-        if kstr.s == NULL:
-            raise RuntimeError("Failed to format SAM header")
+        check_not_null(kstr.s, "Failed to format SAM header")
         self._cached_header = sam_hdr_parse(kstr.l, kstr.s)
         if self._cached_header == NULL:
             free(kstr.s)
@@ -853,9 +855,10 @@ cdef class BwaMem:
     cdef _copy_seq(self, q: FastxRecord, bseq1_t *s):
 
         # name
-        s.name = <char *> calloc(sizeof(char), len(q.name) + 1)
-        if s.name == NULL:
-            raise MemoryError("Failed to allocate memory for sequence name")
+        s.name = <char *>check_alloc(
+            calloc(sizeof(char), len(q.name) + 1),
+            "Failed to allocate memory for sequence name"
+        )
         strncpy(s.name, force_bytes(q.name), len(q.name))
         s.name[len(q.name)] = b'\0'
 
@@ -865,9 +868,10 @@ cdef class BwaMem:
 
         # sequence
         s.l_seq = len(q.sequence)
-        s.seq = <char *> calloc(sizeof(char), s.l_seq + 1)
-        if s.seq == NULL:
-            raise MemoryError("Failed to allocate memory for sequence")
+        s.seq = <char *>check_alloc(
+            calloc(sizeof(char), s.l_seq + 1),
+            "Failed to allocate memory for sequence"
+        )
         for i, base in enumerate(q.sequence):
             s.seq[i] = nst_nt4_table[ord(base)]
         s.seq[s.l_seq] = b'\0'
@@ -876,9 +880,10 @@ cdef class BwaMem:
         if q.quality is None:
             s.qual = NULL
         else:
-            s.qual = <char *> calloc(sizeof(char), s.l_seq + 1)
-            if s.qual == NULL:
-                raise MemoryError("Failed to allocate memory for quality string")
+            s.qual = <char *>check_alloc(
+                calloc(sizeof(char), s.l_seq + 1),
+                "Failed to allocate memory for quality string"
+            )
             strncpy(s.qual, force_bytes(q.quality), s.l_seq)
             s.qual[s.l_seq] = b'\0'
 
@@ -903,9 +908,10 @@ cdef class BwaMem:
         # copy FastxRecord into bwa_seq_t
         num_seqs = len(queries)
         mem_opt = opt.mem_opt()
-        seqs = <bseq1_t*>calloc(sizeof(bseq1_t), num_seqs)
-        if seqs == NULL:
-            raise MemoryError(f"Failed to allocate memory for {num_seqs} sequences")
+        seqs = <bseq1_t*>check_alloc(
+            calloc(sizeof(bseq1_t), num_seqs),
+            f"Failed to allocate memory for {num_seqs} sequences"
+        )
         for i in range(num_seqs):
             self._copy_seq(queries[i], &seqs[i])
 
