@@ -1,7 +1,7 @@
 # cython: language_level=3
 
 from pathlib import Path
-from typing import List
+from typing import List, Sequence
 from fgpyo.sam import CigarOp
 from fgpyo.sam import CigarElement
 from fgpyo.sam import Cigar
@@ -9,7 +9,7 @@ from fgpyo.sam import Cigar
 from libc.stdint cimport uint8_t
 from libc.stdlib cimport calloc, free
 from posix.stdlib cimport srand48
-from libc.string cimport strncpy
+from libc.string cimport strncpy, memcpy
 from pysam import FastxRecord, AlignedSegment
 from pybwa.libbwaindex cimport force_bytes
 from pybwa.libbwaindex cimport BwaIndex
@@ -131,6 +131,8 @@ cdef class BwaAlnOptions:
 
     def __cinit__(self):
         self._delegate = gap_init_opt()
+        if self._delegate == NULL:
+            raise MemoryError("Failed to allocate memory for BWA-ALN options")
 
     def __dealloc__(self):
         free(self._delegate)
@@ -138,6 +140,21 @@ cdef class BwaAlnOptions:
     cdef gap_opt_t* gap_opt(self):
         """Returns the options struct to use with the bwa C library methods"""
         return self._delegate
+
+    def validate(self) -> None:
+        """Validate the options and raise ValueError if any are invalid.
+
+        Raises:
+            ValueError: If any option values are invalid
+        """
+        if self._delegate.seed_len < 1:
+            raise ValueError(f"seed_length must be >= 1, got {self._delegate.seed_len}")
+        if self._delegate.n_threads < 1:
+            raise ValueError(f"threads must be >= 1, got {self._delegate.n_threads}")
+        if self._max_hits < 0:
+            raise ValueError(f"max_hits must be >= 0, got {self._max_hits}")
+        if self._delegate.max_entries < 1:
+            raise ValueError(f"max_entries must be >= 1, got {self._delegate.max_entries}")
 
     property max_mismatches:
         """:code:`bwa aln -n <int>`"""
@@ -285,9 +302,16 @@ cdef class BwaAln:
 
     This wraps bwa's short-read alignment algorithm, which is based on backward search with the
     Burrows-Wheeler Transform.  Best suited for Illumina reads shorter than ~100bp.
+
+    This class can be used as a context manager for automatic resource cleanup:
+
+    Example:
+        >>> with BwaAln(prefix="genome.fa") as aligner:
+        ...     results = aligner.align(queries)
     """
 
     cdef BwaIndex _index
+    cdef sam_hdr_t* _cached_header
 
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None):
         """Constructs the :code:`bwa aln` aligner.
@@ -299,7 +323,8 @@ cdef class BwaAln:
             index: the index to use
         """
         if prefix is not None:
-            assert Path(prefix).exists()
+            if not Path(prefix).exists():
+                raise FileNotFoundError(f"Index prefix does not exist: {prefix}")
             self._index = BwaIndex(prefix=prefix)
         elif index is not None:
             self._index = index
@@ -308,7 +333,36 @@ cdef class BwaAln:
 
         bwase_initialize()
 
-    def align(self, queries: List[FastxRecord] | List[str] | None = None, opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
+        # Create the SAM header once and cache it for reuse
+        cdef kstring_t hdr_str
+        hdr_str.l = hdr_str.m = 0
+        hdr_str.s = NULL
+        bwa_format_sam_hdr(self._index.bns(), NULL, &hdr_str)
+        if hdr_str.s == NULL:
+            raise RuntimeError("Failed to format SAM header")
+        self._cached_header = sam_hdr_parse(hdr_str.l, hdr_str.s)
+        if self._cached_header == NULL:
+            free(hdr_str.s)
+            raise RuntimeError("Failed to parse SAM header")
+        self._cached_header.l_text = hdr_str.l
+        self._cached_header.text = hdr_str.s
+        # Note: hdr_str.s is now owned by _cached_header and will be freed in __dealloc__
+
+    def __enter__(self):
+        """Enter the context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the context manager. No explicit cleanup needed as Cython handles deallocation."""
+        return False
+
+    def __dealloc__(self):
+        """Clean up the cached SAM header."""
+        if self._cached_header != NULL:
+            sam_hdr_destroy(self._cached_header)
+            self._cached_header = NULL
+
+    def align(self, queries: Sequence[FastxRecord | str] | None = None, opt: BwaAlnOptions | None = None) -> List[AlignedSegment]:
         """Align one or more queries with :code:`bwa aln`.
 
         Args:
@@ -318,6 +372,11 @@ cdef class BwaAln:
         Returns:
             one alignment (:class:`~pysam.AlignedSegment`) per query
         """
+        if isinstance(queries, str):
+            raise TypeError(
+                "queries must be a sequence of FastxRecord or str, not a bare str. "
+                "Use a list: align(queries=[sequence])"
+            )
         if not queries:
             return []
         elif isinstance(queries[0], str):
@@ -326,6 +385,7 @@ cdef class BwaAln:
                 for i, sequence in enumerate(queries)
             ]
         opt = BwaAlnOptions() if opt is None else opt
+        opt.validate()
 
         return self._calign(opt,  queries)
 
@@ -335,7 +395,11 @@ cdef class BwaAln:
         s.clip_len = seq_len
         s.full_len = seq_len
         s.seq = <uint8_t *> calloc(sizeof(uint8_t), seq_len + 1)
+        if s.seq == NULL:
+            raise MemoryError("Failed to allocate memory for sequence")
         s.rseq = <uint8_t *> calloc(sizeof(uint8_t), seq_len + 1)
+        if s.rseq == NULL:
+            raise MemoryError("Failed to allocate memory for reverse sequence")
 
         # convert char into int
         for i, base in enumerate(q.sequence):
@@ -348,9 +412,16 @@ cdef class BwaAln:
             s.qual = NULL
         else:
             s.qual = <uint8_t *> calloc(sizeof(uint8_t), seq_len + 1)
+            if s.qual == NULL:
+                raise MemoryError("Failed to allocate memory for quality string")
             qual_str = force_bytes(q.quality)
-            for i in range(seq_len):
-                s.qual[i] = qual_str[i]
+            if len(qual_str) < seq_len:
+                raise ValueError(
+                    f"quality string length ({len(qual_str)}) is shorter than "
+                    f"sequence length ({seq_len}) for read '{q.name}'"
+                )
+            # Use memcpy for efficient bulk copy instead of byte-by-byte loop
+            memcpy(s.qual, <char*>qual_str, seq_len)
             s.qual[seq_len] = b'\0'
 
         # use seq_reverse from bwaseqio.c
@@ -359,31 +430,30 @@ cdef class BwaAln:
         seq_reverse(seq_len, s.rseq, 1 if is_comp else 0)
 
         s.name = <char *> calloc(sizeof(char), len(q.name) + 1)
+        if s.name == NULL:
+            raise MemoryError("Failed to allocate memory for sequence name")
         strncpy(s.name, force_bytes(q.name), len(q.name))
         s.name[len(q.name)] = b'\0'
 
     cdef _calign(self, opt: BwaAlnOptions, queries: List[FastxRecord]):
         cdef bwa_seq_t* seqs
         cdef bwa_seq_t* s
-        cdef char* s_char
         cdef gap_opt_t* gap_opt
-        cdef sam_hdr_t *h
-        cdef kstring_t hdr_str
         cdef bam1_t **bams
         cdef bwa_hits_t * c_hits
 
-        hdr_str.l = hdr_str.m = 0
-        hdr_str.s = NULL
-        bwa_format_sam_hdr(self._index.bns(), NULL, &hdr_str)
-        h = sam_hdr_parse(hdr_str.l, hdr_str.s)
-        h.l_text = hdr_str.l
-        h.text = hdr_str.s
+        # Use the cached header instead of creating a new one each time
+        if self._cached_header == NULL:
+            raise RuntimeError("Cannot align: aligner has been closed")
+        cdef sam_hdr_t *h = self._cached_header
 
         gap_opt = opt.gap_opt()
 
         # copy FastqProxy into bwa_seq_t
         num_seqs = len(queries)
         seqs = <bwa_seq_t*>calloc(sizeof(bwa_seq_t), num_seqs)
+        if seqs == NULL:
+            raise MemoryError(f"Failed to allocate memory for {num_seqs} sequences")
         for i in range(num_seqs):
             self._copy_seq(queries[i], &seqs[i], (opt._delegate.mode & BWA_MODE_COMPREAD) != 0)
             seqs[i].tid = -1
@@ -400,7 +470,7 @@ cdef class BwaAln:
         free(bams)
 
         bwa_free_read_seq(num_seqs, seqs)
-        free(hdr_str.s)
+        # Note: We don't destroy h here since it's the cached header (destroyed in __dealloc__)
 
         return recs
 
