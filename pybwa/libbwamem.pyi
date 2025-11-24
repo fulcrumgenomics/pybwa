@@ -1,6 +1,6 @@
 import enum
 from pathlib import Path
-from typing import List
+from typing import List, Sequence
 
 from pysam import AlignedSegment
 from pysam import FastxRecord
@@ -195,7 +195,7 @@ class BwaMem:
     _index: BwaIndex
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...
     def align(
-        self, queries: List[FastxRecord] | List[str], opt: BwaMemOptions | None = None
+        self, queries: Sequence[FastxRecord | str], opt: BwaMemOptions | None = None
     ) -> List[List[AlignedSegment]]: ...
 
 def _set_bwa_mem_verbosity(level: int) -> bool: ...
