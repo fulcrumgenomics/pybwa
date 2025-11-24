@@ -24,3 +24,25 @@ def e_coli_k12_fastx_record() -> FastxRecord:
     """Sequence-only FastxRecord that maps to position 80 (0-based) for 80bp on the + strand."""
     sequence = "gttacctgccgtgagtaaattaaaattttattgacttaggtcactaaatactttaaccaatataggcatagcgcacagac"
     return FastxRecord(name="test", sequence=sequence.upper())
+
+
+@pytest.fixture(scope="session")
+def test_fa(e_coli_k12_fasta: Path) -> Path:
+    """Alias for e_coli_k12_fasta for compatibility."""
+    return e_coli_k12_fasta
+
+
+@pytest.fixture(scope="session")
+def bwa_mem_aligner(e_coli_k12_fasta: Path):
+    """A BwaMem aligner initialized with the e. coli K12 reference."""
+    from pybwa import BwaMem
+
+    return BwaMem(prefix=e_coli_k12_fasta)
+
+
+@pytest.fixture(scope="session")
+def bwa_aln_aligner(e_coli_k12_fasta: Path):
+    """A BwaAln aligner initialized with the e. coli K12 reference."""
+    from pybwa import BwaAln
+
+    return BwaAln(prefix=e_coli_k12_fasta)
