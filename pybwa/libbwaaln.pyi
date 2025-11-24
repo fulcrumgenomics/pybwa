@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
+from typing import Sequence
 
 from fgpyo.sam import Cigar
 from pysam import AlignedSegment
@@ -47,11 +48,14 @@ class BwaAlnOptions:
     with_md: bool = True  # bwa samse -d
     max_entries: int = 2000000  # -m <int>
     threads: int  # -t <int>
+    def validate(self) -> None: ...
 
 class BwaAln:
     _max_hits: int
     _with_md: bool
     def __init__(self, prefix: str | Path | None = None, index: BwaIndex | None = None) -> None: ...
+    def __enter__(self) -> BwaAln: ...
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> bool: ...
     def align(
         self, queries: List[FastxRecord] | List[str], opt: BwaAlnOptions | None = None
     ) -> List[AlignedSegment]: ...
