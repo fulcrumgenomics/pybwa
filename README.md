@@ -39,7 +39,60 @@
 [zenodo-link]:          https://doi.org/10.5281/zenodo.15029038
 # pybwa
 
-Python language bindings for [bwa][bwa-link].
+Python bindings for [bwa][bwa-link], the Burrows-Wheeler Aligner.
+Pybwa provides native Python access to bwa's indexing and alignment algorithms, returning
+[pysam][pysam-link] `AlignedSegment` objects for downstream analysis.
+
+## Quick Start
+
+### Align reads with `bwa mem`
+
+`bwa mem` is the recommended algorithm for reads longer than ~70bp (Illumina, etc.).
+
+```python
+from pybwa import BwaMem
+
+mem = BwaMem(prefix="/path/to/genome.fasta")
+for recs in mem.align(queries=["CTCAAGGTTGTTGCAAGGGGGTCTATGTGAACAAA"]):
+    for rec in recs:
+        print(rec)
+```
+
+### Align short reads with `bwa aln`
+
+`bwa aln` is designed for short reads (<100bp, e.g. Illumina).
+
+```python
+from pybwa import BwaAln
+
+aln = BwaAln(prefix="/path/to/genome.fasta")
+for rec in aln.align(queries=["GATTACA"]):
+    print(rec)
+```
+
+### Reuse an index across aligners
+
+Load a `BwaIndex` once and pass it to multiple aligners to avoid reloading:
+
+```python
+from pybwa import BwaIndex, BwaAln, BwaMem
+
+index = BwaIndex(prefix="/path/to/genome.fasta")
+aln = BwaAln(index=index)
+mem = BwaMem(index=index)
+```
+
+## Installation
+
+Install with `pip install pybwa` or `conda install -c bioconda pybwa`.
+
+**Requires Python 3.10+**
+
+## Documentation
+
+See the full documentation on [pybwa.readthedocs.org][rtd-link].
+
+---
 
 <p>
 <a href="https://fulcrumgenomics.com"><img src="logos/fulcrumgenomics.svg" alt="Fulcrum Genomics" height="100"/></a>
@@ -50,11 +103,6 @@ Python language bindings for [bwa][bwa-link].
 <a href="mailto:contact@fulcrumgenomics.com?subject=[GitHub inquiry]"><img src="https://img.shields.io/badge/Email_us-brightgreen.svg?&style=for-the-badge&logo=gmail&logoColor=white"/></a>
 <a href="https://www.fulcrumgenomics.com"><img src="https://img.shields.io/badge/Visit_Us-blue.svg?&style=for-the-badge&logo=wordpress&logoColor=white"/></a>
 
-Install with `pip install pybwa` or `conda install -c bioconda pybwa`.
-
-**Requires python 3.10+**
-
-See documentation on [pybwa.readthedocs.org][rtd-link].
-
 [rtd-link]: http://pybwa.readthedocs.org/en/stable
 [bwa-link]: https://github.com/lh3/bwa
+[pysam-link]: https://pysam.readthedocs.io/en/stable/
