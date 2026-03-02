@@ -34,25 +34,39 @@ cpdef bint _set_bwa_aln_verbosity(int level):
 
 cdef class BwaAlnOptions:
     """The container for options for :class:`pybwa.BwaAln`.
-    
+
     Args:
-        max_mismatches: :code:`-n <int>`
-        max_gap_opens: :code:`-o <int>`
-        max_gap_extensions: :code:`-e <int>`
-        min_indel_to_end_distance: :code:`-i <int>`
-        max_occurrences_for_extending_long_deletion: :code:`-d <int>`
-        seed_length: :code:`-l <int>`
-        max_mismatches_in_seed: :code:`-k <int>`
-        mismatch_penalty: :code:`-M <int>`
-        gap_open_penalty: :code:`-O <int>`
-        gap_extension_penalty: :code:`-E <int>`
-        stop_at_max_best_hits: :code:`-R <int>`
-        max_hits: :code:`bwa samse -n <int>`
-        log_scaled_gap_penalty: :code:`-L`
-        find_all_hits: :code:`-N`
-        with_md: output the MD to each alignment in the XA tag, otherwise use :code:`"."`
-        max_entries: :code:`-m`
-        threads: the number of threads to use
+        max_mismatches: Maximum number of mismatches allowed. When set to -1, the maximum edit
+            distance is calculated automatically using a fraction of missing alignments (fnr=0.04).
+            :code:`-n <int>`
+        max_gap_opens: Maximum number of gap opens allowed in an alignment. :code:`-o <int>`
+        max_gap_extensions: Maximum number of gap extensions allowed. When set to the default (6),
+            gap extensions count against the max mismatches limit. :code:`-e <int>`
+        min_indel_to_end_distance: Indels within this many bases of the read ends are not
+            allowed. :code:`-i <int>`
+        max_occurrences_for_extending_long_deletion: Maximum occurrences for extending a long
+            deletion. :code:`-d <int>`
+        seed_length: Length of the seed used in the first alignment phase. Only the first
+            ``seed_length`` bases of each read are used for seeding. :code:`-l <int>`
+        max_mismatches_in_seed: Maximum number of mismatches allowed in the seed region.
+            :code:`-k <int>`
+        mismatch_penalty: Mismatch penalty in the alignment scoring. A higher penalty makes the
+            aligner more strict about mismatches. :code:`-M <int>`
+        gap_open_penalty: Penalty for opening a gap in the alignment. :code:`-O <int>`
+        gap_extension_penalty: Penalty for each base of gap extension. :code:`-E <int>`
+        stop_at_max_best_hits: Stop searching when there are more than this many best hits.
+            :code:`-R <int>`
+        max_hits: Maximum number of alternative alignments to report in the XA tag. If a read has
+            more hits than this, no alternative hits are reported. :code:`bwa samse -n <int>`
+        log_scaled_gap_penalty: Use logarithmic-scaled gap penalty for long deletions.
+            :code:`-L`
+        find_all_hits: Find all hits with at most ``max_mismatches`` differences, without an
+            upper limit on the number of hits. :code:`-N`
+        with_md: Output the MD string for each alignment in the XA tag, otherwise use :code:`"."`.
+            :code:`bwa samse -d`
+        max_entries: Maximum number of entries in the occurrence queue during alignment; limits
+            memory usage for highly repetitive sequences. :code:`-m`
+        threads: The number of threads to use for alignment. :code:`-t`
     """
 
     def __init__(self,
@@ -267,7 +281,11 @@ cdef class BwaAlnOptions:
 
 
 cdef class BwaAln:
-    """The class to align reads with :code:`bwa aln`."""
+    """Aligner for short reads using the :code:`bwa aln` algorithm.
+
+    This wraps bwa's short-read alignment algorithm, which is based on backward search with the
+    Burrows-Wheeler Transform.  Best suited for Illumina reads shorter than ~100bp.
+    """
 
     cdef BwaIndex _index
 
@@ -294,14 +312,13 @@ cdef class BwaAln:
         """Align one or more queries with :code:`bwa aln`.
 
         Args:
-            queries: the queries to align
-            opt: the alignment options | None = None, or None to use the default options
+            queries: the queries to align, as either strings or :class:`~pysam.FastxRecord` objects
+            opt: the alignment options, or None to use the default options
 
         Returns:
             one alignment (:class:`~pysam.AlignedSegment`) per query
-            :code:`List[List[AlignedSegment]]`.
         """
-        if len(queries) == 0:
+        if not queries:
             return []
         elif isinstance(queries[0], str):
             queries = [

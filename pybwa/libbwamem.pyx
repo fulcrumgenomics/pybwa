@@ -31,51 +31,83 @@ cpdef bint _set_bwa_mem_verbosity(int level):
 
 @enum.unique
 class BwaMemMode(enum.Enum):
-    """The read type for overriding multiple options"""
+    """The read type preset for overriding multiple options (:code:`bwa mem -x`)."""
     PACBIO = enum.auto()
-    """PacBio reads to ref"""
+    """PacBio CLR reads to reference"""
     ONT2D = enum.auto()
-    """Oxford Nanopore 2D-reads to ref"""
+    """Oxford Nanopore 2D reads to reference"""
     INTRACTG = enum.auto()
-    """intra-species contigs to ref"""
+    """Intra-species contig alignment to reference"""
 
 
 cdef class BwaMemOptions:
     """The container for options for :class:`~pybwa.BwaMem`.
 
+    Options may not be modified after :meth:`~pybwa.BwaMemOptions.finalize` has been called.
+
     Args:
-        min_seed_len: :code:`bwa mem -k <int>`
-        mode: :code:`bwa mem -x <str>`
-        band_width: :code:`bwa mem -w <int>`
-        match_score: :code:`bwa mem -A <int>`
-        mismatch_penalty: :code:`bwa mem -B <int>`
-        minimum_score: :code:`bwa mem -T <int>`
-        unpaired_penalty: :code:`bwa mem -U <int>`
-        skip_pairing: :code:`bwa mem -P`
-        output_all_for_fragments: :code:`bwa mem -a`
-        interleaved_paired_end: :code:`bwa mem -p`
-        short_split_as_secondary: :code:`bwa mem -M`
-        skip_mate_rescue: :code:`bwa mem -S`
-        soft_clip_supplementary: :code:`bwa mem -Y`
-        with_xr_tag: :code:`bwa mem -V`
-        query_coord_as_primary: :code:`bwa mem -5`
-        keep_mapq_for_supplementary: :code:`bwa mem -q`
-        with_xb_tag: :code:`bwa mem -u`
-        max_occurrences: :code:`bwa mem -c <int>`
-        off_diagonal_x_dropoff: :code:`bwa mem -d <float>`
-        ignore_alternate_contigs: :code:`bwa mem -j`
-        internal_seed_split_factor: :code:`bwa mem -r <float>`
-        drop_chain_fraction: :code:`bwa mem -D <float>`
-        max_mate_rescue_rounds: :code:`bwa mem -m <int>`
-        min_seeded_bases_in_chain: :code:`bwa mem -W <int>`
-        seed_occurrence_in_3rd_round: :code:`bwa mem -y <int>`
-        xa_max_hits: :code:`bwa mem -h <int<,int>>`
-        xa_drop_ratio: :code:`bwa mem -z <float>`
-        gap_open_penalty: :code:`bwa mem -O <int<,int>>`
-        gap_extension_penalty: :code:`bwa mem -E <int<,int>>`
-        clipping_penalty: :code:`bwa mem -L <int<,int>>`
-        threads: :code:`bwa mem -t <int>`
-        chunk_size: :code:`bwa mem -K <int>`
+        min_seed_len: Minimum seed length for the MEM algorithm. Shorter seeds increase
+            sensitivity at the cost of speed. :code:`-k <int>`
+        mode: Read type preset that overrides multiple options for specific sequencing platforms
+            (PacBio, ONT, or intra-species contig alignment). :code:`-x <str>`
+        band_width: Band width for banded Smith-Waterman alignment. Gaps longer than this are
+            not found. :code:`-w <int>`
+        match_score: Score for a matching base. Other scoring parameters are scaled by this if
+            they are not explicitly set. :code:`-A <int>`
+        mismatch_penalty: Penalty for a mismatching base. :code:`-B <int>`
+        minimum_score: Minimum alignment score to report; alignments below this threshold are
+            marked as unmapped. :code:`-T <int>`
+        unpaired_penalty: Penalty for an unpaired read pair; used in paired-end mode only.
+            :code:`-U <int>`
+        skip_pairing: Skip read pairing; mate rescue is still performed unless also disabled.
+            :code:`-P`
+        output_all_for_fragments: Output all found alignments for single-end or unpaired reads,
+            including those that are likely suboptimal. :code:`-a`
+        interleaved_paired_end: Treat input queries as interleaved paired-end reads. :code:`-p`
+        short_split_as_secondary: Mark shorter split hits as secondary rather than supplementary,
+            for compatibility with Picard. :code:`-M`
+        skip_mate_rescue: Skip mate rescue; faster but may reduce alignment quality for pairs
+            where one end maps poorly. :code:`-S`
+        soft_clip_supplementary: Use soft clipping for supplementary alignments instead of hard
+            clipping. :code:`-Y`
+        with_xr_tag: Add the XR tag with the full reference sequence name (including description)
+            to each alignment. :code:`-V`
+        query_coord_as_primary: For a multi-part alignment, use the alignment with the smallest
+            query coordinate as the primary; also keeps mapping quality for supplementary
+            alignments. :code:`-5`
+        keep_mapq_for_supplementary: Don't modify mapping quality of supplementary alignments.
+            :code:`-q`
+        with_xb_tag: Output the XB tag with base alignment quality (BAQ) scores. :code:`-u`
+        max_occurrences: Discard a MEM if it has more than this many occurrences in the genome.
+            :code:`-c <int>`
+        off_diagonal_x_dropoff: Z-dropoff score for extending alignments: stop extension when the
+            best score drops below the current by more than this value. :code:`-d <int>`
+        ignore_alternate_contigs: Treat ALT contigs as part of the primary assembly (i.e., ignore
+            the :code:`.alt` file). :code:`-j`
+        internal_seed_split_factor: Trigger re-seeding for a MEM longer than
+            ``min_seed_len * internal_seed_split_factor``. Larger values yield fewer seeds, faster
+            alignment, but lower accuracy. :code:`-r <float>`
+        drop_chain_fraction: Drop chains with a seed count below this fraction of the best
+            overlapping chain. :code:`-D <float>`
+        max_mate_rescue_rounds: Maximum rounds of mate-rescue Smith-Waterman per read.
+            :code:`-m <int>`
+        min_seeded_bases_in_chain: Discard a chain if the number of seeded bases is fewer than
+            this value. :code:`-W <int>`
+        seed_occurrence_in_3rd_round: Seed occurrence for the 3rd round of seeding; used when a
+            read has very few seed hits. :code:`-y <int>`
+        xa_max_hits: Maximum number of alternative hits to output in the XA tag, specified as
+            a single int or a tuple of (primary, alt). :code:`-h <int<,int>>`
+        xa_drop_ratio: Drop a chain in the XA tag if its score is below this fraction of the
+            best chain's score. :code:`-z <float>`
+        gap_open_penalty: Gap open penalty, specified as a single int (same for deletions and
+            insertions) or a tuple of (deletion, insertion). :code:`-O <int<,int>>`
+        gap_extension_penalty: Gap extension penalty, specified as a single int or a tuple of
+            (deletion, insertion). :code:`-E <int<,int>>`
+        clipping_penalty: Penalty for 5' and 3' clipping, specified as a single int (same for
+            both ends) or a tuple of (5', 3'). :code:`-L <int<,int>>`
+        threads: The number of threads to use for alignment. :code:`-t <int>`
+        chunk_size: Number of bases processed in each batch; the actual batch size scales with the
+            number of threads. :code:`-K <int>`
     """
 
     def _assert_not_finalized(self, attr_name: str) -> None:
@@ -519,7 +551,7 @@ cdef class BwaMemOptions:
 
     @property
     def off_diagonal_x_dropoff(self) -> int:
-        """:code:`bwa mem -d <float>`"""
+        """:code:`bwa mem -d <int>`"""
         return self._options.zdrop
 
     @off_diagonal_x_dropoff.setter
@@ -719,7 +751,11 @@ cdef class BwaMemOptions:
 
 
 cdef class BwaMem:
-    """The class to align reads with :code:`bwa mem`."""
+    """Aligner for reads using the :code:`bwa mem` algorithm.
+
+    This wraps bwa's maximal exact match (MEM) alignment algorithm, which is the recommended
+    algorithm for reads longer than ~70bp (e.g. Illumina 100bp+, PacBio, and Oxford Nanopore).
+    """
 
     cdef BwaIndex _index
 
@@ -745,12 +781,13 @@ cdef class BwaMem:
         """Align one or more queries with :code:`bwa mem`.
 
         Args:
-            queries: the queries to align
-            opt: the alignment options, or None to use the default options
+            queries: the queries to align, as either strings or :class:`~pysam.FastxRecord` objects
+            opt: the alignment options, or None to use the default options.  If the options have
+                not been finalized, a finalized copy will be made automatically.
 
         Returns:
-            a list of alignments (:class:`~pysam.AlignedSegment`) per query
-            :code:`List[List[AlignedSegment]]`.
+            a list of alignments (:class:`~pysam.AlignedSegment`) per query, since a single query
+            may produce multiple alignments (primary, supplementary)
         """
         if opt is None:
             opt = BwaMemOptions().finalize()
