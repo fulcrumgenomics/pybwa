@@ -6,11 +6,11 @@ import platform
 import re
 import shutil
 import subprocess
+import sysconfig
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from typing import List
 
 import pysam
 from Cython.Build import cythonize
@@ -129,6 +129,45 @@ def compile_htslib(logger: logging.Logger) -> None:
         run_command(command="make -j")
 
 
+def compile_bwa(
+    logger: logging.Logger,
+    c_files: list[str],
+    define_macros: list[tuple[str, str | None]],
+    include_dirs: list[str],
+    compile_args: list[str],
+) -> None:
+    """Compile shared bwa C source files into a static library."""
+    lib_path = Path("bwa/libbwa.a")
+    if lib_path.exists():
+        logger.info("Using cached bwa static library...")
+        return
+
+    cc = sysconfig.get_config_var("CC") or os.environ.get("CC", "gcc")
+    ar = sysconfig.get_config_var("AR") or os.environ.get("AR", "ar")
+
+    cflags_parts = ["-fpic", "-g", "-Wall", "-O2"]
+    if IS_DARWIN:
+        cflags_parts.append("-mmacosx-version-min=11.0")
+    for name, value in define_macros:
+        cflags_parts.append(f"-D{name}" if value is None else f"-D{name}={value}")
+    for d in include_dirs:
+        cflags_parts.append(f"-I{d}")
+    cflags_parts.extend(compile_args)
+    cflags = " ".join(cflags_parts)
+
+    logger.info("Compiling bwa static library...")
+    objects = []
+    for src in c_files:
+        obj = str(Path("bwa") / (Path(src).stem + ".o"))
+        run_command(f"{cc} -c {cflags} {src} -o {obj}")
+        objects.append(obj)
+
+    run_command(f"{ar} -csru {lib_path} {' '.join(objects)}")
+    for obj in objects:
+        Path(obj).unlink(missing_ok=True)
+    logger.info("Built bwa/libbwa.a")
+
+
 @contextmanager
 def with_patches(logger: logging.Logger) -> Any:
     """Applies patches to bwa, then cleans up after exiting the context."""
@@ -171,7 +210,7 @@ libraries = ["m", "z", "pthread"]
 if platform.system() == "Linux":
     libraries.append("rt")
 library_dirs = ["pybwa", "bwa", "htslib"]
-extra_objects = ["htslib/libhts.a"]
+extra_objects = ["bwa/libbwa.a", "htslib/libhts.a"]
 define_macros = [
     ("HAVE_PTHREAD", None),
     ("USE_MALLOC_WRAPPERS", None),
@@ -222,7 +261,7 @@ if platform.system() != "Windows":
     ])
 
 
-def cythonize_helper(extension_modules: List[Extension]) -> Any:
+def cythonize_helper(extension_modules: list[Extension]) -> Any:
     """Cythonize all Python extensions."""
     return cythonize(
         module_list=extension_modules,
@@ -298,6 +337,11 @@ def build() -> None:
         else:
             logger.warning("... building **without** lzma support")
 
+        # Compile shared C sources into a static library so parallel extension builds
+        # don't race on the same .o files
+        bwa_c_files = [f for f in c_files if f.startswith("bwa/")]
+        compile_bwa(logger, bwa_c_files, define_macros, include_dirs, compile_args)
+
         # Define the extension modules
         libbwa_utils_module = Extension(
             name="pybwa.libbwa_utils",
@@ -312,7 +356,7 @@ def build() -> None:
 
         libbwaindex_module = Extension(
             name="pybwa.libbwaindex",
-            sources=["pybwa/libbwaindex.pyx"] + c_files,
+            sources=["pybwa/libbwaindex.pyx"],
             depends=h_files,
             extra_compile_args=compile_args,
             extra_link_args=link_args,
@@ -326,7 +370,7 @@ def build() -> None:
 
         libbwaaln_module = Extension(
             name="pybwa.libbwaaln",
-            sources=["pybwa/libbwaaln.pyx"] + c_files,
+            sources=["pybwa/libbwaaln.pyx", "pybwa/libbwaaln_utils.c"],
             depends=h_files,
             extra_compile_args=compile_args,
             extra_link_args=link_args,
@@ -340,7 +384,7 @@ def build() -> None:
 
         libbwamem_module = Extension(
             name="pybwa.libbwamem",
-            sources=["pybwa/libbwamem.pyx"] + c_files,
+            sources=["pybwa/libbwamem.pyx"],
             depends=h_files,
             extra_compile_args=compile_args,
             extra_link_args=link_args,
