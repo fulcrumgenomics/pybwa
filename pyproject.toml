@@ -21,7 +21,7 @@ classifiers = [
 	"Topic :: Software Development :: Documentation",
 	"Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.9.0,<4.0"
+requires-python = ">=3.10.0,<4.0"
 dependencies = [
 	"fgpyo >=0.7.0",
 	"pysam >=0.22.1",
@@ -87,7 +87,7 @@ types-setuptools = "^78.1.0.20250329"
 
 [tool.poetry.group.docs.dependencies]
 # dependencies for building docs 
-sphinx = { version = ">=7.0.0"}
+sphinx = { version = ">=7.0.0,<9"}
 enum-tools = ">=0.12.0"
 sphinx-toolbox = ">=3.8.1"
 sphinx-jinja2-compat = ">=0.3.0"
@@ -138,7 +138,7 @@ build-docs.cmd = "make html"
 
 [tool.ruff]
 line-length    = 100
-target-version = "py39"
+target-version = "py310"
 output-format  = "full"
 preview        = true
 

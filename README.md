@@ -52,7 +52,7 @@ Python language bindings for [bwa][bwa-link].
 
 Install with `pip install pybwa` or `conda install -c bioconda pybwa`.
 
-**Requires python 3.9+**
+**Requires python 3.10+**
 
 See documentation on [pybwa.readthedocs.org][rtd-link].
 
