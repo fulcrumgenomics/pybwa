@@ -32,7 +32,7 @@ jobs:
         submodules: 'recursive'
 
     - name: Set up Python 3.12
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v5
       with:
         python-version: 3.12
 
@@ -62,9 +62,9 @@ jobs:
         id: buildplat
         run: |
           if [[ "${{ github.event_name == 'pull_request' || inputs.skip }}" == "true" ]]; then
-            echo 'buildplat=[["ubuntu-22.04", "manylinux_x86_64"], ["ubuntu-22.04", "musllinux_x86_64"], ["macos-13", "macosx_x86_64"], ["macos-15", "macosx_arm64"]]' >> "$GITHUB_OUTPUT"
+            echo 'buildplat=[["ubuntu-22.04", "manylinux_x86_64"], ["ubuntu-22.04", "musllinux_x86_64"], ["macos-15-intel", "macosx_x86_64"], ["macos-15", "macosx_arm64"]]' >> "$GITHUB_OUTPUT"
           else
-            echo 'buildplat=[["ubuntu-22.04", "manylinux_x86_64"], ["ubuntu-22.04", "musllinux_x86_64"], ["ubuntu-22.04-arm", "manylinux_aarch64"], ["ubuntu-22.04-arm", "musllinux_aarch64"], ["macos-13", "macosx_x86_64"], ["macos-15", "macosx_arm64"]]' >> "$GITHUB_OUTPUT"
+            echo 'buildplat=[["ubuntu-22.04", "manylinux_x86_64"], ["ubuntu-22.04", "musllinux_x86_64"], ["ubuntu-22.04-arm", "manylinux_aarch64"], ["ubuntu-22.04-arm", "musllinux_aarch64"], ["macos-15-intel", "macosx_x86_64"], ["macos-15", "macosx_arm64"]]' >> "$GITHUB_OUTPUT"
           fi
 
   build-wheels:
@@ -72,9 +72,16 @@ jobs:
     runs-on: ${{ matrix.buildplat[0] }}
     needs: [define-buildplat, define-pybwa-version]
     strategy:
+      fail-fast: false
       matrix:
         buildplat: ${{ fromJSON(needs.define-buildplat.outputs.buildplat) }}
-        python-version: [cp39, cp310, cp311, cp312]
+        python-version: [cp310, cp311, cp312, cp313, cp314]
+        exclude:
+          # pysam lacks cp314 macOS wheels; source build fails due to universal binary liblzma
+          - buildplat: ["macos-15-intel", "macosx_x86_64"]
+            python-version: cp314
+          - buildplat: ["macos-15", "macosx_arm64"]
+            python-version: cp314
 
     steps:
       - uses: actions/checkout@v4
@@ -90,6 +97,7 @@ jobs:
         env:
           # select
           CIBW_BUILD: ${{ matrix.python-version }}-${{ matrix.buildplat[1] }}
+          CIBW_BUILD_FRONTEND: pip
           CIBW_BUILD_VERBOSITY: 1
 
           # linux
