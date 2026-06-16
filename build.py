@@ -142,8 +142,13 @@ def compile_bwa(
         logger.info("Using cached bwa static library...")
         return
 
-    cc = sysconfig.get_config_var("CC") or os.environ.get("CC", "gcc")
-    ar = sysconfig.get_config_var("AR") or os.environ.get("AR", "ar")
+    # Prefer the ``CC``/``AR`` environment variables over the values baked into
+    # ``sysconfig`` so that cross-compilation environments (e.g. conda-build, which
+    # exposes a prefixed compiler such as ``x86_64-conda-linux-gnu-gcc`` via ``$CC``
+    # and does not provide a bare ``gcc`` on ``PATH``) are honored. This mirrors how
+    # distutils/setuptools customize the compiler for the extension build itself.
+    cc = os.environ.get("CC") or sysconfig.get_config_var("CC") or "gcc"
+    ar = os.environ.get("AR") or sysconfig.get_config_var("AR") or "ar"
 
     cflags_parts = ["-fpic", "-g", "-Wall", "-O2"]
     if IS_DARWIN:
