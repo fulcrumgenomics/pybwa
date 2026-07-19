@@ -11,6 +11,20 @@ jobs:
   documentation-links:
     runs-on: ubuntu-24.04
     steps:
-      - uses: readthedocs/actions/preview@b8bba1484329bda1a3abe986df7ebc80a8950333 # v1
-        with:
-          project-slug: "pybwa"
+      # This deliberately does not use ``readthedocs/actions/preview``. That composite action
+      # internally references ``actions/checkout@v3`` and ``actions/github-script@v6``, neither of
+      # which is pinned to a full-length commit SHA, so the organization's action-pinning policy
+      # rejects the job during setup before any step runs. Posting the link with the ``gh`` CLI
+      # keeps this job green without taking on a new action to pin and track.
+      - name: Comment with the documentation preview link
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PROJECT_SLUG: pybwa
+        run: |
+          set -euo pipefail
+          preview_url="https://${PROJECT_SLUG}--${PR_NUMBER}.org.readthedocs.build/en/${PR_NUMBER}/"
+          gh pr comment "${PR_NUMBER}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --body "📖 Documentation preview: ${preview_url}"
