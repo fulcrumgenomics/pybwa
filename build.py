@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sysconfig
@@ -75,6 +76,19 @@ USE_GIT: bool = shutil.which("git") is not None and Path(".git").exists() and Pa
 IS_DARWIN = platform.system() == "Darwin"
 
 
+def env_flags(*names: str) -> list[str]:
+    """
+    Returns the flags set in the given environment variables, in the order given.
+
+    ``CPPFLAGS`` and ``CFLAGS`` describe the include paths and code generation options of the
+    active toolchain. Notably, conda-build exposes ``-isystem $PREFIX/include`` via ``CPPFLAGS``,
+    which is the only way to locate headers such as ``zlib.h`` when building against a relocated
+    prefix. ``setuptools`` applies these automatically when compiling the extension modules, so
+    they must be applied by hand wherever this script invokes the compiler itself.
+    """
+    return [flag for name in names for flag in shlex.split(os.environ.get(name, ""))]
+
+
 def run_command(command: str, fail_on_error: bool = True) -> int:
     """Runs a given command, return the return code or failing on error if desired."""
     retcode = subprocess.call(
@@ -89,10 +103,13 @@ def run_command(command: str, fail_on_error: bool = True) -> int:
 def compile_htslib(logger: logging.Logger) -> None:
     """Complies htslib prior to entering the context."""
     with changedir("htslib"):
-        cflags = "CFLAGS='-fpic -fvisibility=hidden -g -Wall -O2"
+        cflags_parts = ["-fpic", "-fvisibility=hidden", "-g", "-Wall", "-O2"]
         if IS_DARWIN:
-            cflags += " -mmacosx-version-min=11.0"
-        cflags += "'"
+            cflags_parts.append("-mmacosx-version-min=11.0")
+        # ``configure`` inherits ``CPPFLAGS`` from the environment on its own, but setting
+        # ``CFLAGS`` on the command line overrides the environment's value, so merge it back in.
+        cflags_parts.extend(env_flags("CFLAGS"))
+        cflags = "CFLAGS=" + shlex.quote(" ".join(cflags_parts))
 
         # Check if already built (e.g., from cache)
         if Path("libhts.a").exists() and Path("config.h").exists():
@@ -157,6 +174,9 @@ def compile_bwa(
         cflags_parts.append(f"-D{name}" if value is None else f"-D{name}={value}")
     for d in include_dirs:
         cflags_parts.append(f"-I{d}")
+    # Added after the vendored include directories so those still take precedence, but before
+    # ``compile_args`` so its ``-Wno-*`` suppressions still win over any warnings enabled here.
+    cflags_parts.extend(env_flags("CPPFLAGS", "CFLAGS"))
     cflags_parts.extend(compile_args)
     cflags = " ".join(cflags_parts)
 
